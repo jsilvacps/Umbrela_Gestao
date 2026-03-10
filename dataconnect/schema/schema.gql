@@ -1,0 +1,36 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type SubscriptionType @table {
+  name: String!
+  description: String
+}
+
+type UserSubscription @table {
+  user: User!
+  subscriptionType: SubscriptionType
+  name: String!
+  cost: Float!
+  billingCycle: String!
+  renewalDate: Date!
+  createdAt: Timestamp!
+  notes: String
+  cancellationInstructions: String
+  cancellationLink: String
+  isCanceled: Boolean
+  canceledAt: Timestamp
+}
+
+type Reminder @table {
+  user: User!
+  userSubscription: UserSubscription!
+  reminderDate: Date!
+  message: String!
+  isSent: Boolean!
+  createdAt: Timestamp!
+  sentAt: Timestamp
+}

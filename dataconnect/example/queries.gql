@@ -1,0 +1,54 @@
+# Operation 1: Get a user's active subscriptions
+query GetUserActiveSubscriptions($userId: UUID!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users. The userId can be used to filter results.") {
+  userSubscriptions(where: {
+    userId: { eq: $userId },
+    isCanceled: { eq: false }
+  }) {
+    id
+    name
+    cost
+    billingCycle
+    renewalDate
+    subscriptionType {
+      name
+      description
+    }
+    reminders_on_userSubscription(where: { isSent: { eq: false } }) {
+      id
+      message
+      reminderDate
+    }
+  }
+}
+
+# Operation 2: Create a new reminder for a user's subscription
+mutation CreateReminderForUserSubscription($userSubscriptionId: UUID!, $message: String!, $reminderDate: Date!) @auth(level: USER) {
+  reminder_insert(data: {
+    userSubscriptionId: $userSubscriptionId,
+    userId_expr: "auth.uid", # Ensures the reminder is associated with the authenticated user
+    message: $message,
+    reminderDate: $reminderDate,
+    isSent: false,
+    createdAt_expr: "request.time"
+  })
+}
+
+# Operation 3: Mark a reminder as sent
+mutation MarkReminderAsSent($reminderId: UUID!) @auth(level: USER) {
+  reminder_update(
+    key: { id: $reminderId },
+    data: {
+      isSent: true,
+      sentAt_expr: "request.time"
+    }
+  )
+}
+
+# Operation 4: Get a list of all available subscription types (publicly accessible for exploration)
+query GetAllSubscriptionTypes @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  subscriptionTypes {
+    id
+    name
+    description
+  }
+}
