@@ -1,0 +1,5 @@
+{
+  "version": "1.0.4",
+  "notas": "- Corrige erro EBUSY na atualização automática",
+  "download": "https://github.com/jsilvacps/horti-gestao-releases/releases/download/v1.0.4/HortiGestao-PDV-Setup-1.0.4.exe"
+}
