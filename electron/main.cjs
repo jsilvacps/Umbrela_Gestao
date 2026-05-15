@@ -298,50 +298,70 @@ function baixarEInstalar(urlDownload, versao) {
   fazer(urlDownload);
 }
 
-// ── Verifica atualização disponível ─────────────────────────────────────────
-function verificarAtualizacao() {
-  if (!app.isPackaged) return; // só no .exe instalado
+// ── Verifica atualização disponível (usa fetch para seguir redirects) ───────
+async function verificarAtualizacao() {
+  if (!app.isPackaged) return;
 
-  https.get(VERSION_URL, { timeout: 8000 }, (res) => {
-    let body = "";
-    res.on("data", (c) => { body += c; });
-    res.on("end", () => {
-      try {
-        const remoto      = JSON.parse(body);
-        const versaoAtual = app.getVersion();
-        const versaoRemota= remoto.version  || "";
-        const notas       = remoto.notas    || "";
-        const urlDownload = remoto.download || "";
+  try {
+    log(`[update] Verificando ${VERSION_URL} (versao atual: ${app.getVersion()})`);
 
-        if (!versaoRemota || !urlDownload) return;
-
-        // Compara semver simples
-        const p = (v) => v.split(".").map(Number);
-        const [ma, mi, pa] = p(versaoAtual);
-        const [mr, mir, pr] = p(versaoRemota);
-        const temUpdate = mr > ma || (mr === ma && mir > mi) || (mr === ma && mir === mi && pr > pa);
-        if (!temUpdate) return;
-
-        // Aguarda 5s para o app carregar, depois pergunta
-        setTimeout(() => {
-          if (!mainWindow) return;
-          const resp = dialog.showMessageBoxSync(mainWindow, {
-            type: "info",
-            title: "Atualização disponível — Horti Gestão PDV",
-            message: `🚀 Nova versão ${versaoRemota} disponível!`,
-            detail: (notas ? `O que há de novo:\n${notas}\n\n` : "")
-              + `Versão atual: ${versaoAtual}\n\nDeseja baixar e instalar agora?\nO aplicativo será fechado e reiniciado automaticamente.`,
-            buttons: ["⬇️  Atualizar agora", "Lembrar depois"],
-            defaultId: 0,
-            cancelId: 1,
-          });
-
-          if (resp === 0) baixarEInstalar(urlDownload, versaoRemota);
-        }, 5000);
-
-      } catch { /* JSON inválido */ }
+    const res = await fetch(VERSION_URL, {
+      signal: AbortSignal.timeout(12000),
+      headers: { "Cache-Control": "no-cache" },
     });
-  }).on("error", () => { /* offline — ignora */ });
+
+    if (!res.ok) {
+      log(`[update] HTTP ${res.status} — abortando`);
+      return;
+    }
+
+    const remoto      = await res.json();
+    const versaoAtual = app.getVersion();
+    const versaoRemota= String(remoto.version  || "").trim();
+    const notas       = String(remoto.notas    || "");
+    const urlDownload = String(remoto.download || "").trim();
+
+    log(`[update] remoto=${versaoRemota} download=${urlDownload}`);
+
+    if (!versaoRemota || !urlDownload) {
+      log("[update] version.json inválido — sem version ou download");
+      return;
+    }
+
+    const p = (v) => v.split(".").map(Number);
+    const [ma, mi, pa] = p(versaoAtual);
+    const [mr, mir, pr] = p(versaoRemota);
+    const temUpdate = mr > ma || (mr === ma && mir > mi) || (mr === ma && mir === mi && pr > pa);
+
+    log(`[update] temUpdate=${temUpdate} (${versaoAtual} -> ${versaoRemota})`);
+    if (!temUpdate) return;
+
+    // Aguarda 6s para garantir que a janela carregou
+    await new Promise((r) => setTimeout(r, 6000));
+
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      log("[update] mainWindow indisponível — reagendando em 30s");
+      setTimeout(verificarAtualizacao, 30_000);
+      return;
+    }
+
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Atualização disponível — Horti Gestão PDV",
+      message: `Nova versão ${versaoRemota} disponível!`,
+      detail: (notas ? `O que há de novo:\n${notas.replace(/\\n/g, "\n")}\n\n` : "")
+        + `Versão atual: ${versaoAtual}\n\nDeseja baixar e instalar agora?\nO aplicativo será fechado e o instalador abrirá automaticamente.`,
+      buttons: ["Atualizar agora", "Lembrar depois"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    log(`[update] Usuário escolheu: ${response === 0 ? "Atualizar" : "Depois"}`);
+    if (response === 0) baixarEInstalar(urlDownload, versaoRemota);
+
+  } catch (err) {
+    log(`[update] Erro: ${err.message}`);
+  }
 }
 
 // ── Aguarda o servidor responder (polling) ───────────────────────────────────

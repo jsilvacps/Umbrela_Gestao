@@ -1,5 +1,5 @@
 {
-  "version": "1.1.7",
-  "notas": "- Trava automática quando caixa ultrapassa R$300 (chame o gerente)\n- Correção robusta da sangria (fallback sem coluna 'observacao')\n- 'Desenvolvido por Jean Silva' no rodapé",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.7/HortiGestao-PDV-Setup-1.1.7.exe"
+  "version": "1.1.8",
+  "notas": "- Auto-update corrigido definitivamente (usa fetch com redirect)\n- Log completo do processo de atualização\n- Dialog de update não bloqueia mais o app",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.8/HortiGestao-PDV-Setup-1.1.8.exe"
 }
