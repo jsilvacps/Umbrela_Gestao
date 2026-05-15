@@ -1142,8 +1142,9 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
       </div>
 
       {/* Rodapé com versão */}
-      <div style={{ textAlign: "center", color: "#475569", fontSize: 12, paddingTop: 24, paddingBottom: 8 }}>
-        Horti Gestão · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}
+      <div style={{ textAlign: "center", color: "#475569", fontSize: 12, paddingTop: 24, paddingBottom: 8, lineHeight: 1.7 }}>
+        Horti Gestão · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
+        Desenvolvido por Jean Silva
       </div>
     </main>
   );

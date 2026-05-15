@@ -149,7 +149,7 @@ export default function MasterPage() {
             <div style={{ fontSize: 26, fontWeight: 900, color: "#f0fdf4" }}>🔑 Painel Master</div>
             <div style={{ color: "#64748b", fontSize: 14 }}>
               Gerenciamento de licenças — Horti Gestão
-              <span style={{ marginLeft: 10, color: "#334155", fontSize: 12 }}>v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}</span>
+              <span style={{ marginLeft: 10, color: "#334155", fontSize: 12 }}>v{process.env.NEXT_PUBLIC_APP_VERSION || "—"} · Desenvolvido por Jean Silva</span>
             </div>
           </div>
           <button onClick={() => setLiberado(false)} style={{ background: "transparent", border: "1px solid #2d3f54", borderRadius: 8, color: "#94a3b8", padding: "7px 16px", cursor: "pointer", fontSize: 13 }}>

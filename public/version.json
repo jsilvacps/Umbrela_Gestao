@@ -1,5 +1,5 @@
 {
-  "version": "1.1.6",
-  "notas": "- Correção do erro ao cancelar item (coluna 'total' inexistente no Supabase)\n- Relatório de itens cancelados mostra preço unitário",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.6/HortiGestao-PDV-Setup-1.1.6.exe"
+  "version": "1.1.7",
+  "notas": "- Trava automática quando caixa ultrapassa R$300 (chame o gerente)\n- Correção robusta da sangria (fallback sem coluna 'observacao')\n- 'Desenvolvido por Jean Silva' no rodapé",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.7/HortiGestao-PDV-Setup-1.1.7.exe"
 }

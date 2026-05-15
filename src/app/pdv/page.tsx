@@ -174,6 +174,10 @@ export default function PDVPage() {
   const [valorAberturaNum, setValorAberturaNum]   = useState(0);
   const refValorAbertura                          = useRef<HTMLInputElement>(null);
 
+  /* ── Trava de caixa alto ── */
+  const LIMITE_SANGRIA = 300;
+  const [travaCaixa, setTravaCaixa] = useState(false);
+
   // valores derivados do fechamento (evita IIFE no JSX)
   const gavetaNum   = parseFloat(valorGaveta.replace(",", ".")) || 0;
   // esperadoGav inclui o fundo de abertura do caixa
@@ -208,6 +212,13 @@ export default function PDVPage() {
       setTimeout(() => refValorAbertura.current?.focus(), 350);
     }
   }, []);
+
+  /* ── Trava automática quando caixa ultrapassa limite ── */
+  useEffect(() => {
+    if (totalCaixa >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
+    else if (totalCaixa < LIMITE_SANGRIA)                 setTravaCaixa(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCaixa, modalAbrirCaixa]);
 
   /* ── Carrega operador e logo na montagem ── */
   useEffect(() => {
@@ -642,15 +653,17 @@ export default function PDVPage() {
     const valor = parseFloat(valorSangria.replace(",", "."));
     if (!valor || valor <= 0) return;
     setSalvandoSangria(true);
-    const { error: errSangria } = await supabase.from("sangrias").insert([{
-      operador:    nomeOperador,
-      valor,
-      observacao:  obsSangria || null,
-    }]);
-    if (errSangria) {
-      setMensagem(`⚠️ Erro ao registrar sangria: ${errSangria.message}`);
-      setTimeout(() => setMensagem(""), 6000);
+
+    let r = await supabase.from("sangrias").insert([{ operador: nomeOperador, valor, observacao: obsSangria || null }]);
+    // Se a coluna "observacao" não existe, tenta sem ela
+    if (r.error?.message?.toLowerCase().includes("observac")) {
+      r = await supabase.from("sangrias").insert([{ operador: nomeOperador, valor }]);
     }
+    if (r.error) {
+      setMensagem(`⚠️ Erro ao registrar sangria: ${r.error.message}`);
+      setTimeout(() => setMensagem(""), 8000);
+    }
+
     const novoTotal = Math.max(0, totalCaixa - valor);
     setTotalCaixa(novoTotal);
     localStorage.setItem("pdv_total_caixa", String(novoTotal));
@@ -1704,8 +1717,9 @@ ${rod}
             </div>
 
             {/* Versão */}
-            <div style={{ textAlign: "center", marginTop: 6, color: "rgba(255,255,255,.22)", fontSize: 10, letterSpacing: 0.5 }}>
-              Horti Gestão PDV · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}
+            <div style={{ textAlign: "center", marginTop: 6, color: "rgba(255,255,255,.22)", fontSize: 10, letterSpacing: 0.5, lineHeight: 1.6 }}>
+              Horti Gestão PDV · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
+              Desenvolvido por Jean Silva
             </div>
           </aside>
         </div>
@@ -2387,6 +2401,42 @@ ${rod}
           </div>
         </div>
       )}
+      {/* ══════════ TRAVA DE CAIXA ALTO ══════════ */}
+      {travaCaixa && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(0,0,0,0.82)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#1c0a00", border: "2px solid #f97316",
+            borderRadius: 20, padding: "36px 40px",
+            width: "min(94vw, 460px)", textAlign: "center",
+            boxShadow: "0 0 60px rgba(249,115,22,0.4)",
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontWeight: 900, fontSize: 22, color: "#fed7aa", marginBottom: 10 }}>
+              Caixa acima do limite!
+            </div>
+            <div style={{ color: "#fdba74", fontSize: 16, marginBottom: 6 }}>
+              Valor em caixa: <strong style={{ fontSize: 20 }}>{moedaBR(totalCaixa)}</strong>
+            </div>
+            <div style={{ color: "#9a3412", background: "#431407", borderRadius: 10, padding: "10px 14px", fontSize: 14, marginBottom: 24, fontWeight: 600 }}>
+              Chame o gerente para realizar uma sangria antes de continuar.
+            </div>
+            <button
+              onClick={abrirSangria}
+              style={{
+                background: "#ea580c", color: "#fff", border: "none",
+                borderRadius: 12, padding: "14px 32px",
+                fontWeight: 800, fontSize: 16, cursor: "pointer", width: "100%",
+              }}>
+              💰 Fazer Sangria (F7)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ══════════ MODAL ABERTURA DE CAIXA ══════════ */}
       {modalAbrirCaixa && (
         <div style={{
