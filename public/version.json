@@ -1,5 +1,5 @@
 {
-  "version": "1.1.12",
-  "notas": "- Tela de carregamento imediata ao abrir (não pisca mais)\n- Correção relatório itens: mostra total geral",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.12/HortiGestao-PDV-Setup-1.1.12.exe"
+  "version": "1.1.13",
+  "notas": "- Botão 'Abrir Caixa (PDV)' no portal ADM\n- Detecta se o app está instalado; se não, mostra link de download",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.13/HortiGestao-PDV-Setup-1.1.13.exe"
 }

@@ -133,6 +133,28 @@ export default function AdmPage() {
   const [qtdEtiquetas, setQtdEtiquetas] = useState(1);
   const [larguraEtiqueta, setLarguraEtiqueta] = useState<58 | 80>(58);
 
+  // ── Abrir PDV ───────────────────────────────────────────────────────────────
+  const [modalDownloadPDV, setModalDownloadPDV] = useState(false);
+  const [urlDownloadPDV, setUrlDownloadPDV] = useState("https://github.com/jsilvacps/horti-gestao/releases/latest");
+
+  function abrirCaixaPDV() {
+    let abriu = false;
+    const onBlur = () => { abriu = true; window.removeEventListener("blur", onBlur); };
+    window.addEventListener("blur", onBlur);
+    window.location.href = "hortigestao://open";
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!abriu) {
+        // Busca URL do instalador mais recente
+        fetch("https://horti-gestao.vercel.app/version.json")
+          .then(r => r.json())
+          .then(j => { if (j.download) setUrlDownloadPDV(j.download); })
+          .catch(() => {});
+        setModalDownloadPDV(true);
+      }
+    }, 800);
+  }
+
   // ── Licenças ────────────────────────────────────────────────────────────────
   const [licencas, setLicencas] = useState<Licenca[]>([]);
   const [novaLicCliente, setNovaLicCliente] = useState("");
@@ -488,7 +510,12 @@ export default function AdmPage() {
               <div style={title}>ADM</div>
               <div style={subtitle}>Configurações completas do sistema.</div>
             </div>
-            <button onClick={sair} style={lightButton}>Sair do ADM</button>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button onClick={abrirCaixaPDV} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                🖥️ Abrir Caixa (PDV)
+              </button>
+              <button onClick={sair} style={lightButton}>Sair do ADM</button>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1140,6 +1167,33 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
           </section>
         )}
       </div>
+
+      {/* Modal: PDV não instalado */}
+      {modalDownloadPDV && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 36, maxWidth: 420, width: "90%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🖥️</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#1a2230", marginBottom: 8 }}>PDV não instalado</div>
+            <div style={{ fontSize: 14, color: "#475569", marginBottom: 24, lineHeight: 1.6 }}>
+              O aplicativo de caixa não foi encontrado neste computador.<br/>
+              Baixe e instale o PDV para usar o caixa.
+            </div>
+            <a
+              href={urlDownloadPDV}
+              download
+              style={{ display: "block", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: 15, padding: "12px 24px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}
+            >
+              ⬇️ Baixar e instalar PDV
+            </a>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>
+              Após instalar, clique novamente em "Abrir Caixa (PDV)"
+            </div>
+            <button onClick={() => setModalDownloadPDV(false)} style={{ background: "none", border: "1px solid #dde3ea", borderRadius: 8, padding: "8px 20px", color: "#475569", cursor: "pointer", fontSize: 13 }}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rodapé com versão */}
       <div style={{ textAlign: "center", color: "#475569", fontSize: 12, paddingTop: 24, paddingBottom: 8, lineHeight: 1.7 }}>

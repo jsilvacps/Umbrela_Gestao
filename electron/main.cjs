@@ -485,6 +485,9 @@ function createAdmWindow() {
 
 // ── Ciclo de vida do app ─────────────────────────────────────────────────────
 
+// Registra protocolo hortigestao:// para que o portal ADM possa abrir o app
+app.setAsDefaultProtocolClient("hortigestao");
+
 // Garante uma única instância do app — evita múltiplos servidores na mesma porta
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
