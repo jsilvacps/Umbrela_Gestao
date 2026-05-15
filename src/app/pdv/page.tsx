@@ -609,15 +609,21 @@ export default function PDVPage() {
       "Cancelar item",
       `Cancelar "${item.produto.nome}" — ${item.quantidade} × ${moedaBR(item.precoUnitario)}?`,
       async () => {
-        const { error: errIns } = await supabase.from("itens_cancelados").insert([{
+        const basePayload = {
           operador:     nomeOperador,
           produto_nome: item.produto.nome,
           quantidade:   item.quantidade,
-          preco:        item.precoUnitario,
           motivo:       "Cancelado pelo operador no PDV",
-        }]);
-        if (errIns) {
-          setMensagem(`⚠️ Erro ao registrar cancelamento: ${errIns.message}`);
+        };
+        let r = await supabase.from("itens_cancelados").insert([{ ...basePayload, preco: item.precoUnitario }]);
+        if (r.error?.message?.toLowerCase().includes("preco")) {
+          r = await supabase.from("itens_cancelados").insert([{ ...basePayload, valor: item.precoUnitario }]);
+        }
+        if (r.error?.message?.toLowerCase().includes("valor")) {
+          r = await supabase.from("itens_cancelados").insert([basePayload]);
+        }
+        if (r.error) {
+          setMensagem(`⚠️ Erro ao registrar cancelamento: ${r.error.message}`);
           setTimeout(() => setMensagem(""), 6000);
         }
         removerItemDireto(itemId);
