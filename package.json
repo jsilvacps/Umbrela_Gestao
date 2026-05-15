@@ -1,29 +1,37 @@
 {
-  "name": "horti-gestao-limpo",
-  "version": "0.1.0",
+  "name": "horti-gestao",
+  "version": "1.1.4",
+  "description": "Sistema PDV para hortifruti e pequeno comércio",
+  "author": "Horti Gestão",
   "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "electron:dev": "concurrently -n NEXT,ELECTRON -c green,blue \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && node electron/copy-static.cjs && electron-builder build --win --x64",
+    "electron:pack": "npm run build && node electron/copy-static.cjs && electron-builder build --win --x64 --dir"
   },
   "dependencies": {
-    "@dataconnect/generated": "file:src/dataconnect-generated",
-    "firebase": "^12.10.0",
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "@supabase/supabase-js": "^2.56.0",
+    "dexie": "^4.4.2",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "concurrently": "^9.2.1",
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.34.5",
+    "typescript": "^5.7.3",
+    "wait-on": "^9.0.5"
   }
 }
