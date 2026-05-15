@@ -410,17 +410,22 @@ function createWindow() {
 
   mainWindow.maximize();
 
-  // Splash enquanto carrega
-  mainWindow.loadURL("data:text/html,<html><body style='background:#0c121a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'><div style='color:#1faa4a;font-size:28px;font-family:Segoe UI,sans-serif;font-weight:900;letter-spacing:4px'>HORTI GESTÃO</div></body></html>");
-
-  const url = app.isPackaged ? PROD_URL : DEV_URL;
-  mainWindow.webContents.once("did-finish-load", () => {
-    setTimeout(() => mainWindow?.loadURL(url), app.isPackaged ? 200 : 0);
-  });
-
-  if (!app.isPackaged) {
-    // Em dev: carrega direto
-    mainWindow.loadURL(url);
+  if (app.isPackaged) {
+    // Splash de carregamento — navegação para o PDV é feita em whenReady após o servidor subir
+    mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{background:#0c121a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:24px;font-family:'Segoe UI',sans-serif}
+      .logo{color:#1faa4a;font-size:32px;font-weight:900;letter-spacing:5px}
+      .sub{color:#4ade80;font-size:13px;letter-spacing:2px;opacity:.8}
+      .spin{width:36px;height:36px;border:3px solid #1a3a2a;border-top:3px solid #1faa4a;border-radius:50%;animation:s 1s linear infinite}
+      @keyframes s{to{transform:rotate(360deg)}}
+    </style></head><body>
+      <div class="logo">🌿 HORTI GESTÃO</div>
+      <div class="spin"></div>
+      <div class="sub">Iniciando sistema...</div>
+    </body></html>`));
+  } else {
+    mainWindow.loadURL(DEV_URL);
   }
 
   mainWindow.on("closed", () => { mainWindow = null; });
@@ -498,9 +503,11 @@ if (!gotTheLock) {
 app.whenReady().then(async () => {
   if (!gotTheLock) return; // não prossegue se não tem o lock
 
+  createWindow(); // abre janela com splash imediatamente (não espera servidor)
+
   if (app.isPackaged) {
     try {
-      await killPortProcesses(PORT); // mata servidor anterior antes de tudo
+      await killPortProcesses(PORT); // mata servidor anterior
       startServer();
       await waitForServer(`http://127.0.0.1:${PORT}`);
     } catch (err) {
@@ -511,8 +518,10 @@ app.whenReady().then(async () => {
       app.quit();
       return;
     }
+    // Navega para o PDV após servidor pronto
+    mainWindow?.loadURL(PROD_URL);
   }
-  createWindow();
+
   // Abre ADM em janela separada após o PDV carregar
   setTimeout(() => createAdmWindow(), app.isPackaged ? 2000 : 1500);
   verificarAtualizacao(); // verifica update após abrir (silencioso se offline)
