@@ -1,5 +1,5 @@
 {
-  "version": "1.1.10",
-  "notas": "- Correção ao cancelar item (coluna de preço detectada automaticamente)\n- Auto-update corrigido definitivamente",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.10/HortiGestao-PDV-Setup-1.1.10.exe"
+  "version": "1.1.11",
+  "notas": "- App não pisca mais ao abrir (servidor mata processo antigo antes de criar janela)\n- Tempo de abertura reduzido\n- Correção ao cancelar item",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.11/HortiGestao-PDV-Setup-1.1.11.exe"
 }

@@ -164,8 +164,7 @@ function startServer() {
     serverProc = proc;
   }
 
-  // Garante que a porta esteja livre antes de tentar subir o servidor
-  killPortProcesses(PORT).then(() => tentarSpawn(1));
+  tentarSpawn(1);
 }
 
 // ── Janela de progresso do download ─────────────────────────────────────────
@@ -501,7 +500,8 @@ app.whenReady().then(async () => {
 
   if (app.isPackaged) {
     try {
-      startServer(); // já inclui killPortProcesses(PORT) internamente
+      await killPortProcesses(PORT); // mata servidor anterior antes de tudo
+      startServer();
       await waitForServer(`http://127.0.0.1:${PORT}`);
     } catch (err) {
       dialog.showErrorBox(
