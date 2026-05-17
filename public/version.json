@@ -1,5 +1,5 @@
 {
-  "version": "1.1.14",
-  "notas": "- Setup substituído por código de ativação simples\n- Cliente não precisa mais de URL/chave do Supabase",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.14/HortiGestao-PDV-Setup-1.1.14.exe"
+  "version": "1.1.15",
+  "notas": "- Arquitetura multi-tenant: todos os clientes no mesmo banco\n- empresa_id separa dados por cliente automaticamente\n- Código de ativação agora vincula ao empresa_id",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.15/HortiGestao-PDV-Setup-1.1.15.exe"
 }

@@ -1,0 +1,12 @@
+CORRECAO DO ERRO fieldInfo
+
+O que foi corrigido:
+- adicionado o estilo fieldInfo que estava faltando na tela de finalizacao do PDV
+- corrigido o erro que impedia abrir a pagina /pdv
+
+Como aplicar:
+1) Extraia este ZIP por cima do projeto
+2) Rode:
+   npm install
+   npm run dev
+3) Teste /pdv

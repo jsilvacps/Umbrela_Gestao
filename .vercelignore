@@ -1,0 +1,8 @@
+# Ignorado no deploy Vercel — não faz parte do app web
+dist-electron*/
+electron/
+node_modules/
+.next/
+*.exe
+*.zip
+*.ico

@@ -1,0 +1,1 @@
+export { default } from "../../../src/app/imprimir/caixa/page";

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderCebolao from "@/components/HeaderCebolao";
-import { supabase, isConfigurado } from "@/lib/supabaseClient";
+import { supabase, db, isConfigurado } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { gerarChave } from "@/lib/licenca";
 
@@ -14,6 +14,7 @@ const SENHA_MASTER = "D@na2014";
 
 type Empresa = {
   id?: string;
+  empresa_id?: number;
   nome_fantasia?: string | null;
   logo_url?: string | null;
   cnpj?: string | null;
@@ -176,10 +177,10 @@ export default function AdmPage() {
   // Carrega apenas o essencial na abertura (empresa, operadores, senhas, categorias)
   const carregarTudo = useCallback(async () => {
     const [{ data: empresaData }, { data: opData }, { data: senhasData }, { data: categoriasData }] = await Promise.all([
-      supabase.from("empresa").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("operadores").select("id, nome, username, blocked, perm_finalizar, perm_cancelar_item, perm_cancelar_venda, perm_sangria, perm_relatorios, perm_desconto, perm_buscar_cupons").order("username", { ascending: true }),
-      supabase.from("senhas_operacionais").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("categorias_produto").select("id, nome").order("nome", { ascending: true }),
+      db("empresa").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      db("operadores").select("id, nome, username, blocked, perm_finalizar, perm_cancelar_item, perm_cancelar_venda, perm_sangria, perm_relatorios, perm_desconto, perm_buscar_cupons").order("username", { ascending: true }),
+      db("senhas_operacionais").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      db("categorias_produto").select("id, nome").order("nome", { ascending: true }),
     ]);
     if (empresaData) setEmpresa(empresaData as Empresa);
     setOperadores((opData || []) as Operador[]);
@@ -192,13 +193,13 @@ export default function AdmPage() {
     const inicio = dataInicio || new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const fim    = dataFim    || new Date().toISOString().slice(0, 10);
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }] = await Promise.all([
-      supabase.from("vendas").select("id, total, tipo_pagamento, created_at")
+      db("vendas").select("id, total, tipo_pagamento, created_at")
         .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
         .order("created_at", { ascending: false }).limit(500),
-      supabase.from("itens_cancelados").select("*")
+      db("itens_cancelados").select("*")
         .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
         .order("created_at", { ascending: false }).limit(500),
-      supabase.from("cupons_cancelados").select("*")
+      db("cupons_cancelados").select("*")
         .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
         .order("created_at", { ascending: false }).limit(500),
     ]);
@@ -209,7 +210,7 @@ export default function AdmPage() {
 
   // Carrega produtos só quando a aba etiquetas for aberta (lazy)
   const carregarProdutos = useCallback(async () => {
-    const { data } = await supabase.from("produtos").select("id, nome, preco, preco_cartao").order("nome", { ascending: true }).limit(1000);
+    const { data } = await db("produtos").select("id, nome, preco, preco_cartao").order("nome", { ascending: true }).limit(1000);
     setProdutos((data || []) as Produto[]);
   }, []);
 
@@ -242,7 +243,7 @@ export default function AdmPage() {
       setMsg("Digite o nome da categoria.");
       return;
     }
-    const { error } = await supabase.from("categorias_produto").insert([{ nome }]);
+    const { error } = await db("categorias_produto").insert([{ nome }]);
     if (error) {
       setMsg("Erro ao salvar categoria: " + error.message);
       return;
@@ -253,7 +254,7 @@ export default function AdmPage() {
   }
 
   async function excluirCategoria(id: string) {
-    const { error } = await supabase.from("categorias_produto").delete().eq("id", id);
+    const { error } = await db("categorias_produto").delete().eq("id", id);
     if (error) {
       setMsg("Erro ao excluir categoria: " + error.message);
       return;
@@ -347,13 +348,9 @@ export default function AdmPage() {
   async function salvarEmpresa(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
-    if (empresa.id) {
-      const { error } = await supabase.from("empresa").update(empresa).eq("id", empresa.id);
-      if (!error) setMsg("Configuração da empresa salva.");
-    } else {
-      const { error } = await supabase.from("empresa").insert([empresa]);
-      if (!error) setMsg("Configuração da empresa salva.");
-    }
+    // upsert garante que funciona tanto na criação quanto na atualização
+    const { error } = await db("empresa").upsert([empresa], { onConflict: "empresa_id" });
+    if (!error) setMsg("Configuração da empresa salva.");
     carregarTudo();
   }
 
@@ -421,12 +418,12 @@ export default function AdmPage() {
         ...perms,
       };
       if (novoOperador.password) payload.password = novoOperador.password;
-      const { error } = await supabase.from("operadores").update(payload).eq("id", editandoOpId);
+      const { error } = await db("operadores").update(payload).eq("id", editandoOpId);
       if (error) { setMsg("Erro ao atualizar: " + error.message); return; }
       setMsg("Operador atualizado.");
       cancelarEdicaoOp();
     } else {
-      const { error } = await supabase.from("operadores").insert([{
+      const { error } = await db("operadores").insert([{
         nome: novoOperador.nome || novoOperador.username,
         username: novoOperador.username,
         password: novoOperador.password,
@@ -441,7 +438,7 @@ export default function AdmPage() {
   }
 
   async function toggleOperador(id: string, blocked: boolean | null | undefined) {
-    const { error } = await supabase.from("operadores").update({ blocked: !blocked }).eq("id", id);
+    const { error } = await db("operadores").update({ blocked: !blocked }).eq("id", id);
     if (!error) {
       setMsg(!blocked ? "Operador bloqueado." : "Operador desbloqueado.");
       carregarTudo();
@@ -452,10 +449,10 @@ export default function AdmPage() {
     e.preventDefault();
     setMsg("");
     if (senhasOp.id) {
-      const { error } = await supabase.from("senhas_operacionais").update(senhasOp).eq("id", senhasOp.id);
+      const { error } = await db("senhas_operacionais").update(senhasOp).eq("id", senhasOp.id);
       if (!error) setMsg("Senhas operacionais salvas.");
     } else {
-      const { error } = await supabase.from("senhas_operacionais").insert([senhasOp]);
+      const { error } = await db("senhas_operacionais").insert([senhasOp]);
       if (!error) setMsg("Senhas operacionais salvas.");
     }
     carregarTudo();

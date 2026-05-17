@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { db } from "@/lib/supabaseClient";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import {
   syncProdutosLocal, getProdutosLocal, debitarEstoqueLocal,
@@ -230,8 +230,7 @@ export default function PDVPage() {
 
   /* ── Recarrega permissões do banco para garantir dados frescos ── */
   const carregarPermissoes = useCallback(async (username: string) => {
-    const { data } = await supabase
-      .from("operadores")
+    const { data } = await db("operadores")
       .select("id, nome, username, perm_finalizar, perm_cancelar_item, perm_cancelar_venda, perm_sangria, perm_relatorios, perm_desconto, perm_buscar_cupons")
       .eq("username", username)
       .maybeSingle();
@@ -244,8 +243,7 @@ export default function PDVPage() {
   }, [operador?.username]);
 
   const carregarLogo = useCallback(async () => {
-    const { data } = await supabase
-      .from("empresa")
+    const { data } = await db("empresa")
       .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -268,8 +266,7 @@ export default function PDVPage() {
 
   /* ── Carrega senha ADM ── */
   const carregarSenhaAdm = useCallback(async () => {
-    const { data } = await supabase
-      .from("senhas_operacionais")
+    const { data } = await db("senhas_operacionais")
       .select("adm_password")
       .limit(1)
       .maybeSingle();
@@ -561,8 +558,7 @@ export default function PDVPage() {
   async function buscarProdutoAPI(): Promise<Produto | null> {
     const termo = codigoBusca.trim();
     if (!termo) return null;
-    const { data } = await supabase
-      .from("produtos")
+    const { data } = await db("produtos")
       .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
       .or(`codigo.eq.${termo},ean.eq.${termo}`)
       .limit(1)
@@ -615,12 +611,12 @@ export default function PDVPage() {
           quantidade:   item.quantidade,
           motivo:       "Cancelado pelo operador no PDV",
         };
-        let r = await supabase.from("itens_cancelados").insert([{ ...basePayload, preco: item.precoUnitario }]);
+        let r = await db("itens_cancelados").insert([{ ...basePayload, preco: item.precoUnitario }]);
         if (r.error?.message?.toLowerCase().includes("preco")) {
-          r = await supabase.from("itens_cancelados").insert([{ ...basePayload, valor: item.precoUnitario }]);
+          r = await db("itens_cancelados").insert([{ ...basePayload, valor: item.precoUnitario }]);
         }
         if (r.error?.message?.toLowerCase().includes("valor")) {
-          r = await supabase.from("itens_cancelados").insert([basePayload]);
+          r = await db("itens_cancelados").insert([basePayload]);
         }
         if (r.error) {
           setMensagem(`⚠️ Erro ao registrar cancelamento: ${r.error.message}`);
@@ -640,7 +636,7 @@ export default function PDVPage() {
       "Cancelar cupom",
       `Cancelar cupom com ${totalItens} itens — Total ${moedaBR(totalGeral)}?`,
       async () => {
-        await supabase.from("cupons_cancelados").insert([{
+        await db("cupons_cancelados").insert([{
           operador: nomeOperador,
           total:    totalGeral,
           motivo:   "Cancelado pelo operador no PDV",
@@ -660,10 +656,10 @@ export default function PDVPage() {
     if (!valor || valor <= 0) return;
     setSalvandoSangria(true);
 
-    let r = await supabase.from("sangrias").insert([{ operador: nomeOperador, valor, observacao: obsSangria || null }]);
+    let r = await db("sangrias").insert([{ operador: nomeOperador, valor, observacao: obsSangria || null }]);
     // Se a coluna "observacao" não existe, tenta sem ela
     if (r.error?.message?.toLowerCase().includes("observac")) {
-      r = await supabase.from("sangrias").insert([{ operador: nomeOperador, valor }]);
+      r = await db("sangrias").insert([{ operador: nomeOperador, valor }]);
     }
     if (r.error) {
       const msg = r.error.message.toLowerCase().includes("row-level security") || r.error.message.toLowerCase().includes("rls")
@@ -703,10 +699,10 @@ export default function PDVPage() {
     setCarregandoRel(true);
     try {
       const [rC, rIt, rS, rOp] = await Promise.all([
-        supabase.from("cupons_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("itens_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("sangrias").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("operadores").select("id, nome, username, blocked").order("username", { ascending: true }),
+        db("cupons_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
+        db("itens_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
+        db("sangrias").select("*").order("created_at", { ascending: false }).limit(100),
+        db("operadores").select("id, nome, username, blocked").order("username", { ascending: true }),
       ]);
       // Detecta qualquer erro vindo do Supabase
       const erros = [
@@ -737,13 +733,11 @@ export default function PDVPage() {
       setValorGaveta("");
       setObsFechamento("");
       const hoje = new Date().toISOString().slice(0, 10);
-      const { data: vendas } = await supabase
-        .from("vendas")
+      const { data: vendas } = await db("vendas")
         .select("total, tipo_pagamento")
         .gte("created_at", hoje + "T00:00:00")
         .lte("created_at", hoje + "T23:59:59");
-      const { data: sangrias } = await supabase
-        .from("sangrias")
+      const { data: sangrias } = await db("sangrias")
         .select("valor")
         .gte("created_at", hoje + "T00:00:00")
         .lte("created_at", hoje + "T23:59:59");
@@ -766,7 +760,7 @@ export default function PDVPage() {
   async function confirmarFechamento() {
     if (fechandoCaixa) return;
     setFechandoCaixa(true);
-    await supabase.from("fechamentos_caixa").insert([{
+    await db("fechamentos_caixa").insert([{
       operador:        nomeOperador,
       total_vendas:    fechamentoData?.totalVendas   ?? 0,
       total_dinheiro:  fechamentoData?.totalDinheiro ?? 0,
@@ -807,8 +801,7 @@ export default function PDVPage() {
 
   async function reimprimirCupomDoBanco(venda: any) {
     // Busca itens da venda no banco
-    const { data: itensDB } = await supabase
-      .from("itens_venda")
+    const { data: itensDB } = await db("itens_venda")
       .select("produto_nome, quantidade, preco")
       .eq("venda_id", venda.id);
 
@@ -850,8 +843,7 @@ export default function PDVPage() {
 
   async function carregarCupons(cpf: string, data: string) {
     setCarregandoCupons(true);
-    let q = supabase
-      .from("vendas")
+    let q = db("vendas")
       .select("id, created_at, total, tipo_pagamento, operador, desconto, troco, valor_recebido, cliente_cpf")
       .order("created_at", { ascending: false })
       .limit(60);
@@ -1091,8 +1083,7 @@ ${rod}
     setBuscandoFiado(true);
     setErroFiado("");
     setClienteFiado(null);
-    const { data } = await supabase
-      .from("clientes")
+    const { data } = await db("clientes")
       .select("id, nome, limite_credito, saldo_fiado")
       .eq("cpf", cpfLimpo)
       .maybeSingle();
@@ -1149,25 +1140,23 @@ ${rod}
       // ── Tenta gravar online ──────────────────────────────────────────────
       let gravouOnline = false;
       try {
-        const { data: vendaData, error } = await supabase
-          .from("vendas").insert([vendaPayload]).select().single();
+        const { data: vendaData, error } = await db("vendas").insert([vendaPayload]).select().single();
 
         if (!error && vendaData?.id) {
           // Itens
-          await supabase.from("itens_venda").insert(
+          await db("itens_venda").insert(
             itensSalvos.map((i) => ({ ...i, venda_id: vendaData.id }))
           );
           // Estoque
           for (const upd of estoqueDeltas) {
-            const { data: prod } = await supabase
-              .from("produtos").select("estoque").eq("id", upd.id).maybeSingle();
+            const { data: prod } = await db("produtos").select("estoque").eq("id", upd.id).maybeSingle();
             const atual = Number((prod as { estoque?: number } | null)?.estoque ?? 0);
-            await supabase.from("produtos")
+            await db("produtos")
               .update({ estoque: Math.max(0, atual - upd.delta) }).eq("id", upd.id);
           }
           // Fiado
           if (fiadoUpdate && clienteFiado) {
-            await supabase.from("clientes")
+            await db("clientes")
               .update({ saldo_fiado: (clienteFiado.saldo_fiado || 0) + totalFinal })
               .eq("id", clienteFiado.id);
           }

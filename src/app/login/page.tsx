@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, masterSupabase } from "@/lib/supabaseClient";
-import { salvarCredenciais, getSupabase, isConfigurado } from "@/lib/supabaseClient";
+import { masterSupabase, db } from "@/lib/supabaseClient";
+import { salvarEmpresaId, isConfigurado } from "@/lib/supabaseClient";
 
 /* ── Tipos ── */
 type Tela = "verificando" | "setup" | "login";
@@ -75,9 +75,7 @@ export default function LoginPage() {
   async function buscarUsuario() {
     if (!esqueciUser.trim()) { setEsqueciErro("Informe o usuário."); return; }
     setEsqueciCarreg(true); setEsqueciErro("");
-    const sb = getSupabase();
-    if (!sb) { setEsqueciErro("Banco não configurado."); setEsqueciCarreg(false); return; }
-    const { data } = await sb.from("operadores").select("id").eq("username", esqueciUser.trim().toLowerCase()).maybeSingle();
+    const { data } = await db("operadores").select("id").eq("username", esqueciUser.trim().toLowerCase()).maybeSingle();
     setEsqueciCarreg(false);
     if (!data) { setEsqueciErro("Usuário não encontrado."); return; }
     setEsqueciEtapa("nova_senha");
@@ -87,9 +85,7 @@ export default function LoginPage() {
     if (esqueciNovaSenha.length < 4) { setEsqueciErro("Mínimo 4 caracteres."); return; }
     if (esqueciNovaSenha !== esqueciConfirma) { setEsqueciErro("As senhas não coincidem."); return; }
     setEsqueciCarreg(true); setEsqueciErro("");
-    const sb = getSupabase();
-    if (!sb) { setEsqueciErro("Banco não configurado."); setEsqueciCarreg(false); return; }
-    const { error } = await sb.from("operadores").update({ password: esqueciNovaSenha }).eq("username", esqueciUser.trim().toLowerCase());
+    const { error } = await db("operadores").update({ password: esqueciNovaSenha }).eq("username", esqueciUser.trim().toLowerCase());
     setEsqueciCarreg(false);
     if (error) { setEsqueciErro("Erro ao salvar: " + error.message); return; }
     setEsqueciOk(true);
@@ -109,10 +105,8 @@ export default function LoginPage() {
         setTimeout(() => refSbUrl.current?.focus(), 200);
         return;
       }
-      const sb = getSupabase();
-      if (!sb) { setTela("setup"); return; }
-      const { data } = await sb.from("empresa").select("id").limit(1).maybeSingle();
-      setTela(data?.id ? "login" : "setup");
+      const { data } = await db("empresa").select("empresa_id").maybeSingle();
+      setTela(data?.empresa_id ? "login" : "setup");
     }
     detectar();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,8 +117,7 @@ export default function LoginPage() {
     e.preventDefault();
     setErroLogin("");
     setEntrando(true);
-    const { data, error } = await supabase
-      .from("operadores")
+    const { data, error } = await db("operadores")
       .select("id, nome, username, blocked")
       .eq("username", username)
       .eq("password", senha)
@@ -152,13 +145,13 @@ export default function LoginPage() {
     try {
       const { data, error } = await masterSupabase
         .from("clientes_licenciados")
-        .select("sb_url, sb_key, nome_cliente")
+        .select("empresa_id, nome_cliente")
         .eq("codigo", cod)
         .eq("ativo", true)
         .maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) { setErroConexao("Código não encontrado ou inativo."); setTestando(false); return; }
-      salvarCredenciais(data.sb_url, data.sb_key);
+      salvarEmpresaId(data.empresa_id);
       setPasso(2);
     } catch (e: unknown) {
       setErroConexao(e instanceof Error ? e.message : String(e));
@@ -178,19 +171,17 @@ export default function LoginPage() {
     if (errV) { setErroSalvar(errV); return; }
     if (!nomeFant.trim()) { setErroSalvar("Informe o nome da empresa."); return; }
     setSalvando(true); setErroSalvar("");
-    const sb = getSupabase();
-    if (!sb) { setErroSalvar("Supabase não configurado."); setSalvando(false); return; }
     try {
-      const { error: eEmp } = await sb.from("empresa").upsert([{
+      const { error: eEmp } = await db("empresa").upsert([{
         nome_fantasia: nomeFant.trim(),
         cnpj:          cnpj.replace(/\D/g, "") || null,
         telefone:      telefone.replace(/\D/g, "") || null,
         endereco:      endereco.trim() || null,
         cupom_largura: larguraCupom,
-      }], { onConflict: "id", ignoreDuplicates: false });
+      }], { onConflict: "empresa_id", ignoreDuplicates: false });
       if (eEmp && !eEmp.message.includes("no rows")) throw new Error(eEmp.message);
-      await sb.from("senhas_operacionais").upsert([{ adm_password: admSenha }]);
-      const { error: eOp } = await sb.from("operadores").insert([{
+      await db("senhas_operacionais").upsert([{ adm_password: admSenha }], { onConflict: "empresa_id" });
+      const { error: eOp } = await db("operadores").insert([{
         username: adminUser.trim().toLowerCase(),
         nome:     adminNome.trim(),
         password: admSenha,
