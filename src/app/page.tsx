@@ -54,8 +54,8 @@ export default function HomePage() {
   }
 
   const nomeEmpresa = useMemo(() => {
-    const nome = String(empresa.nome_fantasia || "Cebolão").trim();
-    return nome ? nome.toUpperCase() : "CEBOLÃO";
+    const nome = String(empresa.nome_fantasia || "").trim();
+    return nome ? nome.toUpperCase() : "";
   }, [empresa.nome_fantasia]);
 
   const cards: CardItem[] = [
@@ -75,16 +75,16 @@ export default function HomePage() {
         <section style={heroCard}>
           <div className="hero-grid" style={heroGrid}>
             <div className="hero-logo-pane" style={logoPane}>
-              {empresa.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={empresa.logo_url} alt="Logo da empresa" style={heroLogoImage} />
-              ) : (
-                <div style={heroLogoFallback}>LOGO</div>
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={empresa.logo_url || "/logo.svg"}
+                alt="Logo da empresa"
+                style={heroLogoImage}
+              />
             </div>
 
             <div style={contentPane}>
-              <div style={heroTitle}>{nomeEmpresa}</div>
+              <div style={heroTitle}>{nomeEmpresa || "HORTI GESTÃO"}</div>
               <div style={heroSubtitle}>Soluções inteligentes para gestão do seu hortifruti.</div>
 
               {operador ? (

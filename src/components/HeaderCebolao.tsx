@@ -27,16 +27,12 @@ export default function HeaderCebolao() {
       border: "1px solid #e2e8f0",
       boxShadow: "0 1px 4px rgba(0,0,0,.06)",
     }}>
-      {logoUrl ? (
-        <img src={logoUrl} alt="Logo" style={{ height: 40, objectFit: "contain", borderRadius: 6 }} />
-      ) : (
-        <div style={{
-          width: 40, height: 40, borderRadius: 8,
-          background: "#f0fdf4", border: "1px solid #bbf7d0",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20,
-        }}>🛒</div>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoUrl || "/logo.svg"}
+        alt="Logo"
+        style={{ height: 40, objectFit: "contain", borderRadius: 6 }}
+      />
       <div style={{ fontWeight: 800, fontSize: 18, color: "#0f172a" }}>
         {nome || "Horti Gestão"}
       </div>
