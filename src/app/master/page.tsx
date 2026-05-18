@@ -145,11 +145,14 @@ export default function MasterPage() {
     setGerando(true);
     setNovasChaves([]);
     const chaves = Array.from({ length: qtd }, () => gerarChave());
+    const validade = new Date();
+    validade.setFullYear(validade.getFullYear() + 1);
     const rows = chaves.map((chave) => ({
       chave, plano: "pro",
       cliente: clienteNovo.trim() || null,
       notas: notasNovo.trim() || null,
       ativo: true,
+      validade: validade.toISOString(),
     }));
     const { error } = await supabase.from("licencas").insert(rows);
     if (error) { setMsg(`Erro: ${error.message}`); }
