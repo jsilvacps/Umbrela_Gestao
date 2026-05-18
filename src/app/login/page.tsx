@@ -6,7 +6,7 @@ import { masterSupabase, db } from "@/lib/supabaseClient";
 import { salvarEmpresaId, isConfigurado } from "@/lib/supabaseClient";
 
 /* ── Tipos ── */
-type Tela = "verificando" | "setup" | "login";
+type Tela = "verificando" | "setup" | "login" | "ja_configurado";
 type Passo = 1 | 2 | 3 | 4;
 
 /* ── Helpers ── */
@@ -35,6 +35,7 @@ export default function LoginPage() {
   const [codigo, setCodigo] = useState("");
   const [testando, setTestando]       = useState(false);
   const [erroConexao, setErroConexao] = useState("");
+  const [nomeEmpresaPronta, setNomeEmpresaPronta] = useState("");
   const refSbUrl = useRef<HTMLInputElement>(null);
 
   /* ── Passo 2: Dados da empresa ── */
@@ -143,6 +144,7 @@ export default function LoginPage() {
     if (!cod) { setErroConexao("Informe o código de ativação."); return; }
     setTestando(true); setErroConexao("");
     try {
+      // 1. Valida código
       const { data, error } = await masterSupabase
         .from("clientes_licenciados")
         .select("empresa_id, nome_cliente")
@@ -151,8 +153,26 @@ export default function LoginPage() {
         .maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) { setErroConexao("Código não encontrado ou inativo."); setTestando(false); return; }
+
+      // 2. Salva empresa_id localmente
       salvarEmpresaId(data.empresa_id);
-      setPasso(2);
+
+      // 3. Verifica se esse empresa_id já tem configuração completa
+      const { data: emp } = await masterSupabase
+        .from("empresa")
+        .select("nome_fantasia")
+        .eq("empresa_id", data.empresa_id)
+        .not("nome_fantasia", "is", null)
+        .maybeSingle();
+
+      if (emp?.nome_fantasia) {
+        // Já configurado: mostra tela de boas-vindas
+        setNomeEmpresaPronta(emp.nome_fantasia as string);
+        setTela("ja_configurado");
+      } else {
+        // Ainda não configurado: abre wizard
+        setPasso(2);
+      }
     } catch (e: unknown) {
       setErroConexao(e instanceof Error ? e.message : String(e));
     } finally { setTestando(false); }
@@ -247,6 +267,31 @@ export default function LoginPage() {
       <main style={{ minHeight: "100vh", background: "#0c121a", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ color: "#1faa4a", fontSize: 22, fontFamily: "Segoe UI, sans-serif", fontWeight: 900 }}>
           HORTI GESTÃO…
+        </div>
+      </main>
+    );
+  }
+
+  /* ── Tela: já configurado (boas-vindas) ── */
+  if (tela === "ja_configurado") {
+    return (
+      <main style={{ minHeight: "100vh", background: "#f3f5f7", display: "grid", placeItems: "center", padding: 20 }}>
+        <div style={{ width: "100%", maxWidth: 460, background: "#fff", border: "1px solid #dde3ea", borderRadius: 28, padding: 36, boxShadow: "0 12px 30px rgba(15,23,42,.06)", textAlign: "center" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="logo" style={{ width: 72, height: 72, marginBottom: 16 }} />
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#11243d" }}>Tudo pronto! 🎉</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#1fb14e", marginTop: 8 }}>
+            {nomeEmpresaPronta}
+          </div>
+          <div style={{ color: "#66758a", marginTop: 12, marginBottom: 28, fontSize: 16 }}>
+            Cadastro já configurado.<br />Boas vendas!
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            style={{ width: "100%", background: "linear-gradient(135deg,#25c15c,#1a9e49)", color: "#fff", border: "none", borderRadius: 16, padding: "14px 0", fontSize: 17, fontWeight: 800, cursor: "pointer" }}
+          >
+            Ir para o sistema →
+          </button>
         </div>
       </main>
     );
