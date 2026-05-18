@@ -172,16 +172,36 @@ export default function LoginPage() {
     if (!nomeFant.trim()) { setErroSalvar("Informe o nome da empresa."); return; }
     setSalvando(true); setErroSalvar("");
     try {
-      const { error: eEmp } = await db("empresa").insert([{
-        nome_fantasia: nomeFant.trim(),
-        cnpj:          cnpj.replace(/\D/g, "") || null,
-        telefone:      telefone.replace(/\D/g, "") || null,
-        endereco:      endereco.trim() || null,
-        cupom_largura: larguraCupom,
-      }]);
-      if (eEmp && !eEmp.message.includes("duplicate") && !eEmp.message.includes("unique")) throw new Error(eEmp.message);
-      const { error: eSenha } = await db("senhas_operacionais").insert([{ adm_password: admSenha }]);
-      if (eSenha && !eSenha.message.includes("duplicate") && !eSenha.message.includes("unique")) throw new Error(eSenha.message);
+      // Empresa: atualiza se já existe, insere se não
+      const { data: empExist } = await db("empresa").select("empresa_id").maybeSingle();
+      if (empExist) {
+        await db("empresa").update({
+          nome_fantasia: nomeFant.trim(),
+          cnpj:          cnpj.replace(/\D/g, "") || null,
+          telefone:      telefone.replace(/\D/g, "") || null,
+          endereco:      endereco.trim() || null,
+          cupom_largura: larguraCupom,
+        });
+      } else {
+        const { error: eEmp } = await db("empresa").insert([{
+          nome_fantasia: nomeFant.trim(),
+          cnpj:          cnpj.replace(/\D/g, "") || null,
+          telefone:      telefone.replace(/\D/g, "") || null,
+          endereco:      endereco.trim() || null,
+          cupom_largura: larguraCupom,
+        }]);
+        if (eEmp) throw new Error(eEmp.message);
+      }
+
+      // Senhas: atualiza se já existe, insere se não
+      const { data: senhaExist } = await db("senhas_operacionais").select("id").maybeSingle();
+      if (senhaExist) {
+        await db("senhas_operacionais").update({ adm_password: admSenha });
+      } else {
+        await db("senhas_operacionais").insert([{ adm_password: admSenha }]);
+      }
+
+      // Operador ADM: insere se não existir
       const { error: eOp } = await db("operadores").insert([{
         username: adminUser.trim().toLowerCase(),
         nome:     adminNome.trim(),
