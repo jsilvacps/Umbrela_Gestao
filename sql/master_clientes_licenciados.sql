@@ -16,20 +16,25 @@ CREATE TABLE IF NOT EXISTS clientes_licenciados (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- App pode ler pelo código (sem expor dados de outros clientes)
+-- RLS: clientes só leem pelo próprio código; painel /master pode gerenciar tudo
 ALTER TABLE clientes_licenciados ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "leitura_por_codigo" ON clientes_licenciados;
+DROP POLICY IF EXISTS "master_insert"       ON clientes_licenciados;
+DROP POLICY IF EXISTS "master_update"       ON clientes_licenciados;
+DROP POLICY IF EXISTS "master_delete"       ON clientes_licenciados;
+DROP POLICY IF EXISTS "master_select_all"   ON clientes_licenciados;
+
+-- Clientes PDV: leem apenas registros ativos (para ativar pelo código)
 CREATE POLICY "leitura_por_codigo" ON clientes_licenciados
   FOR SELECT USING (ativo = true);
 
--- ── Como cadastrar um novo cliente ───────────────────────────
--- 1. Gere o próximo empresa_id:
---    SELECT nextval('empresa_id_seq');   -- ex: retorna 1
---
--- 2. Insira o cliente:
---    INSERT INTO clientes_licenciados (codigo, nome_cliente, empresa_id)
---    VALUES ('JOAO2025', 'Joao da Silva', 1);
---
--- 3. Envie o código 'JOAO2025' ao cliente.
+-- Painel /master: pode inserir, atualizar e excluir (acesso protegido por senha no app)
+CREATE POLICY "master_insert"     ON clientes_licenciados FOR INSERT WITH CHECK (true);
+CREATE POLICY "master_update"     ON clientes_licenciados FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "master_delete"     ON clientes_licenciados FOR DELETE USING (true);
+
+-- ── Cadastro pelo painel /master ─────────────────────────────
+-- Acesse horti-gestao.vercel.app/master → senha master → aba Clientes
+-- Preencha o nome e código → clique "Criar cliente" → copie o código
 -- ─────────────────────────────────────────────────────────────
