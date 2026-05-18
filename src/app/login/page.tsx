@@ -172,15 +172,16 @@ export default function LoginPage() {
     if (!nomeFant.trim()) { setErroSalvar("Informe o nome da empresa."); return; }
     setSalvando(true); setErroSalvar("");
     try {
-      const { error: eEmp } = await db("empresa").upsert([{
+      const { error: eEmp } = await db("empresa").insert([{
         nome_fantasia: nomeFant.trim(),
         cnpj:          cnpj.replace(/\D/g, "") || null,
         telefone:      telefone.replace(/\D/g, "") || null,
         endereco:      endereco.trim() || null,
         cupom_largura: larguraCupom,
-      }], { onConflict: "empresa_id", ignoreDuplicates: false });
-      if (eEmp && !eEmp.message.includes("no rows")) throw new Error(eEmp.message);
-      await db("senhas_operacionais").upsert([{ adm_password: admSenha }], { onConflict: "empresa_id" });
+      }]);
+      if (eEmp && !eEmp.message.includes("duplicate") && !eEmp.message.includes("unique")) throw new Error(eEmp.message);
+      const { error: eSenha } = await db("senhas_operacionais").insert([{ adm_password: admSenha }]);
+      if (eSenha && !eSenha.message.includes("duplicate") && !eSenha.message.includes("unique")) throw new Error(eSenha.message);
       const { error: eOp } = await db("operadores").insert([{
         username: adminUser.trim().toLowerCase(),
         nome:     adminNome.trim(),
