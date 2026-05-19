@@ -13,7 +13,7 @@
 
 "use strict";
 
-const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require("electron");
 const path   = require("path");
 const http   = require("http");
 const https  = require("https");
@@ -557,6 +557,11 @@ if (!gotTheLock) {
     }
   });
 }
+
+// ── Recebe logs do renderer e grava no mesmo arquivo do servidor ─────────────
+ipcMain.on("renderer-log", (_event, msg) => {
+  log(`[RENDERER] ${msg}`);
+});
 
 app.whenReady().then(async () => {
   if (!gotTheLock) return; // não prossegue se não tem o lock

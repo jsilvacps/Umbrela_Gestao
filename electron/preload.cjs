@@ -7,19 +7,12 @@
 "use strict";
 
 const { ipcRenderer } = require("electron");
-const fs = require("fs");
-const path = require("path");
 
-// ── Captura erros JS do renderer e grava no log ──────────────────────────────
-const logPath = path.join(
-  process.env.APPDATA || process.env.HOME || ".",
-  "Horti Gestão PDV",
-  "horti-renderer.log"
-);
-
+// ── Captura erros JS do renderer e envia para o main process logar ───────────
 function logRenderer(tipo, msg) {
-  const linha = `[${new Date().toISOString()}] [${tipo}] ${msg}\n`;
-  try { fs.appendFileSync(logPath, linha); } catch {}
+  try {
+    ipcRenderer.send("renderer-log", `[${tipo}] ${msg}`);
+  } catch {}
 }
 
 window.addEventListener("error", (e) => {
