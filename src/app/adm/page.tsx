@@ -458,6 +458,42 @@ export default function AdmPage() {
     carregarTudo();
   }
 
+  // ── Suporte ─────────────────────────────────────────────────────────────────
+  const [supNome, setSupNome]             = useState("");
+  const [supWhatsapp, setSupWhatsapp]     = useState("");
+  const [supAssunto, setSupAssunto]       = useState("duvida");
+  const [supMensagem, setSupMensagem]     = useState("");
+  const [supEnviando, setSupEnviando]     = useState(false);
+  const [supMsg, setSupMsg]               = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function enviarSuporte(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supNome.trim() || !supMensagem.trim()) return;
+    setSupEnviando(true); setSupMsg(null);
+    try {
+      const res = await fetch("/api/suporte", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome:            supNome.trim(),
+          estabelecimento: empresa.nome_fantasia || "",
+          whatsapp:        supWhatsapp.trim(),
+          assunto:         supAssunto,
+          mensagem:        supMensagem.trim(),
+        }),
+      });
+      if (res.ok) {
+        setSupMsg({ ok: true, texto: "Mensagem enviada! Em breve entraremos em contato." });
+        setSupMensagem(""); setSupWhatsapp(""); setSupAssunto("duvida");
+      } else {
+        setSupMsg({ ok: false, texto: "Falha ao enviar. Tente novamente ou contate pelo WhatsApp." });
+      }
+    } catch {
+      setSupMsg({ ok: false, texto: "Sem conexão. Tente novamente." });
+    }
+    setSupEnviando(false);
+  }
+
   const vendasFiltradas = useMemo(() => {
     return vendas.filter((v) => {
       const dt = new Date(v.created_at);
@@ -523,6 +559,7 @@ export default function AdmPage() {
               ["relatorios", "📊 Relatórios"],
               ["etiquetas", "🏷️ Etiquetas"],
               ["senhas", "🔒 Senhas"],
+              ["suporte", "🆘 Suporte"],
               ...(isDev ? [["licencas", "🔑 Licenças"]] : []),
             ].map(([key, labelText]) => (
               <button key={key} onClick={() => setAba(key)} style={{ ...tabBtn, background: aba === key ? "#1fb14e" : "#fff", color: aba === key ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -1092,6 +1129,132 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               </div>
               <button type="submit" style={saveButton}>Salvar senhas</button>
             </form>
+          </section>
+        )}
+
+        {aba === "suporte" && (
+          <section style={card}>
+            <div style={title}>🆘 Suporte</div>
+            <div style={subtitle}>Preencha o formulário e nossa equipe responderá em breve.</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 28, alignItems: "start" }}>
+              {/* Formulário */}
+              <form onSubmit={enviarSuporte}>
+                <Field label="Seu nome *">
+                  <input
+                    style={input}
+                    value={supNome}
+                    onChange={e => setSupNome(e.target.value)}
+                    placeholder="Como devemos te chamar?"
+                    required
+                  />
+                </Field>
+
+                <div style={{ marginTop: 16 }}>
+                  <Field label="WhatsApp para contato">
+                    <input
+                      style={input}
+                      value={supWhatsapp}
+                      onChange={e => setSupWhatsapp(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Ex: 11999998888"
+                      inputMode="tel"
+                      maxLength={15}
+                    />
+                  </Field>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <Field label="Assunto *">
+                    <select
+                      style={input}
+                      value={supAssunto}
+                      onChange={e => setSupAssunto(e.target.value)}
+                    >
+                      <option value="duvida">Dúvida técnica</option>
+                      <option value="erro">Erro no sistema</option>
+                      <option value="sugestao">Sugestão de melhoria</option>
+                      <option value="outro">Outro assunto</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <Field label="Mensagem *">
+                    <textarea
+                      style={{ ...input, height: "auto", padding: "12px 16px", resize: "vertical", fontSize: 15, lineHeight: 1.6 }}
+                      rows={5}
+                      value={supMensagem}
+                      onChange={e => setSupMensagem(e.target.value)}
+                      placeholder="Descreva sua dúvida ou problema com o máximo de detalhes possível..."
+                      required
+                    />
+                  </Field>
+                </div>
+
+                {supMsg && (
+                  <div style={{
+                    marginTop: 14,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    background: supMsg.ok ? "#f0fdf4" : "#fef2f2",
+                    border: `1px solid ${supMsg.ok ? "#bbf7d0" : "#fecaca"}`,
+                    color: supMsg.ok ? "#15803d" : "#991b1b",
+                  }}>
+                    {supMsg.ok ? "✅ " : "⚠️ "}{supMsg.texto}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={supEnviando || !supNome.trim() || !supMensagem.trim()}
+                  style={{ ...saveButton, opacity: supEnviando || !supNome.trim() || !supMensagem.trim() ? 0.6 : 1 }}
+                >
+                  {supEnviando ? "Enviando..." : "📨 Enviar mensagem"}
+                </button>
+              </form>
+
+              {/* Informações de contato */}
+              <div style={{ ...cardSoft, display: "flex", flexDirection: "column", gap: 20 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18, color: "#11243d", marginBottom: 6 }}>
+                    💬 Atendimento rápido
+                  </div>
+                  <div style={{ color: "#66758a", fontSize: 14, lineHeight: 1.7 }}>
+                    Respondemos geralmente em até <strong>24 horas</strong> nos dias úteis.
+                    Para urgências, entre em contato pelo WhatsApp.
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <a
+                    href="https://wa.me/55?text=Olá, preciso de suporte no Horti Gestão PDV"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14, padding: "14px 16px", textDecoration: "none", color: "#15803d", fontWeight: 700, fontSize: 15 }}
+                  >
+                    <span style={{ fontSize: 24 }}>💬</span>
+                    <div>
+                      <div>WhatsApp</div>
+                      <div style={{ fontWeight: 400, fontSize: 13, color: "#16a34a" }}>Atendimento rápido</div>
+                    </div>
+                  </a>
+                </div>
+
+                <div style={{ background: "#f8fafc", border: "1px solid #e4eaf1", borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontWeight: 800, color: "#1d3049", fontSize: 14, marginBottom: 8 }}>
+                    📋 Antes de enviar, verifique:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "#66758a", fontSize: 13, lineHeight: 2 }}>
+                    <li>O sistema está na versão mais recente?</li>
+                    <li>O problema acontece sempre ou só às vezes?</li>
+                    <li>Em qual tela o erro aparece?</li>
+                    <li>Há alguma mensagem de erro visível?</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </section>
         )}
 

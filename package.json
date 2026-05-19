@@ -20,7 +20,8 @@
     "dexie": "^4.4.2",
     "next": "^16.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^6.12.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
