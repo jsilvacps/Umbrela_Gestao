@@ -1216,43 +1216,38 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 </button>
               </form>
 
-              {/* Informações de contato */}
+              {/* Informações */}
               <div style={{ ...cardSoft, display: "flex", flexDirection: "column", gap: 20 }}>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18, color: "#11243d", marginBottom: 6 }}>
-                    💬 Atendimento rápido
+                    📬 Como funciona?
                   </div>
-                  <div style={{ color: "#66758a", fontSize: 14, lineHeight: 1.7 }}>
-                    Respondemos geralmente em até <strong>24 horas</strong> nos dias úteis.
-                    Para urgências, entre em contato pelo WhatsApp.
+                  <div style={{ color: "#66758a", fontSize: 14, lineHeight: 1.8 }}>
+                    Preencha o formulário ao lado com o máximo de detalhes possível.
+                    Nossa equipe analisará e retornará em até <strong>24 horas</strong> nos dias úteis.
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <a
-                    href="https://wa.me/55?text=Olá, preciso de suporte no Horti Gestão PDV"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: "flex", alignItems: "center", gap: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14, padding: "14px 16px", textDecoration: "none", color: "#15803d", fontWeight: 700, fontSize: 15 }}
-                  >
-                    <span style={{ fontSize: 24 }}>💬</span>
-                    <div>
-                      <div>WhatsApp</div>
-                      <div style={{ fontWeight: 400, fontSize: 13, color: "#16a34a" }}>Atendimento rápido</div>
-                    </div>
-                  </a>
-                </div>
-
-                <div style={{ background: "#f8fafc", border: "1px solid #e4eaf1", borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ fontWeight: 800, color: "#1d3049", fontSize: 14, marginBottom: 8 }}>
+                <div style={{ background: "#f8fafc", border: "1px solid #e4eaf1", borderRadius: 14, padding: "16px" }}>
+                  <div style={{ fontWeight: 800, color: "#1d3049", fontSize: 14, marginBottom: 10 }}>
                     📋 Antes de enviar, verifique:
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 18, color: "#66758a", fontSize: 13, lineHeight: 2 }}>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "#66758a", fontSize: 14, lineHeight: 2.2 }}>
                     <li>O sistema está na versão mais recente?</li>
                     <li>O problema acontece sempre ou só às vezes?</li>
                     <li>Em qual tela o erro aparece?</li>
                     <li>Há alguma mensagem de erro visível?</li>
                   </ul>
+                </div>
+
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14, padding: "16px" }}>
+                  <div style={{ fontWeight: 800, color: "#15803d", fontSize: 14, marginBottom: 6 }}>
+                    ⏱️ Prazo de resposta
+                  </div>
+                  <div style={{ color: "#16a34a", fontSize: 13, lineHeight: 1.7 }}>
+                    Dúvidas e sugestões: até 24h úteis<br />
+                    Erros críticos: até 4h úteis
+                  </div>
                 </div>
               </div>
             </div>
