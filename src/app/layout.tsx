@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import PresenceTracker from "@/components/PresenceTracker";
 
 export const metadata: Metadata = {
   title: "Horti Gestão",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <PresenceTracker />
+        {children}
+      </body>
     </html>
   );
 }
