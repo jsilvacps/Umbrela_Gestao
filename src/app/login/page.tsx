@@ -101,13 +101,18 @@ export default function LoginPage() {
   /* ── Detecta se precisa de setup na montagem ── */
   useEffect(() => {
     async function detectar() {
-      if (!isConfigurado()) {
+      try {
+        if (!isConfigurado()) {
+          setTela("setup");
+          setTimeout(() => refSbUrl.current?.focus(), 200);
+          return;
+        }
+        const { data } = await db("empresa").select("empresa_id").maybeSingle();
+        setTela(data?.empresa_id ? "login" : "setup");
+      } catch {
+        // Erro de rede ou Supabase — vai para setup para o usuário tentar de novo
         setTela("setup");
-        setTimeout(() => refSbUrl.current?.focus(), 200);
-        return;
       }
-      const { data } = await db("empresa").select("empresa_id").maybeSingle();
-      setTela(data?.empresa_id ? "login" : "setup");
     }
     detectar();
   // eslint-disable-next-line react-hooks/exhaustive-deps

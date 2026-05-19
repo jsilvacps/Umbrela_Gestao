@@ -68,7 +68,10 @@ function isPortFree(port) {
     const net = require("net");
     const srv = net.createServer();
     srv.once("error", () => resolve(false));
-    srv.once("listening", () => { srv.close(); resolve(true); });
+    srv.once("listening", () => {
+      // Aguarda o close completar antes de resolver — evita race condition
+      srv.close(() => resolve(true));
+    });
     srv.listen(port, "127.0.0.1");
   });
 }
