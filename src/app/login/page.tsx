@@ -151,20 +151,32 @@ export default function LoginPage() {
     if (!cod) { setErroConexao("Informe o código de ativação."); return; }
     setTestando(true); setErroConexao("");
     try {
-      // 1. Valida código
+      // 1. Busca o código (sem filtrar por ativo — avalia manualmente)
       const { data, error } = await masterSupabase
         .from("clientes_licenciados")
-        .select("empresa_id, nome_cliente")
+        .select("empresa_id, nome_cliente, ativo, cadastro_em")
         .eq("codigo", cod)
-        .eq("ativo", true)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      if (!data) { setErroConexao("Código não encontrado ou inativo."); setTestando(false); return; }
+      if (!data) { setErroConexao("Código não encontrado."); setTestando(false); return; }
+
+      // Código desativado pelo administrador após cadastro
+      if (!data.ativo && data.cadastro_em) {
+        setErroConexao("Este código foi desativado pelo administrador.");
+        setTestando(false);
+        return;
+      }
 
       // 2. Salva empresa_id localmente
       salvarEmpresaId(data.empresa_id);
 
-      // 3. Verifica se esse empresa_id já tem configuração completa
+      // 3. Código ainda não passou pelo wizard (pendente) → abre wizard
+      if (!data.cadastro_em) {
+        setPasso(2);
+        return;
+      }
+
+      // 4. Já cadastrado → verifica se empresa está configurada
       const { data: emp } = await masterSupabase
         .from("empresa")
         .select("nome_fantasia")
@@ -173,11 +185,9 @@ export default function LoginPage() {
         .maybeSingle();
 
       if (emp?.nome_fantasia) {
-        // Já configurado: mostra tela de boas-vindas
         setNomeEmpresaPronta(emp.nome_fantasia as string);
         setTela("ja_configurado");
       } else {
-        // Ainda não configurado: abre wizard
         setPasso(2);
       }
     } catch (e: unknown) {
@@ -238,6 +248,16 @@ export default function LoginPage() {
         perm_sangria: true, perm_relatorios: true, perm_desconto: true, perm_buscar_cupons: true,
       }]);
       if (eOp && !eOp.message.includes("duplicate")) throw new Error(eOp.message);
+
+      // Ativa o código: marca cadastro_em e ativo = true na tabela clientes_licenciados
+      const cod = codigo.trim().toUpperCase();
+      if (cod) {
+        await masterSupabase
+          .from("clientes_licenciados")
+          .update({ ativo: true, cadastro_em: new Date().toISOString() })
+          .eq("codigo", cod);
+      }
+
       setConcluido(true);
     } catch (e: unknown) {
       setErroSalvar(e instanceof Error ? e.message : String(e));

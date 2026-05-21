@@ -25,6 +25,7 @@ type ClienteLicenciado = {
   nome_cliente: string | null;
   empresa_id: number;
   ativo: boolean;
+  cadastro_em: string | null;
   created_at: string;
 };
 
@@ -181,7 +182,7 @@ export default function MasterPage() {
 
     const { data, error } = await supabase
       .from("clientes_licenciados")
-      .insert([{ codigo, nome_cliente: nome, empresa_id: nextId, ativo: true }])
+      .insert([{ codigo, nome_cliente: nome, empresa_id: nextId, ativo: false, cadastro_em: null }])
       .select()
       .single();
 
@@ -376,8 +377,8 @@ export default function MasterPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
               {[
                 { label: "Total de clientes", valor: clientes.length, cor: "#7dd3fc", bg: "#0c1a2e" },
-                { label: "Ativos", valor: clientes.filter(c => c.ativo).length, cor: "#4ade80", bg: "#052e16" },
-                { label: "Inativos", valor: clientes.filter(c => !c.ativo).length, cor: "#f87171", bg: "#1c0202" },
+                { label: "Cadastrados", valor: clientes.filter(c => c.cadastro_em).length, cor: "#4ade80", bg: "#052e16" },
+                { label: "⏳ Aguardando cadastro", valor: clientes.filter(c => !c.cadastro_em).length, cor: "#fbbf24", bg: "#1c1202" },
                 { label: "Online agora", valor: clientes.filter(c => onlineIds.has(c.empresa_id)).length, cor: "#a3e635", bg: "#0f1e02" },
               ].map(({ label, valor, cor, bg }) => (
                 <div key={label} style={{ background: bg, border: `1px solid ${cor}33`, borderRadius: 14, padding: "18px 22px" }}>
@@ -504,7 +505,7 @@ export default function MasterPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid #1f2d3d" }}>
-                        {["", "Cliente", "Código", "ID", "Cadastrado em", "Status", "Ações"].map(h => (
+                        {["", "Cliente", "Código", "ID", "Criado em", "Cadastro", "Ações"].map(h => (
                           <th key={h} style={{ textAlign: "left", padding: "8px 10px", color: "#64748b", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
@@ -527,9 +528,13 @@ export default function MasterPage() {
                           <td style={{ padding: "10px 10px", color: "#475569", fontFamily: "monospace" }}>{c.empresa_id}</td>
                           <td style={{ padding: "10px 10px", color: "#94a3b8", whiteSpace: "nowrap" }}>{fmtData(c.created_at)}</td>
                           <td style={{ padding: "10px 10px" }}>
-                            <span style={{ color: c.ativo ? "#4ade80" : "#f87171", fontWeight: 700 }}>
-                              {c.ativo ? "✅ Ativo" : "🚫 Inativo"}
-                            </span>
+                            {c.cadastro_em ? (
+                              <span title={`Cadastrado em ${new Date(c.cadastro_em).toLocaleString("pt-BR")}`} style={{ color: "#4ade80", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                ✅ {fmtData(c.cadastro_em)}
+                              </span>
+                            ) : (
+                              <span style={{ color: "#fbbf24", fontWeight: 700 }}>⏳ Pendente</span>
+                            )}
                           </td>
                           <td style={{ padding: "10px 10px" }}>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
