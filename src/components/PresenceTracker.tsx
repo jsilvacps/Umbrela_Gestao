@@ -8,6 +8,13 @@ import { useEffect } from 'react';
 import { getEmpresaId } from '@/lib/supabaseClient';
 
 export default function PresenceTracker() {
+  // Registra o service worker (necessário para PWA installable)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     const empresaId = getEmpresaId();
     if (!empresaId) return;
