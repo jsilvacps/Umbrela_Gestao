@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import PresenceTracker from "@/components/PresenceTracker";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 export const metadata: Metadata = {
   title: "Horti Gestão",
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         <PresenceTracker />
+        <PWAInstallBanner />
         {children}
       </body>
     </html>
