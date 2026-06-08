@@ -1,5 +1,5 @@
 {
-  "version": "1.1.24",
-  "notas": "- Novo: envio de boas-vindas via WhatsApp ao cadastrar cliente no Master\n- Fix: aba Produtos visivel no menu do ADM",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.24/HortiGestao-PDV-Setup-1.1.24.exe"
+  "version": "1.1.25",
+  "notas": "- Fix: teclas F3/F6/F7/F8 funcionando no PDV\n- Novo: aba Clientes no menu do ADM\n- Novo: leitor de código de barras por câmera em Produtos\n- Novo: busca automática de nome pelo código EAN\n- Novo: cadastro de clientes com CPF ou CNPJ\n- Melhoria: CPF não cadastrado no PDV oferece cadastro direto",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.25/HortiGestao-PDV-Setup-1.1.25.exe"
 }
