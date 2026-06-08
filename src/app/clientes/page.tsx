@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import HeaderCebolao from "@/components/HeaderCebolao";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -71,7 +70,6 @@ function formatarDinheiroInput(valor: string) {
 
 export default function ClientesPage() {
   const isMobile = useIsMobile();
-  const searchParams = useSearchParams();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [mensagem, setMensagem] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -116,7 +114,8 @@ export default function ClientesPage() {
 
   // Pré-preenche CPF vindo do PDV via query string (?cpf=...)
   useEffect(() => {
-    const cpfParam = searchParams.get("cpf");
+    const params = new URLSearchParams(window.location.search);
+    const cpfParam = params.get("cpf");
     if (cpfParam) {
       setCpf(formatarCPF(cpfParam));
       setMensagem("CPF pré-preenchido a partir do PDV. Complete o cadastro do cliente.");
