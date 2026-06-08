@@ -573,6 +573,12 @@ export default function AdmPage() {
             >
               📦 Produtos
             </button>
+            <button
+              onClick={() => router.push("/clientes")}
+              style={{ ...tabBtn, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+            >
+              👥 Clientes
+            </button>
           </div>
         </section>
 

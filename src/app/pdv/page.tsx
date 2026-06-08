@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/supabaseClient";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import {
@@ -82,6 +83,8 @@ export default function PDVPage() {
   const [erroLicenca, setErroLicenca]         = useState("");
   const refChaveInput                         = useRef<HTMLInputElement>(null);
 
+  const router = useRouter();
+
   /* ── Online/offline ── */
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(0);
@@ -93,6 +96,8 @@ export default function PDVPage() {
 
   /* ── Estado do CPF ── */
   const [cpf, setCpf] = useState("");
+  const [pedirCadastroCPF, setPedirCadastroCPF] = useState(false);
+  const [cpfNaoEncontrado, setCpfNaoEncontrado] = useState("");
   const [mostrarModalCPF, setMostrarModalCPF] = useState(true);
   const [clienteLabel, setClienteLabel] = useState("Sem cliente identificado");
 
@@ -416,8 +421,16 @@ export default function PDVPage() {
         refCodigo.current?.select();
         return;
       }
+      // F3 → finalizar venda
+      if (e.key === "F3") { e.preventDefault(); abrirFinalizar(); return; }
       // F4 → buscar cupons
       if (e.key === "F4") { e.preventDefault(); abrirBuscarCupons(); return; }
+      // F6 → cancelar cupom
+      if (e.key === "F6") { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
+      // F7 → sangria
+      if (e.key === "F7") { e.preventDefault(); abrirSangria(); return; }
+      // F8 → relatórios
+      if (e.key === "F8") { e.preventDefault(); abrirRelatorios(); return; }
       // F9 → fechar caixa
       if (e.key === "F9") { e.preventDefault(); abrirFechamento(); return; }
       // F10 → identificar CPF
@@ -453,14 +466,30 @@ export default function PDVPage() {
   }, [modalFinalizar, plano]);
 
   /* ── CPF ── */
-  function confirmarCPF() {
+  async function confirmarCPF() {
     const limpo = cpf.replace(/\D/g, "");
     if (limpo && !validarCPF(limpo)) {
       setMensagem("⚠️ CPF inválido. Verifique e tente novamente.");
       setTimeout(() => setMensagem(""), 4000);
       return;
     }
-    setClienteLabel(limpo ? formatarCPF(limpo) : "Sem cliente identificado");
+    if (!limpo) {
+      setClienteLabel("Sem cliente identificado");
+      setMostrarModalCPF(false);
+      setTimeout(() => refCodigo.current?.focus(), 50);
+      return;
+    }
+    // Busca cliente pelo CPF no banco
+    const { data } = await db("clientes").select("id, nome, cpf").eq("cpf", formatarCPF(limpo)).maybeSingle();
+    if (data) {
+      // Cliente encontrado
+      setClienteLabel(`${(data as {nome: string}).nome} — ${formatarCPF(limpo)}`);
+    } else {
+      // Não encontrado → perguntar se quer cadastrar
+      setCpfNaoEncontrado(limpo);
+      setPedirCadastroCPF(true);
+      return;
+    }
     setMostrarModalCPF(false);
     setTimeout(() => refCodigo.current?.focus(), 50);
   }
@@ -469,6 +498,8 @@ export default function PDVPage() {
     setCpf("");
     setClienteLabel("Sem cliente identificado");
     setMostrarModalCPF(false);
+    setPedirCadastroCPF(false);
+    setCpfNaoEncontrado("");
     setTimeout(() => refCodigo.current?.focus(), 50);
   }
 
@@ -1588,6 +1619,42 @@ ${rod}
                 </div>
               </div>
             ) : null}
+
+            {/* Mini-modal: CPF não cadastrado → pergunta se quer cadastrar */}
+            {pedirCadastroCPF && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1000 }}>
+                <div style={{ width: 400, background: "#fff", borderRadius: 18, boxShadow: "0 18px 45px rgba(0,0,0,.4)", padding: 28 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>CPF não cadastrado</div>
+                  <div style={{ color: "#475569", fontSize: 14, marginBottom: 20 }}>
+                    O CPF <b>{formatarCPF(cpfNaoEncontrado)}</b> não está na base de clientes.<br />Deseja realizar o cadastro agora?
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <button
+                      onClick={() => {
+                        setPedirCadastroCPF(false);
+                        setMostrarModalCPF(false);
+                        setClienteLabel(formatarCPF(cpfNaoEncontrado));
+                        setCpfNaoEncontrado("");
+                        setTimeout(() => refCodigo.current?.focus(), 50);
+                      }}
+                      style={{ height: 42, border: "1px solid #d7dbe2", borderRadius: 10, background: "#f8fafc", color: "#374151", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                    >
+                      Não, continuar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPedirCadastroCPF(false);
+                        setMostrarModalCPF(false);
+                        router.push(`/clientes?cpf=${cpfNaoEncontrado}`);
+                      }}
+                      style={{ height: 42, border: "none", borderRadius: 10, background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+                    >
+                      Sim, cadastrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Rodapé: contagem e total */}
             <div style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>

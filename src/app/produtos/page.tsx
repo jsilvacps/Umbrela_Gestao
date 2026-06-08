@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import HeaderCebolao from "@/components/HeaderCebolao";
+import BarcodeScannerModal from "@/components/BarcodeScannerModal";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -91,6 +92,10 @@ export default function ProdutosPage() {
   const [importResult, setImportResult] = useState<{ ok: number; erros: string[] } | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
+  const [scannerAberto, setScannerAberto] = useState(false);
+  const [buscandoEAN, setBuscandoEAN] = useState(false);
+  const [modalEanDuplicado, setModalEanDuplicado] = useState<{id: string; nome: string} | null>(null);
+
   const [codigoInterno, setCodigoInterno] = useState("");
   const [codigoEAN, setCodigoEAN] = useState("");
   const [nomeProduto, setNomeProduto] = useState("");
@@ -101,6 +106,57 @@ export default function ProdutosPage() {
   const [precoDinheiro, setPrecoDinheiro] = useState("0,00");
   const [margemCartao, setMargemCartao] = useState("0,00");
   const [precoCartao, setPrecoCartao] = useState("0,00");
+
+  /* ── Barcode scanner ── */
+  async function aoEscanear(codigo: string) {
+    setScannerAberto(false);
+    setBuscandoEAN(true);
+
+    // 1. Verifica se produto já existe no cadastro local
+    const { data: existente } = await db("produtos").select("id, nome").eq("ean", codigo).maybeSingle();
+    if (existente) {
+      setModalEanDuplicado(existente as {id: string; nome: string});
+      setBuscandoEAN(false);
+      return;
+    }
+
+    // 2. Preenche EAN no campo
+    setCodigoEAN(codigo);
+
+    // 3. Tenta buscar nome na API Open Food Facts (gratuita, sem chave)
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${codigo}.json`);
+      const json = await res.json();
+      if (json.status === 1 && json.product) {
+        const p = json.product;
+        const nome = p.product_name_pt || p.product_name || p.abbreviated_product_name || "";
+        if (nome) setNomeProduto(nome);
+      }
+    } catch {
+      // API indisponível — sem problema, só preenche o EAN
+    }
+
+    setBuscandoEAN(false);
+  }
+
+  function abrirEdicaoPorEan(id: string) {
+    const p = produtos.find(x => x.id === id);
+    if (p) {
+      setEditandoId(p.id);
+      setCodigoInterno(p.codigo || "");
+      setCodigoEAN(p.ean || "");
+      setNomeProduto(p.nome);
+      setCategoria(p.categoria || "");
+      setUnidade(p.unidade || "Unidade");
+      setPrecoCusto(formatarDinheiroInput(String(Math.round(Number(p.custo || 0) * 100))));
+      setPrecoDinheiro(formatarDinheiroInput(String(Math.round(Number(p.preco || 0) * 100))));
+      setPrecoCartao(formatarDinheiroInput(String(Math.round(Number(p.preco_cartao || 0) * 100))));
+      setMargemDinheiro("0,00");
+      setMargemCartao("0,00");
+    }
+    setModalEanDuplicado(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   const carregarDados = useCallback(async () => {
     const [{ data: produtosData }, { data: categoriasData }] = await Promise.all([
@@ -501,7 +557,17 @@ export default function ProdutosPage() {
                 </Field>
 
                 <Field label="Código EAN">
-                  <input style={input} value={codigoEAN} onChange={(e) => setCodigoEAN(e.target.value)} placeholder="Somente números" />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input style={{ ...input, flex: 1 }} value={codigoEAN} onChange={(e) => setCodigoEAN(e.target.value)} placeholder="Somente números" />
+                    <button
+                      type="button"
+                      onClick={() => setScannerAberto(true)}
+                      title="Ler código pela câmera"
+                      style={{ height: 46, width: 46, border: "1px solid #d5dde7", borderRadius: 14, background: "#f0fdf4", color: "#16a34a", fontSize: 20, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      {buscandoEAN ? "⏳" : "📷"}
+                    </button>
+                  </div>
                 </Field>
 
                 <Field label="Nome do produto">
@@ -612,6 +678,38 @@ export default function ProdutosPage() {
           </section>
         </div>
       </div>
+
+      {/* Modal scanner de câmera */}
+      {scannerAberto && (
+        <BarcodeScannerModal
+          onScanned={aoEscanear}
+          onClose={() => setScannerAberto(false)}
+        />
+      )}
+
+      {/* Modal: produto EAN já existe */}
+      {modalEanDuplicado && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9998 }}>
+          <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 400, boxShadow: "0 18px 45px rgba(0,0,0,.4)" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Produto já cadastrado</div>
+            <div style={{ color: "#475569", fontSize: 14, marginBottom: 20 }}>
+              Este código de barras já está vinculado ao produto:<br />
+              <b style={{ color: "#16a34a", fontSize: 16 }}>{modalEanDuplicado.nome}</b><br /><br />
+              Deseja abri-lo para edição?
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <button onClick={() => setModalEanDuplicado(null)}
+                style={{ height: 42, border: "1px solid #d5dde7", borderRadius: 10, background: "#f8fafc", color: "#374151", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                Não, fechar
+              </button>
+              <button onClick={() => abrirEdicaoPorEan(modalEanDuplicado.id)}
+                style={{ height: 42, border: "none", borderRadius: 10, background: "#16a34a", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                Sim, editar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

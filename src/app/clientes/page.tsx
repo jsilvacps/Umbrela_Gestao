@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import HeaderCebolao from "@/components/HeaderCebolao";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -13,6 +14,7 @@ type Cliente = {
   limite: number | null;
   cidade?: string | null;
   cpf?: string | null;
+  cnpj?: string | null;
   whatsapp?: string | null;
   cep?: string | null;
   endereco?: string | null;
@@ -44,6 +46,15 @@ function formatarCPF(valor: string) {
     .replace(/\.(\d{3})(\d)/, ".$1-$2");
 }
 
+function formatarCNPJ(valor: string) {
+  const digits = somenteDigitos(valor).slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/\/(\d{4})(\d)/, "/$1-$2");
+}
+
 function formatarTelefone(valor: string) {
   const digits = somenteDigitos(valor).slice(0, 11);
   if (digits.length <= 10) {
@@ -60,14 +71,17 @@ function formatarDinheiroInput(valor: string) {
 
 export default function ClientesPage() {
   const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [mensagem, setMensagem] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [buscandoCEP, setBuscandoCEP] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [tipoCpfCnpj, setTipoCpfCnpj] = useState<"cpf" | "cnpj">("cpf");
 
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [telefone, setTelefone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [cep, setCep] = useState("");
@@ -98,6 +112,16 @@ export default function ClientesPage() {
     }));
 
     setClientes(lista as Cliente[]);
+  }, []);
+
+  // Pré-preenche CPF vindo do PDV via query string (?cpf=...)
+  useEffect(() => {
+    const cpfParam = searchParams.get("cpf");
+    if (cpfParam) {
+      setCpf(formatarCPF(cpfParam));
+      setMensagem("CPF pré-preenchido a partir do PDV. Complete o cadastro do cliente.");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -151,6 +175,7 @@ export default function ClientesPage() {
     setEditandoId(null);
     setNome("");
     setCpf("");
+    setCnpj("");
     setTelefone("");
     setWhatsapp("");
     setCep("");
@@ -173,7 +198,8 @@ export default function ClientesPage() {
       telefone: telefone.trim() || null,
       limite: parseBRL(limite),
       saldo: parseBRL(saldo),
-      cpf: cpf.trim() || null,
+      cpf: tipoCpfCnpj === "cpf" ? (cpf.trim() || null) : null,
+      cnpj: tipoCpfCnpj === "cnpj" ? (cnpj.trim() || null) : null,
       whatsapp: whatsapp.trim() || null,
       cep: cep.trim() || null,
       endereco: endereco.trim() || null,
@@ -236,7 +262,8 @@ export default function ClientesPage() {
   function abrirEdicao(cliente: Cliente) {
     setEditandoId(cliente.id);
     setNome(cliente.nome || "");
-    setCpf(cliente.cpf || "");
+    if (cliente.cnpj) { setTipoCpfCnpj("cnpj"); setCnpj(cliente.cnpj); setCpf(""); }
+    else { setTipoCpfCnpj("cpf"); setCpf(cliente.cpf || ""); setCnpj(""); }
     setTelefone(cliente.telefone || "");
     setWhatsapp(cliente.whatsapp || "");
     setCep(cliente.cep || "");
@@ -282,9 +309,25 @@ export default function ClientesPage() {
                   <input style={input} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" required />
                 </Field>
 
-                <Field label="CPF">
-                  <input style={input} value={cpf} onChange={(e) => setCpf(formatarCPF(e.target.value))} placeholder="000.000.000-00" />
-                </Field>
+                <div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                    <label style={labelStyle}>Documento</label>
+                    <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+                      {(["cpf", "cnpj"] as const).map(t => (
+                        <button key={t} type="button" onClick={() => setTipoCpfCnpj(t)}
+                          style={{ padding: "2px 10px", borderRadius: 999, border: "1px solid #d5dde7", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                            background: tipoCpfCnpj === t ? "#1fb14e" : "#fff",
+                            color: tipoCpfCnpj === t ? "#fff" : "#374151" }}>
+                          {t.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {tipoCpfCnpj === "cpf"
+                    ? <input style={input} value={cpf} onChange={(e) => setCpf(formatarCPF(e.target.value))} placeholder="000.000.000-00" />
+                    : <input style={input} value={cnpj} onChange={(e) => setCnpj(formatarCNPJ(e.target.value))} placeholder="00.000.000/0000-00" />
+                  }
+                </div>
 
                 <Field label="Telefone">
                   <input style={input} value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} placeholder="(00) 00000-0000" />
@@ -382,7 +425,7 @@ export default function ClientesPage() {
                   <div key={cliente.id} style={trow}>
                     <div>
                       <div style={{ fontWeight: 900, fontSize: 18, color: "#10243d", lineHeight: 1.05 }}>{cliente.nome}</div>
-                      <div style={{ color: "#66758a", marginTop: 2 }}>{cliente.cpf || "Sem CPF"}</div>
+                      <div style={{ color: "#66758a", marginTop: 2 }}>{cliente.cnpj || cliente.cpf || "Sem documento"}</div>
                     </div>
                     <div>{cliente.telefone || "-"}</div>
                     <div>{cliente.cidade || "-"}</div>
