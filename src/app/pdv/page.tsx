@@ -194,6 +194,17 @@ export default function PDVPage() {
   const [buscandoFiado, setBuscandoFiado]       = useState(false);
   const [erroFiado, setErroFiado]               = useState("");
 
+  /* ── Cadastro rápido de cliente no fiado ── */
+  const [modalNovoCliente, setModalNovoCliente] = useState(false);
+  const [novoCliNome, setNovoCliNome]           = useState("");
+  const [novoCliTelefone, setNovoCliTelefone]   = useState("");
+  const [novoCliCpf, setNovoCliCpf]             = useState("");
+  const [novoCliCep, setNovoCliCep]             = useState("");
+  const [novoCliEndereco, setNovoCliEndereco]   = useState("");
+  const [novoCliNumero, setNovoCliNumero]        = useState("");
+  const [buscandoCep, setBuscandoCep]           = useState(false);
+  const [salvandoNovoCli, setSalvandoNovoCli]   = useState(false);
+
   /* ── Buscar cupons ── */
   const [modalCupons, setModalCupons]           = useState(false);
   const [cupons, setCupons]                     = useState<any[]>([]);
@@ -476,7 +487,7 @@ export default function PDVPage() {
     if (!limpo) {
       setClienteLabel("Sem cliente identificado");
       setMostrarModalCPF(false);
-      setTimeout(() => refCodigo.current?.focus(), 50);
+      setTimeout(() => refQtd.current?.focus(), 50);
       return;
     }
     // Busca cliente pelo CPF no banco
@@ -491,7 +502,7 @@ export default function PDVPage() {
       return;
     }
     setMostrarModalCPF(false);
-    setTimeout(() => refCodigo.current?.focus(), 50);
+    setTimeout(() => refQtd.current?.focus(), 50);
   }
 
   function fecharModalCPF() {
@@ -500,7 +511,7 @@ export default function PDVPage() {
     setMostrarModalCPF(false);
     setPedirCadastroCPF(false);
     setCpfNaoEncontrado("");
-    setTimeout(() => refCodigo.current?.focus(), 50);
+    setTimeout(() => refQtd.current?.focus(), 50);
   }
 
   /* ── Autocomplete: filtra produtos ao digitar ── */
@@ -543,16 +554,16 @@ export default function PDVPage() {
     setPrecoUnitario(String((produto.preco ?? 0).toFixed(2)).replace(".", ","));
     setSugestoes([]);
     setSugestaoIdx(-1);
-    // Foco vai para o campo de quantidade
-    setTimeout(() => { refQtd.current?.focus(); refQtd.current?.select(); }, 30);
+    // Produto selecionado → foco vai direto para o preço unitário
+    setTimeout(() => { refPrecoUnit.current?.focus(); refPrecoUnit.current?.select(); }, 30);
   }
 
-  /* ── Enter na quantidade → vai para preço unitário ── */
+  /* ── Enter no peso/quantidade → vai para o campo de produto ── */
   function onKeyDownQtd(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      refPrecoUnit.current?.focus();
-      refPrecoUnit.current?.select();
+      refCodigo.current?.focus();
+      refCodigo.current?.select();
     }
   }
 
@@ -582,7 +593,8 @@ export default function PDVPage() {
     setPrecoUnitario("");
     setSugestoes([]);
     setSugestaoIdx(-1);
-    setTimeout(() => refCodigo.current?.focus(), 30);
+    // Após lançar → volta para o campo de peso (início do fluxo)
+    setTimeout(() => { refQtd.current?.focus(); refQtd.current?.select(); }, 30);
   }
 
   /* ── Busca produto por código/EAN (leitor de barras) ── */
@@ -1072,7 +1084,7 @@ ${rod}
       setMensagem(`✅ Caixa aberto — Fundo: ${moedaBR(valor)}`);
       setTimeout(() => setMensagem(""), 4000);
     }
-    setTimeout(() => refCodigo.current?.focus(), 80);
+    setTimeout(() => refQtd.current?.focus(), 80);
   }
 
   /* ── Seleciona tipo de pagamento (botões e teclado) ── */
@@ -1121,6 +1133,48 @@ ${rod}
     setBuscandoFiado(false);
     if (!data) { setErroFiado("Cliente não encontrado. Cadastre-o antes de usar fiado."); return; }
     setClienteFiado(data as { id: string; nome: string; limite_credito: number; saldo_fiado: number });
+  }
+
+  /* ── CEP auto-complete ── */
+  async function buscarCep(cep: string) {
+    const limpo = cep.replace(/\D/g, "");
+    if (limpo.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const json = await res.json();
+      if (!json.erro) {
+        setNovoCliEndereco(`${json.logradouro || ""}, ${json.bairro || ""} — ${json.localidade || ""}/${json.uf || ""}`);
+      }
+    } catch { /* ignora */ }
+    setBuscandoCep(false);
+  }
+
+  /* ── Salva novo cliente e já seleciona no fiado ── */
+  async function salvarNovoClienteFiado(e: React.FormEvent) {
+    e.preventDefault();
+    if (!novoCliNome.trim()) return;
+    setSalvandoNovoCli(true);
+    const payload: any = {
+      nome: novoCliNome.trim(),
+      telefone: novoCliTelefone.trim() || null,
+      cpf: novoCliCpf.replace(/\D/g, "") || null,
+      cep: novoCliCep.replace(/\D/g, "") || null,
+      endereco: novoCliEndereco.trim() || null,
+      numero: novoCliNumero.trim() || null,
+      limite_credito: 0,
+      saldo_fiado: 0,
+    };
+    const { data, error } = await db("clientes").insert([payload]).select().single() as any;
+    setSalvandoNovoCli(false);
+    if (error) { setErroFiado("Erro ao cadastrar: " + error.message); setModalNovoCliente(false); return; }
+    if (data) {
+      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: 0, saldo_fiado: 0 });
+      setErroFiado("");
+    }
+    setModalNovoCliente(false);
+    setNovoCliNome(""); setNovoCliTelefone(""); setNovoCliCpf("");
+    setNovoCliCep(""); setNovoCliEndereco(""); setNovoCliNumero("");
   }
 
   /* ── Grava venda — online primeiro, offline como fallback ── */
@@ -1262,8 +1316,8 @@ ${rod}
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        background: "linear-gradient(180deg, #0c121a 0%, #101722 38%, #111827 100%)",
-        color: "#e5e7eb",
+        background: "linear-gradient(180deg, #f0f4f8 0%, #e8eef5 100%)",
+        color: "#0f172a",
         padding: "6px 10px 8px",
         fontFamily: "Segoe UI, Arial, sans-serif",
         boxSizing: "border-box",
@@ -1279,10 +1333,10 @@ ${rod}
               }}
               title="Abrir painel ADM"
               style={{
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                background: "#f1f5f9",
+                border: "1px solid #cbd5e1",
                 borderRadius: 8,
-                color: "rgba(255,255,255,0.70)",
+                color: "#475569",
                 fontSize: 13,
                 fontWeight: 700,
                 padding: "5px 14px",
@@ -1296,7 +1350,7 @@ ${rod}
               ⚙️ ADM
             </button>
           </div>
-          <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 10, color: "rgba(255,255,255,.38)", fontWeight: 300 }}>
+          <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 10, color: "#94a3b8", fontWeight: 300 }}>
             FRENTE DE CAIXA
           </div>
           <div style={{ width: 180, display: "flex", justifyContent: "flex-end" }}>
@@ -1317,7 +1371,7 @@ ${rod}
           {/* ── Coluna esquerda: entrada ── */}
           <section style={colPanel}>
             <form onSubmit={adicionarItem} style={{ flexShrink: 0 }}>
-              <Campo label="Código / EAN / produto  —  F2 para focar">
+              <Campo label="① Produto — código, EAN ou nome  (F2)">
                 <div style={{ position: "relative" }}>
                   <input
                     ref={refCodigo}
@@ -1335,11 +1389,11 @@ ${rod}
                       left: 0,
                       right: 0,
                       zIndex: 200,
-                      background: "#0f172a",
-                      border: "1px solid rgba(255,255,255,.14)",
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
                       borderRadius: 12,
                       overflow: "hidden",
-                      boxShadow: "0 12px 32px rgba(0,0,0,.6)",
+                      boxShadow: "0 12px 32px rgba(0,0,0,.15)",
                     }}>
                       {sugestoes.map((p, i) => (
                         <div
@@ -1351,19 +1405,19 @@ ${rod}
                             alignItems: "center",
                             padding: "10px 14px",
                             cursor: "pointer",
-                            background: i === sugestaoIdx ? "rgba(31,170,74,.22)" : "transparent",
-                            borderBottom: "1px solid rgba(255,255,255,.05)",
+                            background: i === sugestaoIdx ? "#f0fdf4" : "#fff",
+                            borderBottom: "1px solid #f1f5f9",
                             transition: "background .1s",
                           }}
                           onMouseEnter={() => setSugestaoIdx(i)}
                         >
                           <div>
-                            <div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>{p.nome}</div>
-                            <div style={{ color: "#475569", fontSize: 12, marginTop: 1 }}>
+                            <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 15 }}>{p.nome}</div>
+                            <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 1 }}>
                               {[p.codigo && `Cód: ${p.codigo}`, p.ean && `EAN: ${p.ean}`].filter(Boolean).join("  ·  ") || p.unidade}
                             </div>
                           </div>
-                          <div style={{ color: "#1faa4a", fontWeight: 900, fontSize: 16, marginLeft: 12, whiteSpace: "nowrap" }}>
+                          <div style={{ color: "#16a34a", fontWeight: 900, fontSize: 16, marginLeft: 12, whiteSpace: "nowrap" }}>
                             {moedaBR(p.preco ?? 0)}
                           </div>
                         </div>
@@ -1373,19 +1427,20 @@ ${rod}
                 </div>
               </Campo>
 
-              <Campo label="Quantidade pesada / unidades">
+              <Campo label="② Peso / Quantidade">
                 <input
                   ref={refQtd}
-                  style={{ ...inputGrande, textAlign: "right", fontSize: 22, fontWeight: 500 }}
+                  style={{ ...inputGrande, textAlign: "right", fontSize: 22, fontWeight: 700 }}
                   value={quantidade}
                   onChange={(e) => setQuantidade(e.target.value)}
                   onKeyDown={onKeyDownQtd}
                   inputMode="decimal"
                   placeholder="1"
+                  autoFocus
                 />
               </Campo>
 
-              <Campo label="Preço unitário">
+              <Campo label="③ Valor unitário (preenchido automático)">
                 <input
                   ref={refPrecoUnit}
                   style={{ ...inputGrande, textAlign: "right", fontSize: 20, fontWeight: 800 }}
@@ -1405,7 +1460,7 @@ ${rod}
                     justifyContent: "flex-end",
                     fontSize: 26,
                     fontWeight: 900,
-                    color: precoTotalLinha > 0 ? "#1faa4a" : "rgba(255,255,255,.25)",
+                    color: precoTotalLinha > 0 ? "#16a34a" : "#d1d5db",
                     letterSpacing: 0.5,
                     userSelect: "none",
                   }}
@@ -1444,8 +1499,8 @@ ${rod}
               style={{
                 marginTop: 12,
                 borderRadius: 14,
-                border: "1px solid rgba(255,255,255,.08)",
-                background: "rgba(255,255,255,.04)",
+                border: "1px solid #e2e8f0",
+                background: "#f8fafc",
                 flex: 1,
                 minHeight: 0,
                 display: "flex",
@@ -1482,7 +1537,7 @@ ${rod}
                 fontWeight: 700,
                 fontSize: 14,
                 padding: "0 4px 10px",
-                borderBottom: "1px solid rgba(255,255,255,.08)",
+                borderBottom: "1px solid #e2e8f0",
               }}
             >
               <div>Item</div>
@@ -1508,8 +1563,8 @@ ${rod}
                       gap: 8,
                       alignItems: "center",
                       padding: "10px 4px",
-                      borderBottom: "1px solid rgba(255,255,255,.05)",
-                      color: "#e2e8f0",
+                      borderBottom: "1px solid #f1f5f9",
+                      color: "#0f172a",
                       fontSize: 15,
                     }}
                   >
@@ -1635,7 +1690,7 @@ ${rod}
                         setMostrarModalCPF(false);
                         setClienteLabel(formatarCPF(cpfNaoEncontrado));
                         setCpfNaoEncontrado("");
-                        setTimeout(() => refCodigo.current?.focus(), 50);
+                        setTimeout(() => refQtd.current?.focus(), 50);
                       }}
                       style={{ height: 42, border: "1px solid #d7dbe2", borderRadius: 10, background: "#f8fafc", color: "#374151", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
                     >
@@ -1656,8 +1711,61 @@ ${rod}
               </div>
             )}
 
+            {/* Modal: cadastro rápido de cliente para fiado */}
+            {modalNovoCliente && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
+                <div style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 22, padding: 28, boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", marginBottom: 4 }}>Cadastrar cliente</div>
+                  <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Preencha os dados para fiado. Após salvar, o cliente será selecionado automaticamente.</div>
+                  <form onSubmit={salvarNovoClienteFiado}>
+                    <div style={{ display: "grid", gap: 14 }}>
+                      <div>
+                        <label style={labelModal}>Nome *</label>
+                        <input style={inputModal} value={novoCliNome} onChange={(e) => setNovoCliNome(e.target.value)} placeholder="Nome completo" required autoFocus />
+                      </div>
+                      <div>
+                        <label style={labelModal}>Telefone</label>
+                        <input style={inputModal} value={novoCliTelefone} onChange={(e) => setNovoCliTelefone(e.target.value)} placeholder="(00) 00000-0000" inputMode="numeric" />
+                      </div>
+                      <div>
+                        <label style={labelModal}>CPF (opcional)</label>
+                        <input style={inputModal} value={novoCliCpf} onChange={(e) => setNovoCliCpf(e.target.value)} placeholder="000.000.000-00" inputMode="numeric" />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div>
+                          <label style={labelModal}>CEP</label>
+                          <input style={inputModal} value={novoCliCep}
+                            onChange={(e) => { setNovoCliCep(e.target.value); if (e.target.value.replace(/\D/g,"").length === 8) buscarCep(e.target.value); }}
+                            placeholder="00000-000" inputMode="numeric" />
+                        </div>
+                        <div>
+                          <label style={labelModal}>Número</label>
+                          <input style={inputModal} value={novoCliNumero} onChange={(e) => setNovoCliNumero(e.target.value)} placeholder="Nº" />
+                        </div>
+                      </div>
+                      {novoCliEndereco && (
+                        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#15803d" }}>
+                          {buscandoCep ? "Buscando endereço..." : `📍 ${novoCliEndereco}`}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
+                      <button type="button" onClick={() => setModalNovoCliente(false)}
+                        style={{ height: 44, borderRadius: 12, border: "1px solid #d5dde7", background: "#f8fafc", color: "#374151", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+                        Cancelar
+                      </button>
+                      <button type="submit" disabled={salvandoNovoCli || !novoCliNome.trim()}
+                        style={{ height: 44, borderRadius: 12, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", opacity: !novoCliNome.trim() ? 0.5 : 1 }}>
+                        {salvandoNovoCli ? "Salvando..." : "✔ Salvar e selecionar"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* Rodapé: contagem e total */}
-            <div style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid #e2e8f0" }}>
               <div
                 style={{
                   display: "flex",
@@ -1737,21 +1845,21 @@ ${rod}
               </span>
             </div>
 
-            <div style={{ color: "rgba(255,255,255,.35)", fontSize: 11, letterSpacing: 0.4, marginBottom: 1 }}>
+            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: 0.4, marginBottom: 1 }}>
               OPERADOR
             </div>
-            <div style={{ color: "#8bb8ff", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+            <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
               {nomeOperador}
             </div>
 
             <div
               style={{
                 borderRadius: 10,
-                background: "#1e293b",
-                color: "#e2e8f0",
+                background: "#f1f5f9",
+                color: "#0f172a",
                 padding: "7px 12px",
                 marginBottom: 8,
-                border: "1px solid rgba(255,255,255,.08)",
+                border: "1px solid #e2e8f0",
               }}
             >
               <div style={{ color: "#64748b", fontSize: 10, letterSpacing: 0.4 }}>CPF NA COMPRA</div>
@@ -1779,7 +1887,7 @@ ${rod}
             </div>
 
             {/* Versão */}
-            <div style={{ textAlign: "center", marginTop: 6, color: "rgba(255,255,255,.22)", fontSize: 10, letterSpacing: 0.5, lineHeight: 1.6 }}>
+            <div style={{ textAlign: "center", marginTop: 6, color: "#94a3b8", fontSize: 10, letterSpacing: 0.5, lineHeight: 1.6 }}>
               Horti Gestão PDV · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
               Desenvolvido por Jean Silva
             </div>
@@ -2081,7 +2189,18 @@ ${rod}
                   </div>
                 )}
                 {erroFiado && (
-                  <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 700, marginTop: 6 }}>{erroFiado}</div>
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 700 }}>{erroFiado}</div>
+                    {erroFiado.includes("não encontrado") && (
+                      <button
+                        type="button"
+                        onClick={() => { setErroFiado(""); setModalNovoCliente(true); }}
+                        style={{ marginTop: 8, height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                      >
+                        + Cadastrar cliente agora
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -2593,7 +2712,7 @@ function Relogio() {
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 7 }}>
-      <div style={{ color: "rgba(255,255,255,.45)", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+      <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
         {label}
       </div>
       {children}
@@ -2676,11 +2795,11 @@ function fmtHora(iso: string) {
 /* ── Estilos ── */
 
 const colPanel: React.CSSProperties = {
-  background: "rgba(10,15,22,.60)",
-  border: "1px solid rgba(255,255,255,.07)",
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
   borderRadius: 14,
   padding: 14,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,.03)",
+  boxShadow: "0 2px 8px rgba(0,0,0,.06)",
   position: "relative",
   display: "flex",
   flexDirection: "column",
@@ -2691,9 +2810,9 @@ const inputGrande: React.CSSProperties = {
   width: "100%",
   height: 44,
   borderRadius: 12,
-  border: "1px solid rgba(255,255,255,.12)",
-  background: "#1e293b",
-  color: "#f1f5f9",
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  color: "#0f172a",
   padding: "0 14px",
   fontSize: 17,
   outline: "none",

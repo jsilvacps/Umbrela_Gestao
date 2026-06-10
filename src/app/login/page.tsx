@@ -102,21 +102,8 @@ export default function LoginPage() {
 
   /* ── Detecta se precisa de setup na montagem ── */
   useEffect(() => {
-    async function detectar() {
-      try {
-        if (!isConfigurado()) {
-          setTela("setup");
-          setTimeout(() => refSbUrl.current?.focus(), 200);
-          return;
-        }
-        const { data } = await db("empresa").select("empresa_id").maybeSingle();
-        setTela(data?.empresa_id ? "login" : "setup");
-      } catch {
-        // Erro de rede ou Supabase — vai para setup para o usuário tentar de novo
-        setTela("setup");
-      }
-    }
-    detectar();
+    // Vai direto para login — o login auto-recupera o empresa_id do banco
+    setTela("login");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,24 +112,39 @@ export default function LoginPage() {
     e.preventDefault();
     setErroLogin("");
     setEntrando(true);
-    const { data, error } = await db("operadores")
-      .select("id, nome, username, blocked")
-      .eq("username", username)
-      .eq("password", senha)
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) {
-      setErroLogin("Usuário ou senha inválidos.");
+    try {
+      // Busca globalmente (sem filtro empresa_id) para auto-recuperar o empresa_id
+      const { data, error } = await masterSupabase
+        .from("operadores")
+        .select("id, nome, username, empresa_id, blocked")
+        .eq("username", username)
+        .eq("password", senha)
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
+        setErroLogin("Usuário ou senha inválidos.");
+        setEntrando(false);
+        return;
+      }
+      if ((data as { blocked?: boolean }).blocked) {
+        setErroLogin("Operador bloqueado.");
+        setEntrando(false);
+        return;
+      }
+      // Salva empresa_id localmente (auto-recupera mesmo que o localStorage tenha sido limpo)
+      if ((data as { empresa_id?: number }).empresa_id) {
+        salvarEmpresaId((data as { empresa_id: number }).empresa_id);
+      }
+      window.sessionStorage.setItem("operador_logado", JSON.stringify(data));
+      // Redireciona para a página de origem (ex: /adm) ou para o PDV
+      const params = new URLSearchParams(window.location.search);
+      const returnTo = params.get("returnTo") || "/pdv";
+      router.push(returnTo);
+    } catch {
+      setErroLogin("Erro de conexão. Tente novamente.");
       setEntrando(false);
-      return;
     }
-    if ((data as { blocked?: boolean }).blocked) {
-      setErroLogin("Operador bloqueado.");
-      setEntrando(false);
-      return;
-    }
-    window.sessionStorage.setItem("operador_logado", JSON.stringify(data));
-    router.push("/pdv");
   }
 
   /* ── Setup: valida código de ativação ── */
@@ -356,6 +358,10 @@ export default function LoginPage() {
             <button type="button" onClick={() => { setEsqueciEtapa("usuario"); setEsqueciErro(""); }}
               style={{ width: "100%", background: "none", border: "none", color: "#6b7280", fontSize: isMobile ? 15 : 13, marginTop: 16, cursor: "pointer", textDecoration: "underline", padding: "8px 0" }}>
               Esqueci minha senha
+            </button>
+            <button type="button" onClick={() => { setTela("setup"); setTimeout(() => refSbUrl.current?.focus(), 200); }}
+              style={{ width: "100%", background: "none", border: "none", color: "#9ca3af", fontSize: isMobile ? 13 : 12, marginTop: 4, cursor: "pointer", textDecoration: "underline", padding: "4px 0" }}>
+              Primeiro acesso neste dispositivo? Configurar agora
             </button>
           </form>
         </div>

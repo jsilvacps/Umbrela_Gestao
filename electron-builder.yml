@@ -5,9 +5,9 @@ appId: "com.hortigestao.pdv"
 productName: "Horti Gestão PDV"
 copyright: "© 2025 Horti Gestão"
 
-# Diretório de saída dos instaladores
+# Diretório de saída dos instaladores (LOCAL — fora do Google Drive para evitar truncagem de arquivos)
 directories:
-  output: "dist-electron"
+  output: "C:\\horti-builds"
   buildResources: "electron"
 
 # Arquivos incluídos no pacote Electron (o mínimo necessário)
@@ -42,6 +42,8 @@ win:
       arch:
         - x64
   icon: electron/icon.ico
+  signtoolOptions:
+    sign: null
 
 nsis:
   oneClick: true                        # instalação silenciosa com 1 clique

@@ -306,17 +306,10 @@ function baixarEInstalar(urlDownload, versao) {
           //    - Depois executa o instalador silenciosamente
           //    - Se auto-apaga
           const os2 = require("os");
-          const exeName = path.basename(process.execPath); // "Horti Gestão PDV.exe"
           const batPath = path.join(os2.tmpdir(), "horti-update.bat");
           const bat = [
             "@echo off",
-            "setlocal",
-            ":aguarda",
-            `tasklist /FI "IMAGENAME eq ${exeName}" 2>NUL | find /I /N "${exeName}" >NUL`,
-            "if not ERRORLEVEL 1 (",
-            "  timeout /T 1 /NOBREAK >NUL",
-            "  goto aguarda",
-            ")",
+            "timeout /T 3 /NOBREAK >NUL",
             `start "" /WAIT "${destino}"`,
             `del "%~f0"`,
           ].join("\r\n");

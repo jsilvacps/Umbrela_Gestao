@@ -23,12 +23,34 @@ type Empresa = {
   nome_fantasia?: string | null;
 };
 
+type ItemVenda = {
+  produto_nome: string | null;
+  quantidade: number;
+  preco: number;
+  produto_id?: string | null;
+};
+
+type RankingItem = {
+  nome: string;
+  totalQtd: number;
+  totalReceita: number;
+};
+
 function moeda(v: number | null | undefined) {
   return `R$ ${Number(v || 0).toFixed(2).replace(".", ",")}`;
 }
 
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function VendasPage() {
   const isMobile = useIsMobile();
+
+  /* ── Aba ativa ── */
+  const [abaAtiva, setAbaAtiva] = useState<"vendas" | "itens">("vendas");
+
+  /* ── Relatório de vendas ── */
   const [vendas, setVendas]       = useState<Venda[]>([]);
   const [clientes, setClientes]   = useState<Cliente[]>([]);
   const [empresa, setEmpresa]     = useState<Empresa>({});
@@ -36,7 +58,14 @@ export default function VendasPage() {
   const [pagamentoFiltro, setPagamentoFiltro] = useState("Todas");
   const [busca, setBusca]                     = useState("");
 
-  /* ── Carrega dados ── */
+  /* ── Relatório de itens mais vendidos ── */
+  const [itensDe, setItensDe]         = useState(hojeISO());
+  const [itensAte, setItensAte]       = useState(hojeISO());
+  const [rankingItens, setRankingItens] = useState<RankingItem[]>([]);
+  const [carregandoItens, setCarregandoItens] = useState(false);
+  const [jaConsultou, setJaConsultou] = useState(false);
+
+  /* ── Carrega dados de vendas ── */
   const carregar = useCallback(async () => {
     const [{ data: vendasData }, { data: clientesData }, { data: empresaData }] = await Promise.all([
       db("vendas")
@@ -56,7 +85,7 @@ export default function VendasPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  /* ── Atalho de teclado: P → imprimir (quando não está digitando) ── */
+  /* ── Atalho de teclado: P → imprimir ── */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
@@ -74,6 +103,51 @@ export default function VendasPage() {
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ── Buscar itens mais vendidos ── */
+  async function buscarItensMaisVendidos() {
+    if (!itensDe || !itensAte) return;
+    setCarregandoItens(true);
+    setJaConsultou(true);
+    try {
+      // 1. Busca vendas do período
+      const { data: vendasPeriodo } = await (db("vendas")
+        .select("id") as any)
+        .gte("created_at", `${itensDe}T00:00:00`)
+        .lte("created_at", `${itensAte}T23:59:59`);
+
+      const ids: string[] = (vendasPeriodo || []).map((v: any) => v.id);
+
+      if (ids.length === 0) {
+        setRankingItens([]);
+        return;
+      }
+
+      // 2. Busca todos os itens dessas vendas
+      const { data: itensData } = await (db("itens_venda")
+        .select("produto_nome, quantidade, preco, produto_id") as any)
+        .in("venda_id", ids);
+
+      const itens: ItemVenda[] = (itensData || []) as ItemVenda[];
+
+      // 3. Agrupa por produto_nome
+      const mapaRanking: Record<string, RankingItem> = {};
+      for (const item of itens) {
+        const nome = item.produto_nome || "Produto sem nome";
+        if (!mapaRanking[nome]) {
+          mapaRanking[nome] = { nome, totalQtd: 0, totalReceita: 0 };
+        }
+        mapaRanking[nome].totalQtd     += Number(item.quantidade || 0);
+        mapaRanking[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+      }
+
+      // 4. Ordena por quantidade desc
+      const ranking = Object.values(mapaRanking).sort((a, b) => b.totalQtd - a.totalQtd);
+      setRankingItens(ranking);
+    } finally {
+      setCarregandoItens(false);
+    }
+  }
 
   /* ── Filtros ── */
   const vendasFiltradas = useMemo(() => {
@@ -99,6 +173,10 @@ export default function VendasPage() {
   const totalPix         = useMemo(() => vendasFiltradas.filter(v => (v.tipo_pagamento || "").toLowerCase() === "pix").reduce((s, v) => s + Number(v.total || 0), 0), [vendasFiltradas]);
   const totalCartaoFiado = useMemo(() => vendasFiltradas.filter(v => ["cartao","fiado"].includes((v.tipo_pagamento || "").toLowerCase())).reduce((s, v) => s + Number(v.total || 0), 0), [vendasFiltradas]);
 
+  /* ── Totais itens ── */
+  const totalUnidades  = useMemo(() => rankingItens.reduce((s, i) => s + i.totalQtd, 0), [rankingItens]);
+  const totalReceitaIt = useMemo(() => rankingItens.reduce((s, i) => s + i.totalReceita, 0), [rankingItens]);
+
   function limparFiltros() {
     setDataFiltro("");
     setPagamentoFiltro("Todas");
@@ -123,195 +201,391 @@ export default function VendasPage() {
           <HeaderCebolao />
         </div>
 
-        {/* ── Barra de ações — PRIMEIRO item do Tab, atalhos visíveis ── */}
-        <div className="no-print" style={actionBar}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              autoFocus
-              onClick={() => window.print()}
-              style={btnPrint}
-            >
-              🖨️ Imprimir / Salvar PDF
-              <kbd style={kbd}>P</kbd>
-            </button>
-
-            <button
-              onClick={limparFiltros}
-              style={btnLight}
-            >
-              ✕ Limpar filtros
-              <kbd style={kbdGray}>L</kbd>
-            </button>
-          </div>
-
-          <div style={{ fontSize: 13, color: "#66758a", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>{vendasFiltradas.length}</span> vendas exibidas
-          </div>
+        {/* ── Tabs ── */}
+        <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button
+            onClick={() => setAbaAtiva("vendas")}
+            style={abaAtiva === "vendas" ? tabAtivo : tabInativo}
+          >
+            📋 Relatório de Vendas
+          </button>
+          <button
+            onClick={() => setAbaAtiva("itens")}
+            style={abaAtiva === "itens" ? tabAtivo : tabInativo}
+          >
+            🏆 Itens mais vendidos
+          </button>
         </div>
 
-        {/* ── Seção de filtros ── */}
-        <section style={{ ...card, marginBottom: 14 }} className="no-print">
-          <div style={titleStyle}>Relatório de vendas</div>
-          <div style={subtitleStyle}>Use Tab para navegar entre campos e <strong>P</strong> para imprimir a qualquer momento.</div>
-
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
-            gap: 16,
-          }}>
-            <Field label="Filtrar por dia">
-              <input type="date" style={inputStyle} value={dataFiltro}
-                onChange={(e) => setDataFiltro(e.target.value)} />
-            </Field>
-
-            <Field label="Forma de pagamento">
-              <select style={inputStyle} value={pagamentoFiltro}
-                onChange={(e) => setPagamentoFiltro(e.target.value)}>
-                <option value="Todas">Todas</option>
-                <option value="dinheiro">Dinheiro</option>
-                <option value="pix">PIX</option>
-                <option value="cartao">Cartão</option>
-                <option value="fiado">Fiado</option>
-              </select>
-            </Field>
-
-            <Field label="Pesquisar">
-              <input style={inputStyle} value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Número, cliente, operador..." />
-            </Field>
-          </div>
-        </section>
-
-        {/* ── Cards de resumo — aparecem na tela e no print ── */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-          gap: 14,
-          marginBottom: 14,
-        }}>
-          <SummaryCard label="Total geral"     valor={moeda(totalGeral)}       destaque />
-          <SummaryCard label="Dinheiro"        valor={moeda(totalDinheiro)}    />
-          <SummaryCard label="PIX"             valor={moeda(totalPix)}         />
-          <SummaryCard label="Cartão / Fiado"  valor={moeda(totalCartaoFiado)} />
-        </div>
-
-        {/* ── Tabela na tela ── */}
-        <section style={card} className="no-print">
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 620 }}>
-              <div style={thead}>
-                <div>Nº</div>
-                <div>Data / Hora</div>
-                <div>Cliente</div>
-                <div>Operador</div>
-                <div>Pagamento</div>
-                <div style={{ textAlign: "right" }}>Total</div>
+        {/* ═══════════════════════════════════
+            ABA: RELATÓRIO DE VENDAS
+            ═══════════════════════════════════ */}
+        {abaAtiva === "vendas" && (
+          <>
+            {/* Barra de ações */}
+            <div className="no-print" style={actionBar}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button autoFocus onClick={() => window.print()} style={btnPrint}>
+                  🖨️ Imprimir / Salvar PDF
+                  <kbd style={kbd}>P</kbd>
+                </button>
+                <button onClick={limparFiltros} style={btnLight}>
+                  ✕ Limpar filtros
+                  <kbd style={kbdGray}>L</kbd>
+                </button>
               </div>
+              <div style={{ fontSize: 13, color: "#66758a", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontWeight: 700 }}>{vendasFiltradas.length}</span> vendas exibidas
+              </div>
+            </div>
 
-              {vendasFiltradas.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
-              ) : vendasFiltradas.map((venda) => {
-                const cliente = clientes.find((c) => c.id === venda.cliente_id);
-                return (
-                  <div key={venda.id} style={trow}>
-                    <div style={{ fontFamily: "monospace", fontSize: 13 }}>{String(venda.id).slice(0, 8)}</div>
-                    <div>{new Date(venda.created_at).toLocaleString("pt-BR")}</div>
-                    <div style={{ fontWeight: 700 }}>{cliente?.nome || "Consumidor"}</div>
-                    <div>{venda.operador_nome || "-"}</div>
-                    <div>
-                      <span style={payBadge(venda.tipo_pagamento)}>
-                        {venda.tipo_pagamento || "-"}
-                      </span>
+            {/* Filtros */}
+            <section style={{ ...card, marginBottom: 14 }} className="no-print">
+              <div style={titleStyle}>Relatório de vendas</div>
+              <div style={subtitleStyle}>Use Tab para navegar entre campos e <strong>P</strong> para imprimir a qualquer momento.</div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+                gap: 16,
+              }}>
+                <Field label="Filtrar por dia">
+                  <input type="date" style={inputStyle} value={dataFiltro}
+                    onChange={(e) => setDataFiltro(e.target.value)} />
+                </Field>
+                <Field label="Forma de pagamento">
+                  <select style={inputStyle} value={pagamentoFiltro}
+                    onChange={(e) => setPagamentoFiltro(e.target.value)}>
+                    <option value="Todas">Todas</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao">Cartão</option>
+                    <option value="fiado">Fiado</option>
+                  </select>
+                </Field>
+                <Field label="Pesquisar">
+                  <input style={inputStyle} value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Número, cliente, operador..." />
+                </Field>
+              </div>
+            </section>
+
+            {/* Cards de resumo */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+              gap: 14,
+              marginBottom: 14,
+            }}>
+              <SummaryCard label="Total geral"     valor={moeda(totalGeral)}       destaque />
+              <SummaryCard label="Dinheiro"        valor={moeda(totalDinheiro)}    />
+              <SummaryCard label="PIX"             valor={moeda(totalPix)}         />
+              <SummaryCard label="Cartão / Fiado"  valor={moeda(totalCartaoFiado)} />
+            </div>
+
+            {/* Tabela na tela */}
+            <section style={card} className="no-print">
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ ...tableWrap, minWidth: 620 }}>
+                  <div style={thead}>
+                    <div>Nº</div>
+                    <div>Data / Hora</div>
+                    <div>Cliente</div>
+                    <div>Operador</div>
+                    <div>Pagamento</div>
+                    <div style={{ textAlign: "right" }}>Total</div>
+                  </div>
+                  {vendasFiltradas.length === 0 ? (
+                    <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
+                  ) : vendasFiltradas.map((venda) => {
+                    const cliente = clientes.find((c) => c.id === venda.cliente_id);
+                    return (
+                      <div key={venda.id} style={trow}>
+                        <div style={{ fontFamily: "monospace", fontSize: 13 }}>{String(venda.id).slice(0, 8)}</div>
+                        <div>{new Date(venda.created_at).toLocaleString("pt-BR")}</div>
+                        <div style={{ fontWeight: 700 }}>{cliente?.nome || "Consumidor"}</div>
+                        <div>{venda.operador_nome || "-"}</div>
+                        <div>
+                          <span style={payBadge(venda.tipo_pagamento)}>
+                            {venda.tipo_pagamento || "-"}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
+                          {moeda(venda.total)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {/* ══ ÁREA DE IMPRESSÃO ══ */}
+            <div className="print-only">
+              <div className="print-header">
+                <div>
+                  <div className="print-header-title">{nomeEmpresa}</div>
+                  <div style={{ fontSize: "10pt", color: "#333", marginTop: 4 }}>Relatório de Vendas</div>
+                </div>
+                <div className="print-header-meta">
+                  <div>Impresso em: {dataImpressao}</div>
+                  <div>Filtros: {filtroTexto}</div>
+                  <div>Total de registros: {vendasFiltradas.length}</div>
+                </div>
+              </div>
+              <div className="print-summary">
+                <div className="print-summary-item">
+                  <div className="print-summary-label">Total geral</div>
+                  <div className="print-summary-value">{moeda(totalGeral)}</div>
+                </div>
+                <div className="print-summary-item">
+                  <div className="print-summary-label">Dinheiro</div>
+                  <div className="print-summary-value">{moeda(totalDinheiro)}</div>
+                </div>
+                <div className="print-summary-item">
+                  <div className="print-summary-label">PIX</div>
+                  <div className="print-summary-value">{moeda(totalPix)}</div>
+                </div>
+                <div className="print-summary-item">
+                  <div className="print-summary-label">Cartão / Fiado</div>
+                  <div className="print-summary-value">{moeda(totalCartaoFiado)}</div>
+                </div>
+              </div>
+              <table className="print-table">
+                <thead>
+                  <tr>
+                    <th>Nº</th>
+                    <th>Data / Hora</th>
+                    <th>Cliente</th>
+                    <th>Operador</th>
+                    <th>Pagamento</th>
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendasFiltradas.length === 0 ? (
+                    <tr><td colSpan={6} style={{ textAlign: "center", padding: "12pt" }}>Nenhuma venda no período.</td></tr>
+                  ) : vendasFiltradas.map((venda) => {
+                    const cliente = clientes.find((c) => c.id === venda.cliente_id);
+                    return (
+                      <tr key={venda.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: "8pt" }}>{String(venda.id).slice(0, 8)}</td>
+                        <td>{new Date(venda.created_at).toLocaleString("pt-BR")}</td>
+                        <td><strong>{cliente?.nome || "Consumidor"}</strong></td>
+                        <td>{venda.operador_nome || "-"}</td>
+                        <td>{venda.tipo_pagamento || "-"}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{moeda(venda.total)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={5} style={{ fontWeight: 800, paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
+                      Total ({vendasFiltradas.length} vendas)
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 900, fontSize: "11pt", paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
+                      {moeda(totalGeral)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ═══════════════════════════════════
+            ABA: ITENS MAIS VENDIDOS
+            ═══════════════════════════════════ */}
+        {abaAtiva === "itens" && (
+          <>
+            {/* Filtros de período */}
+            <section style={{ ...card, marginBottom: 14 }}>
+              <div style={titleStyle}>🏆 Itens mais vendidos</div>
+              <div style={subtitleStyle}>Selecione o período e clique em <strong>Buscar</strong> para ver o ranking de produtos.</div>
+
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr auto",
+                gap: 16,
+                alignItems: "flex-end",
+              }}>
+                <Field label="De (data início)">
+                  <input
+                    type="date"
+                    style={inputStyle}
+                    value={itensDe}
+                    onChange={(e) => setItensDe(e.target.value)}
+                  />
+                </Field>
+
+                <Field label="Até (data fim)">
+                  <input
+                    type="date"
+                    style={inputStyle}
+                    value={itensAte}
+                    onChange={(e) => setItensAte(e.target.value)}
+                  />
+                </Field>
+
+                <button
+                  onClick={buscarItensMaisVendidos}
+                  disabled={carregandoItens || !itensDe || !itensAte}
+                  style={{
+                    ...btnBuscar,
+                    opacity: (carregandoItens || !itensDe || !itensAte) ? 0.6 : 1,
+                    cursor: (carregandoItens || !itensDe || !itensAte) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {carregandoItens ? "⏳ Buscando..." : "🔍 Buscar"}
+                </button>
+              </div>
+            </section>
+
+            {/* Cards de resumo dos itens */}
+            {jaConsultou && (
+              <>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
+                  gap: 14,
+                  marginBottom: 14,
+                }}>
+                  <SummaryCard label="Produtos diferentes" valor={String(rankingItens.length)} destaque />
+                  <SummaryCard label="Total de unidades"   valor={totalUnidades.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} />
+                  <SummaryCard label="Receita total"       valor={moeda(totalReceitaIt)} />
+                </div>
+
+                {/* Tabela de ranking */}
+                <section style={card}>
+                  {rankingItens.length === 0 ? (
+                    <div style={{ padding: 24, textAlign: "center", color: "#66758a", fontSize: 16 }}>
+                      Nenhuma venda encontrada no período selecionado.
                     </div>
-                    <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
-                      {moeda(venda.total)}
+                  ) : (
+                    <div style={{ overflowX: "auto" }}>
+                      <div style={{ minWidth: 520 }}>
+                        {/* Cabeçalho */}
+                        <div style={theadItens}>
+                          <div style={{ textAlign: "center" }}>#</div>
+                          <div>Produto</div>
+                          <div style={{ textAlign: "right" }}>Qtd. total</div>
+                          <div style={{ textAlign: "right" }}>Receita total</div>
+                          <div style={{ textAlign: "right" }}>Preço médio</div>
+                        </div>
+
+                        {rankingItens.map((item, idx) => {
+                          const precoMedio = item.totalQtd > 0 ? item.totalReceita / item.totalQtd : 0;
+                          const isPodio = idx < 3;
+                          const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+                          return (
+                            <div key={item.nome} style={{
+                              ...trowItens,
+                              background: isPodio ? (idx === 0 ? "#fffbeb" : idx === 1 ? "#f8fafc" : "#fdf7f0") : "#fff",
+                              borderLeft: isPodio ? `4px solid ${idx === 0 ? "#f59e0b" : idx === 1 ? "#94a3b8" : "#cd7c3c"}` : "4px solid transparent",
+                            }}>
+                              <div style={{ textAlign: "center", fontWeight: 900, fontSize: 18, color: isPodio ? "#374151" : "#94a3b8" }}>
+                                {isPodio ? medalha : idx + 1}
+                              </div>
+                              <div style={{ fontWeight: isPodio ? 800 : 600, color: "#11243d", fontSize: 15 }}>
+                                {item.nome}
+                              </div>
+                              <div style={{ textAlign: "right", fontWeight: 800, fontSize: 16, color: "#1a7b39" }}>
+                                {item.totalQtd % 1 === 0
+                                  ? item.totalQtd.toLocaleString("pt-BR")
+                                  : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                                <span style={{ fontWeight: 500, fontSize: 12, color: "#66758a", marginLeft: 4 }}>un</span>
+                              </div>
+                              <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>
+                                {moeda(item.totalReceita)}
+                              </div>
+                              <div style={{ textAlign: "right", color: "#66758a", fontSize: 14 }}>
+                                {moeda(precoMedio)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Área de impressão do ranking */}
+                <div className="print-only">
+                  <div className="print-header">
+                    <div>
+                      <div className="print-header-title">{nomeEmpresa}</div>
+                      <div style={{ fontSize: "10pt", color: "#333", marginTop: 4 }}>
+                        Itens Mais Vendidos — {itensDe.split("-").reverse().join("/")} a {itensAte.split("-").reverse().join("/")}
+                      </div>
+                    </div>
+                    <div className="print-header-meta">
+                      <div>Impresso em: {dataImpressao}</div>
+                      <div>Produtos: {rankingItens.length} | Unidades: {totalUnidades.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════
-            ÁREA DE IMPRESSÃO — só aparece no print
-            ══════════════════════════════════════ */}
-        <div className="print-only">
-          {/* Cabeçalho do documento */}
-          <div className="print-header">
-            <div>
-              <div className="print-header-title">{nomeEmpresa}</div>
-              <div style={{ fontSize: "10pt", color: "#333", marginTop: 4 }}>Relatório de Vendas</div>
-            </div>
-            <div className="print-header-meta">
-              <div>Impresso em: {dataImpressao}</div>
-              <div>Filtros: {filtroTexto}</div>
-              <div>Total de registros: {vendasFiltradas.length}</div>
-            </div>
-          </div>
-
-          {/* Resumo de totais */}
-          <div className="print-summary">
-            <div className="print-summary-item">
-              <div className="print-summary-label">Total geral</div>
-              <div className="print-summary-value">{moeda(totalGeral)}</div>
-            </div>
-            <div className="print-summary-item">
-              <div className="print-summary-label">Dinheiro</div>
-              <div className="print-summary-value">{moeda(totalDinheiro)}</div>
-            </div>
-            <div className="print-summary-item">
-              <div className="print-summary-label">PIX</div>
-              <div className="print-summary-value">{moeda(totalPix)}</div>
-            </div>
-            <div className="print-summary-item">
-              <div className="print-summary-label">Cartão / Fiado</div>
-              <div className="print-summary-value">{moeda(totalCartaoFiado)}</div>
-            </div>
-          </div>
-
-          {/* Tabela limpa para impressão */}
-          <table className="print-table">
-            <thead>
-              <tr>
-                <th>Nº</th>
-                <th>Data / Hora</th>
-                <th>Cliente</th>
-                <th>Operador</th>
-                <th>Pagamento</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vendasFiltradas.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: "12pt" }}>Nenhuma venda no período.</td></tr>
-              ) : vendasFiltradas.map((venda) => {
-                const cliente = clientes.find((c) => c.id === venda.cliente_id);
-                return (
-                  <tr key={venda.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: "8pt" }}>{String(venda.id).slice(0, 8)}</td>
-                    <td>{new Date(venda.created_at).toLocaleString("pt-BR")}</td>
-                    <td><strong>{cliente?.nome || "Consumidor"}</strong></td>
-                    <td>{venda.operador_nome || "-"}</td>
-                    <td>{venda.tipo_pagamento || "-"}</td>
-                    <td style={{ textAlign: "right", fontWeight: 700 }}>{moeda(venda.total)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={5} style={{ fontWeight: 800, paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
-                  Total ({vendasFiltradas.length} vendas)
-                </td>
-                <td style={{ textAlign: "right", fontWeight: 900, fontSize: "11pt", paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
-                  {moeda(totalGeral)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                  <div className="print-summary">
+                    <div className="print-summary-item">
+                      <div className="print-summary-label">Produtos diferentes</div>
+                      <div className="print-summary-value">{rankingItens.length}</div>
+                    </div>
+                    <div className="print-summary-item">
+                      <div className="print-summary-label">Total de unidades</div>
+                      <div className="print-summary-value">{totalUnidades.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</div>
+                    </div>
+                    <div className="print-summary-item">
+                      <div className="print-summary-label">Receita total</div>
+                      <div className="print-summary-value">{moeda(totalReceitaIt)}</div>
+                    </div>
+                  </div>
+                  <table className="print-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Produto</th>
+                        <th style={{ textAlign: "right" }}>Qtd. total</th>
+                        <th style={{ textAlign: "right" }}>Receita total</th>
+                        <th style={{ textAlign: "right" }}>Preço médio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankingItens.map((item, idx) => {
+                        const precoMedio = item.totalQtd > 0 ? item.totalReceita / item.totalQtd : 0;
+                        return (
+                          <tr key={item.nome}>
+                            <td style={{ textAlign: "center", fontWeight: 800 }}>{idx + 1}º</td>
+                            <td><strong>{item.nome}</strong></td>
+                            <td style={{ textAlign: "right" }}>
+                              {item.totalQtd % 1 === 0
+                                ? item.totalQtd.toLocaleString("pt-BR")
+                                : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                            </td>
+                            <td style={{ textAlign: "right", fontWeight: 700 }}>{moeda(item.totalReceita)}</td>
+                            <td style={{ textAlign: "right" }}>{moeda(precoMedio)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={2} style={{ fontWeight: 800, paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
+                          Total ({rankingItens.length} produtos)
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 700, paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
+                          {totalUnidades.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 900, paddingTop: "8pt", borderTop: "1.5pt solid #333" }}>
+                          {moeda(totalReceitaIt)}
+                        </td>
+                        <td style={{ paddingTop: "8pt", borderTop: "1.5pt solid #333" }} />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
+          </>
+        )}
 
       </div>
     </main>
@@ -410,6 +684,45 @@ const btnLight: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const btnBuscar: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  border: "none",
+  background: "#1a7b39",
+  color: "#fff",
+  height: 46,
+  padding: "0 28px",
+  borderRadius: 14,
+  fontWeight: 900,
+  fontSize: 16,
+  whiteSpace: "nowrap",
+};
+
+const tabAtivo: React.CSSProperties = {
+  padding: "10px 22px",
+  borderRadius: 14,
+  border: "none",
+  background: "#1a7b39",
+  color: "#fff",
+  fontWeight: 800,
+  fontSize: 15,
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(26,123,57,.25)",
+};
+
+const tabInativo: React.CSSProperties = {
+  padding: "10px 22px",
+  borderRadius: 14,
+  border: "1px solid #dde3ea",
+  background: "#fff",
+  color: "#243447",
+  fontWeight: 700,
+  fontSize: 15,
+  cursor: "pointer",
+};
+
 const kbd: React.CSSProperties = {
   background: "rgba(255,255,255,.25)",
   border: "1px solid rgba(255,255,255,.4)",
@@ -484,4 +797,31 @@ const trow: React.CSSProperties = {
   borderTop: "1px solid #edf1f5",
   color: "#1f2937",
   fontSize: 14,
+};
+
+const colsItens = "52px 1fr .8fr .9fr .75fr";
+
+const theadItens: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: colsItens,
+  gap: 14,
+  padding: "12px 18px",
+  color: "#25354b",
+  fontWeight: 800,
+  fontSize: 14,
+  background: "#f8fafc",
+  borderBottom: "1px solid #e5eaf0",
+  borderRadius: "12px 12px 0 0",
+};
+
+const trowItens: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: colsItens,
+  gap: 14,
+  padding: "14px 18px",
+  alignItems: "center",
+  borderTop: "1px solid #edf1f5",
+  color: "#1f2937",
+  fontSize: 14,
+  transition: "background 0.1s",
 };

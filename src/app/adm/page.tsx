@@ -215,7 +215,7 @@ export default function AdmPage() {
   }, []);
 
   useEffect(() => {
-    if (!isConfigurado()) { router.replace("/login"); return; }
+    if (!isConfigurado()) { router.replace("/login?returnTo=/adm"); return; }
     const ok = typeof window !== "undefined" ? window.sessionStorage.getItem("adm_gerencial_ok") : null;
     if (ok === "1") setLiberado(true);
     carregarTudo();

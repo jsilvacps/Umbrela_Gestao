@@ -89,11 +89,12 @@ export default function ProdutosPage() {
   const [mensagem, setMensagem] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [importando, setImportando] = useState(false);
-  const [importResult, setImportResult] = useState<{ ok: number; erros: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ ok: number; erros: string[]; resumo?: string } | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const [scannerAberto, setScannerAberto] = useState(false);
   const [buscandoEAN, setBuscandoEAN] = useState(false);
+  const [msgEAN, setMsgEAN] = useState<{tipo: "ok"|"aviso"|"erro"; texto: string} | null>(null);
   const [modalEanDuplicado, setModalEanDuplicado] = useState<{id: string; nome: string} | null>(null);
 
   const [codigoInterno, setCodigoInterno] = useState("");
@@ -111,6 +112,7 @@ export default function ProdutosPage() {
   async function aoEscanear(codigo: string) {
     setScannerAberto(false);
     setBuscandoEAN(true);
+    setMsgEAN(null);
 
     // 1. Verifica se produto já existe no cadastro local
     const { data: existente } = await db("produtos").select("id, nome").eq("ean", codigo).maybeSingle();
@@ -123,17 +125,34 @@ export default function ProdutosPage() {
     // 2. Preenche EAN no campo
     setCodigoEAN(codigo);
 
-    // 3. Tenta buscar nome na API Open Food Facts (gratuita, sem chave)
+    let nomeEncontrado = "";
+
+    // 3. Tenta Open Food Facts (PT primeiro, depois geral)
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${codigo}.json`);
       const json = await res.json();
       if (json.status === 1 && json.product) {
         const p = json.product;
-        const nome = p.product_name_pt || p.product_name || p.abbreviated_product_name || "";
-        if (nome) setNomeProduto(nome);
+        nomeEncontrado = p.product_name_pt || p.product_name_br || p.product_name || p.abbreviated_product_name || "";
       }
-    } catch {
-      // API indisponível — sem problema, só preenche o EAN
+    } catch { /* ignora */ }
+
+    // 4. Se não achou, tenta UPC Item DB (boa cobertura de produtos BR)
+    if (!nomeEncontrado) {
+      try {
+        const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${codigo}`);
+        const json = await res.json();
+        if (json.code === "OK" && json.items?.length > 0) {
+          nomeEncontrado = json.items[0].title || "";
+        }
+      } catch { /* ignora */ }
+    }
+
+    if (nomeEncontrado) {
+      setNomeProduto(nomeEncontrado);
+      setMsgEAN({ tipo: "ok", texto: `✅ Produto encontrado: "${nomeEncontrado}"` });
+    } else {
+      setMsgEAN({ tipo: "aviso", texto: "⚠️ Código não encontrado nas bases de dados. Preencha o nome manualmente." });
     }
 
     setBuscandoEAN(false);
@@ -457,20 +476,84 @@ export default function ProdutosPage() {
         return;
       }
 
-      // Insere um por um para evitar falhas em lote e ter rastreamento por linha
-      let totalOk = 0;
+      // Normaliza texto para comparação: minúsculo + sem acentos + espaços simples
+      function normNome(s: string) {
+        return String(s || "")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD").replace(/[̀-ͯ]/g, "") // remove acentos
+          .replace(/\s+/g, " ");                            // espaços múltiplos → 1
+      }
+
+      // Mapas de busca: por nome normalizado, EAN e código interno
+      const mapaNome: Record<string, string> = {};
+      const mapaEan:  Record<string, string> = {};
+      const mapaCod:  Record<string, string> = {};
+      for (const p of produtos) {
+        mapaNome[normNome(p.nome)] = p.id;
+        if (p.ean)    mapaEan[p.ean.trim()]    = p.id;
+        if (p.codigo) mapaCod[p.codigo.trim()] = p.id;
+      }
+
+      let totalInseridos  = 0;
+      let totalAtualizados = 0;
+      const naoEncontrados: string[] = [];
+
       for (let i = 0; i < registros.length; i++) {
-        const reg = registros[i];
-        const { error } = await db("produtos").insert([reg]);
-        if (error) {
-          const nomeReg = String(reg.nome ?? `linha ${i + 2}`);
-          errosLinha.push(`"${nomeReg}": ${error.message}`);
+        const reg     = registros[i];
+        const nomeReg = String(reg.nome ?? `linha ${i + 2}`).trim();
+
+        // Tenta encontrar o produto: 1º por EAN, 2º por código interno, 3º por nome normalizado
+        const eanCSV  = idx.ean    >= 0 ? String(reg.ean    || "").trim() : "";
+        const codCSV  = idx.codigo >= 0 ? String(reg.codigo || "").trim() : "";
+        const idExistente =
+          (eanCSV  && mapaEan[eanCSV])    ||
+          (codCSV  && mapaCod[codCSV])    ||
+          mapaNome[normNome(nomeReg)]     ||
+          null;
+
+        if (idExistente) {
+          // Produto já existe — atualiza APENAS os campos que vieram preenchidos no CSV
+          const update: Record<string, unknown> = {};
+          if (idx.codigo       >= 0 && reg.codigo      !== null)     update.codigo       = reg.codigo;
+          if (idx.ean          >= 0 && reg.ean          !== null)     update.ean          = reg.ean;
+          if (idx.categoria    >= 0 && reg.categoria    !== null)     update.categoria    = reg.categoria;
+          if (idx.unidade      >= 0 && reg.unidade      !== null)     update.unidade      = reg.unidade;
+          if (idx.custo        >= 0 && Number(reg.custo)        > 0)  update.custo        = reg.custo;
+          if (idx.preco        >= 0 && Number(reg.preco)        > 0)  update.preco        = reg.preco;
+          if (idx.preco_cartao >= 0 && Number(reg.preco_cartao) > 0)  update.preco_cartao = reg.preco_cartao;
+          if (idx.estoque      >= 0 && Number(reg.estoque)      > 0)  update.estoque      = reg.estoque;
+
+          if (Object.keys(update).length === 0) continue; // nada a atualizar
+
+          const { error } = await (db("produtos").update(update) as any).eq("id", idExistente);
+          if (error) {
+            errosLinha.push(`"${nomeReg}": ${error.message}`);
+          } else {
+            totalAtualizados++;
+          }
         } else {
-          totalOk++;
+          // Produto não encontrado — registra mas NÃO insere (para não criar duplicatas)
+          naoEncontrados.push(nomeReg);
         }
       }
 
-      setImportResult({ ok: totalOk, erros: errosLinha });
+      const totalOk = totalInseridos + totalAtualizados;
+      const resumo = [
+        totalAtualizados > 0 ? `${totalAtualizados} atualizado(s)` : "",
+        totalInseridos   > 0 ? `${totalInseridos} inserido(s)` : "",
+      ].filter(Boolean).join(", ");
+
+      // Adiciona lista dos não encontrados como avisos
+      if (naoEncontrados.length > 0) {
+        errosLinha.push(
+          `⚠️ ${naoEncontrados.length} produto(s) não encontrado(s) no cadastro (nome diferente?): ` +
+          naoEncontrados.slice(0, 10).map(n => `"${n}"`).join(", ") +
+          (naoEncontrados.length > 10 ? ` e mais ${naoEncontrados.length - 10}...` : "")
+        );
+      }
+
+      setImportResult({ ok: totalOk, erros: errosLinha, resumo });
       if (totalOk > 0) carregarDados();
 
     } catch (err) {
@@ -496,6 +579,47 @@ export default function ProdutosPage() {
     a.download = "modelo_produtos.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  const [buscaLista, setBuscaLista] = useState("");
+  const [editandoInline, setEditandoInline] = useState<{
+    id: string; nome: string; custo: string; preco: string; preco_cartao: string;
+  } | null>(null);
+  const [salvandoInline, setSalvandoInline] = useState(false);
+
+  const produtosFiltrados = useMemo(() => {
+    const termo = buscaLista.trim().toLowerCase();
+    if (!termo) return produtos;
+    return produtos.filter((p) =>
+      p.nome.toLowerCase().includes(termo) ||
+      (p.codigo || "").toLowerCase().includes(termo) ||
+      (p.ean || "").toLowerCase().includes(termo) ||
+      (p.categoria || "").toLowerCase().includes(termo)
+    );
+  }, [produtos, buscaLista]);
+
+  function abrirInline(produto: Produto) {
+    setEditandoInline({
+      id: produto.id,
+      nome: produto.nome,
+      custo: formatarDinheiroInput(String(Math.round(Number(produto.custo || 0) * 100))),
+      preco: formatarDinheiroInput(String(Math.round(Number(produto.preco || 0) * 100))),
+      preco_cartao: formatarDinheiroInput(String(Math.round(Number(produto.preco_cartao || 0) * 100))),
+    });
+  }
+
+  async function salvarInline() {
+    if (!editandoInline) return;
+    setSalvandoInline(true);
+    const { error } = await (db("produtos").update({
+      nome: editandoInline.nome.trim(),
+      custo: parseBRL(editandoInline.custo),
+      preco: parseBRL(editandoInline.preco),
+      preco_cartao: parseBRL(editandoInline.preco_cartao),
+    }) as any).eq("id", editandoInline.id);
+    setSalvandoInline(false);
+    if (!error) { setEditandoInline(null); carregarDados(); }
+    else setMensagem("Erro ao salvar: " + error.message);
   }
 
   const totalProdutos = useMemo(() => produtos.length, [produtos]);
@@ -537,7 +661,7 @@ export default function ProdutosPage() {
               {importResult && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ color: "#1a7b39", fontWeight: 700, fontSize: 14 }}>
-                    ✅ {importResult.ok} produto(s) importado(s) com sucesso.
+                    ✅ {importResult.ok} produto(s) processado(s){importResult.resumo ? ` — ${importResult.resumo}` : ""}.
                   </div>
                   {importResult.erros.length > 0 && (
                     <div style={{ color: "#c65d07", marginTop: 6, fontSize: 13, lineHeight: 1.6 }}>
@@ -558,16 +682,26 @@ export default function ProdutosPage() {
 
                 <Field label="Código EAN">
                   <div style={{ display: "flex", gap: 6 }}>
-                    <input style={{ ...input, flex: 1 }} value={codigoEAN} onChange={(e) => setCodigoEAN(e.target.value)} placeholder="Somente números" />
+                    <input style={{ ...input, flex: 1 }} value={codigoEAN} onChange={(e) => { setCodigoEAN(e.target.value); setMsgEAN(null); }} placeholder="Somente números" />
                     <button
                       type="button"
-                      onClick={() => setScannerAberto(true)}
+                      onClick={() => { setScannerAberto(true); setMsgEAN(null); }}
                       title="Ler código pela câmera"
                       style={{ height: 46, width: 46, border: "1px solid #d5dde7", borderRadius: 14, background: "#f0fdf4", color: "#16a34a", fontSize: 20, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       {buscandoEAN ? "⏳" : "📷"}
                     </button>
                   </div>
+                  {msgEAN && (
+                    <div style={{
+                      marginTop: 6, padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      background: msgEAN.tipo === "ok" ? "#f0fdf4" : "#fffbeb",
+                      color: msgEAN.tipo === "ok" ? "#166534" : "#92400e",
+                      border: `1px solid ${msgEAN.tipo === "ok" ? "#86efac" : "#fcd34d"}`,
+                    }}>
+                      {msgEAN.texto}
+                    </div>
+                  )}
                 </Field>
 
                 <Field label="Nome do produto">
@@ -638,6 +772,26 @@ export default function ProdutosPage() {
               <div style={greenCounter}>{totalProdutos} produtos</div>
             </div>
 
+            {/* Campo de busca */}
+            <div style={{ marginBottom: 14 }}>
+              <input
+                style={{ ...input, width: "100%", background: "#f8fafc" }}
+                value={buscaLista}
+                onChange={(e) => setBuscaLista(e.target.value)}
+                placeholder="🔍 Buscar por nome, código, EAN ou categoria..."
+              />
+            </div>
+
+            {buscaLista && (
+              <div style={{ marginBottom: 10, fontSize: 13, color: "#66758a" }}>
+                {produtosFiltrados.length} produto(s) encontrado(s)
+                {" · "}
+                <button onClick={() => setBuscaLista("")} style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", fontWeight: 700, padding: 0, fontSize: 13 }}>
+                  Limpar busca
+                </button>
+              </div>
+            )}
+
             <div style={{ overflowX: "auto" }}>
             <div style={{ ...tableWrap, minWidth: 600 }}>
               <div style={thead}>
@@ -650,28 +804,72 @@ export default function ProdutosPage() {
                 <div>Ações</div>
               </div>
 
-              {produtos.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>Nenhum produto cadastrado.</div>
+              {produtosFiltrados.length === 0 ? (
+                <div style={{ padding: 16, color: "#66758a" }}>
+                  {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
+                </div>
               ) : (
-                produtos.map((produto) => (
-                  <div key={produto.id} style={trow}>
-                    <div>
-                      <div style={{ fontWeight: 900, fontSize: 18, color: "#10243d", lineHeight: 1.05 }}>
-                        {produto.nome}
+                produtosFiltrados.map((produto) => {
+                  const inline = editandoInline?.id === produto.id;
+                  return (
+                    <div key={produto.id} style={{ ...trow, background: inline ? "#f0fdf4" : undefined, border: inline ? "2px solid #86efac" : undefined }}>
+                      <div>
+                        {inline ? (
+                          <input
+                            style={{ ...inputInline, fontWeight: 800, fontSize: 15 }}
+                            value={editandoInline!.nome}
+                            onChange={(e) => setEditandoInline({ ...editandoInline!, nome: e.target.value })}
+                            autoFocus
+                          />
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 900, fontSize: 18, color: "#10243d", lineHeight: 1.05 }}>{produto.nome}</div>
+                            <div style={{ color: "#66758a", marginTop: 2 }}>{produto.categoria || "-"}</div>
+                          </>
+                        )}
                       </div>
-                      <div style={{ color: "#66758a", marginTop: 2 }}>{produto.categoria || "-"}</div>
+                      <div>{produto.codigo || "-"}</div>
+                      <div>{produto.ean || "-"}</div>
+                      <div>
+                        {inline ? (
+                          <input style={inputInline} value={editandoInline!.custo} inputMode="numeric"
+                            onChange={(e) => setEditandoInline({ ...editandoInline!, custo: formatarDinheiroInput(e.target.value) })} />
+                        ) : moeda(produto.custo)}
+                      </div>
+                      <div>
+                        {inline ? (
+                          <input style={inputInline} value={editandoInline!.preco} inputMode="numeric"
+                            onChange={(e) => setEditandoInline({ ...editandoInline!, preco: formatarDinheiroInput(e.target.value) })} />
+                        ) : moeda(produto.preco)}
+                      </div>
+                      <div>
+                        {inline ? (
+                          <input style={inputInline} value={editandoInline!.preco_cartao} inputMode="numeric"
+                            onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
+                        ) : moeda(produto.preco_cartao)}
+                      </div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {inline ? (
+                          <>
+                            <button onClick={salvarInline} disabled={salvandoInline}
+                              style={{ ...editButton, background: "#1faa4a", color: "#fff", border: "none" }}>
+                              {salvandoInline ? "..." : "✔ Salvar"}
+                            </button>
+                            <button onClick={() => setEditandoInline(null)}
+                              style={{ ...editButton, color: "#64748b" }}>
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => abrirInline(produto)} style={editButton}>✏️ Editar</button>
+                            <button onClick={() => excluirProduto(produto.id)} style={deleteButton}>Excluir</button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div>{produto.codigo || "-"}</div>
-                    <div>{produto.ean || "-"}</div>
-                    <div>{moeda(produto.custo)}</div>
-                    <div>{moeda(produto.preco)}</div>
-                    <div>{moeda(produto.preco_cartao)}</div>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <button onClick={() => abrirEdicao(produto)} style={editButton}>Editar</button>
-                      <button onClick={() => excluirProduto(produto.id)} style={deleteButton}>Excluir</button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             </div>
@@ -932,4 +1130,16 @@ const deleteButton: React.CSSProperties = {
   height: 40,
   fontWeight: 900,
   cursor: "pointer",
+};
+
+const inputInline: React.CSSProperties = {
+  width: "100%",
+  height: 38,
+  borderRadius: 8,
+  border: "1px solid #86efac",
+  padding: "0 10px",
+  fontSize: 14,
+  color: "#0f172a",
+  background: "#fff",
+  outline: "none",
 };
