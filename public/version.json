@@ -1,5 +1,5 @@
 {
-  "version": "1.1.26",
-  "notas": "- Fix: atualização automática corrigida (CMD não trava mais)\n- Novo: relatório de itens mais vendidos com filtro de período\n- Novo: busca de produtos na lista do ADM\n- Melhoria: importação CSV atualiza produtos existentes sem zerar dados",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.26/HortiGestao-PDV-Setup-1.1.26.exe"
+  "version": "1.1.27",
+  "notas": "- Fix: fiado — cadastro e busca de cliente direto no PDV sem precisar do F10\n- Fix: botão ← ADM nas páginas do ADM web",
+  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.27/HortiGestao-PDV-Setup-1.1.27.exe"
 }
