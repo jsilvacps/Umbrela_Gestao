@@ -193,6 +193,8 @@ export default function PDVPage() {
   const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito: number; saldo_fiado: number } | null>(null);
   const [buscandoFiado, setBuscandoFiado]       = useState(false);
   const [erroFiado, setErroFiado]               = useState("");
+  const [buscaFiado, setBuscaFiado]             = useState("");
+  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito: number; saldo_fiado: number }[]>([]);
 
   /* ── Cadastro rápido de cliente no fiado ── */
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
@@ -1093,6 +1095,8 @@ ${rod}
     setDesconto("");
     setClienteFiado(null);
     setErroFiado("");
+    setBuscaFiado("");
+    setResultadosFiado([]);
     if (tipo === "fiado") {
       const cpfAtual = cpf.replace(/\D/g, "");
       if (cpfAtual.length === 11) buscarClienteFiado(cpfAtual);
@@ -1133,6 +1137,17 @@ ${rod}
     setBuscandoFiado(false);
     if (!data) { setErroFiado("Cliente não encontrado. Cadastre-o antes de usar fiado."); return; }
     setClienteFiado(data as { id: string; nome: string; limite_credito: number; saldo_fiado: number });
+  }
+
+  /* ── Busca cliente fiado por nome ou telefone ── */
+  async function buscarClienteFiadoPorNome(termo: string) {
+    if (!termo.trim()) { setResultadosFiado([]); return; }
+    setBuscandoFiado(true);
+    const { data } = await (db("clientes").select("id, nome, limite_credito, saldo_fiado") as any)
+      .ilike("nome", `%${termo.trim()}%`)
+      .limit(6);
+    setBuscandoFiado(false);
+    setResultadosFiado(data || []);
   }
 
   /* ── CEP auto-complete ── */
@@ -1183,7 +1198,7 @@ ${rod}
 
     // Validação fiado
     if (tipoPagamento === "fiado") {
-      if (!clienteFiado) { setErroFiado("Busque o cliente pelo CPF antes de confirmar."); return; }
+      if (!clienteFiado) { setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
       const disponivel = (clienteFiado.limite_credito || 0) - (clienteFiado.saldo_fiado || 0);
       if (totalFinal > disponivel) {
         setErroFiado(`Limite insuficiente. Disponível: ${moedaBR(disponivel)}`);
@@ -1294,6 +1309,8 @@ ${rod}
       setCpf("");
       setClienteFiado(null);
       setErroFiado("");
+      setBuscaFiado("");
+      setResultadosFiado([]);
       setModalFinalizar(false);
       setMostrarModalCPF(true);
 
@@ -2164,17 +2181,21 @@ ${rod}
               ))}
             </div>
 
-            {/* Fiado: bloco de busca por CPF */}
+            {/* Fiado: bloco de busca */}
             {tipoPagamento === "fiado" && (
               <div style={{ marginBottom: 16, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "12px 14px" }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "#92400e", marginBottom: 8 }}>
-                  📒 Fiado — cliente identificado pelo CPF
+                  📒 Fiado
                 </div>
-                {buscandoFiado ? (
-                  <div style={{ color: "#92400e", fontSize: 13 }}>Buscando cliente...</div>
-                ) : clienteFiado ? (
+                {clienteFiado ? (
                   <div>
-                    <div style={{ fontWeight: 800, color: "#1e293b", fontSize: 15 }}>{clienteFiado.nome}</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontWeight: 800, color: "#1e293b", fontSize: 15 }}>{clienteFiado.nome}</div>
+                      <button type="button" onClick={() => { setClienteFiado(null); setBuscaFiado(""); setResultadosFiado([]); }}
+                        style={{ fontSize: 11, color: "#64748b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                        trocar
+                      </button>
+                    </div>
                     <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 13 }}>
                       <span style={{ color: "#475569" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
                       <span style={{ color: "#dc2626" }}>Em aberto: <b>{moedaBR(clienteFiado.saldo_fiado || 0)}</b></span>
@@ -2182,24 +2203,45 @@ ${rod}
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 13, color: "#92400e" }}>
-                    {cpf.replace(/\D/g, "").length === 11
-                      ? "Buscando... ou CPF não encontrado na base de clientes."
-                      : "Identifique o cliente pelo CPF na tela principal (F10) e volte aqui."}
-                  </div>
-                )}
-                {erroFiado && (
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 700 }}>{erroFiado}</div>
-                    {erroFiado.includes("não encontrado") && (
-                      <button
-                        type="button"
-                        onClick={() => { setErroFiado(""); setModalNovoCliente(true); }}
-                        style={{ marginTop: 8, height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
-                      >
-                        + Cadastrar cliente agora
-                      </button>
+                  <div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                      <input
+                        type="text"
+                        placeholder="Buscar cliente por nome..."
+                        value={buscaFiado}
+                        onChange={(e) => {
+                          setBuscaFiado(e.target.value);
+                          setErroFiado("");
+                          if (e.target.value.length >= 2) buscarClienteFiadoPorNome(e.target.value);
+                          else setResultadosFiado([]);
+                        }}
+                        style={{ flex: 1, height: 36, borderRadius: 8, border: "1px solid #fcd34d", padding: "0 10px", fontSize: 13, outline: "none" }}
+                      />
+                    </div>
+                    {buscandoFiado && <div style={{ fontSize: 12, color: "#92400e" }}>Buscando...</div>}
+                    {resultadosFiado.length > 0 && (
+                      <div style={{ border: "1px solid #fcd34d", borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
+                        {resultadosFiado.map((c) => (
+                          <button key={c.id} type="button"
+                            onClick={() => { setClienteFiado(c); setBuscaFiado(""); setResultadosFiado([]); setErroFiado(""); }}
+                            style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "#fff", border: "none", borderBottom: "1px solid #fde68a", cursor: "pointer", fontSize: 13 }}
+                          >
+                            <b>{c.nome}</b>
+                            <span style={{ marginLeft: 10, color: "#dc2626", fontSize: 12 }}>Em aberto: {moedaBR(c.saldo_fiado || 0)}</span>
+                          </button>
+                        ))}
+                      </div>
                     )}
+                    {buscaFiado.length >= 2 && !buscandoFiado && resultadosFiado.length === 0 && (
+                      <div style={{ fontSize: 12, color: "#92400e", marginBottom: 6 }}>Nenhum cliente encontrado.</div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setErroFiado(""); setModalNovoCliente(true); }}
+                      style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                    >
+                      + Cadastrar cliente agora
+                    </button>
                   </div>
                 )}
               </div>
