@@ -534,25 +534,25 @@ export default function AdmPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: 12 }}>
+    <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: isMobile ? 8 : 12, overflowX: "hidden" }}>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
         <HeaderCebolao />
 
-        <section style={{ ...card, marginBottom: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        <section style={{ ...card, padding: isMobile ? 12 : 22, marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
             <div>
-              <div style={title}>ADM</div>
-              <div style={subtitle}>Configurações completas do sistema.</div>
+              <div style={{ ...title, fontSize: isMobile ? 18 : 22 }}>ADM</div>
+              {!isMobile && <div style={subtitle}>Configurações completas do sistema.</div>}
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <button onClick={abrirCaixaPDV} style={{ padding: isMobile ? "12px 18px" : "9px 20px", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: isMobile ? 15 : 14, cursor: "pointer" }}>
-                🖥️ Abrir Caixa (PDV)
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button onClick={abrirCaixaPDV} style={{ padding: isMobile ? "10px 12px" : "9px 20px", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: isMobile ? 13 : 14, cursor: "pointer" }}>
+                🖥️ {isMobile ? "PDV" : "Abrir Caixa (PDV)"}
               </button>
-              <button onClick={sair} style={{ ...lightButton, fontSize: isMobile ? 15 : 16, height: isMobile ? 46 : 42 }}>Sair do ADM</button>
+              <button onClick={sair} style={{ ...lightButton, fontSize: isMobile ? 13 : 16, height: isMobile ? 38 : 42, padding: isMobile ? "0 12px" : "0 20px" }}>Sair</button>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } as React.CSSProperties}>
             {[
               ["config", "⚙️ Empresa"],
               ["cupom", "🖨️ Cupom"],
@@ -563,19 +563,19 @@ export default function AdmPage() {
               ["suporte", "🆘 Suporte"],
               ...(isDev ? [["licencas", "🔑 Licenças"]] : []),
             ].map(([key, labelText]) => (
-              <button key={key} onClick={() => setAba(key)} style={{ ...tabBtn, background: aba === key ? "#1fb14e" : "#fff", color: aba === key ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}>
+              <button key={key} onClick={() => setAba(key)} style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === key ? "#1fb14e" : "#fff", color: aba === key ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}>
                 {labelText}
               </button>
             ))}
             <button
               onClick={() => router.push("/produtos")}
-              style={{ ...tabBtn, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
             >
               📦 Produtos
             </button>
             <button
               onClick={() => router.push("/clientes")}
-              style={{ ...tabBtn, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
             >
               👥 Clientes
             </button>
