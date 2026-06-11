@@ -122,6 +122,7 @@ export default function AdmPage() {
   const [dataFim, setDataFim] = useState("");
   const [rankingMaisVendidos, setRankingMaisVendidos] = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
   const [carregandoRanking, setCarregandoRanking] = useState(false);
+  const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking">("geral");
 
   const permPadrao = {
     perm_finalizar: true, perm_cancelar_item: true, perm_cancelar_venda: true,
@@ -893,7 +894,22 @@ export default function AdmPage() {
         {aba === "relatorios" && (
           <section style={card}>
             <div style={title}>Relatórios</div>
-            <div style={subtitle}>Vendas filtradas por data e cancelamentos.</div>
+
+            {/* Sub-abas */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setSubAbaRel("geral")}
+                style={subAbaRel === "geral" ? subTabAtivo : subTabInativo}
+              >
+                📋 Relatórios gerais
+              </button>
+              <button
+                onClick={() => setSubAbaRel("ranking")}
+                style={subAbaRel === "ranking" ? subTabAtivo : subTabInativo}
+              >
+                🏆 Itens mais vendidos
+              </button>
+            </div>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 140 }}>
@@ -911,6 +927,7 @@ export default function AdmPage() {
               </button>
             </div>
 
+            {subAbaRel === "geral" && <>
             <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Relatório de vendas</div>
             <div style={{ overflowX: "auto" }}>
             <div style={{ ...tableWrap, minWidth: 520 }}>
@@ -976,36 +993,38 @@ export default function AdmPage() {
               ))}
             </div>
             </div>
+            </>}
 
-            <div style={{ ...title, fontSize: 20, marginTop: 28 }}>🏆 Itens mais vendidos</div>
-            {carregandoRanking ? (
-              <div style={{ padding: 16, color: "#66758a" }}>Carregando ranking...</div>
-            ) : rankingMaisVendidos.length === 0 ? (
-              <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada no período.</div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-              <div style={{ ...tableWrap, minWidth: 480 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
-                  <div>#</div>
-                  <div>Produto</div>
-                  <div style={{ textAlign: "right" }}>Qtd.</div>
-                  <div style={{ textAlign: "right" }}>Receita</div>
-                </div>
-                {rankingMaisVendidos.map((item, idx) => {
-                  const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
-                  return (
-                    <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
-                      <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
-                      <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
-                      <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
-                        {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+            {subAbaRel === "ranking" && (
+              carregandoRanking ? (
+                <div style={{ padding: 16, color: "#66758a" }}>Carregando ranking...</div>
+              ) : rankingMaisVendidos.length === 0 ? (
+                <div style={{ padding: 24, color: "#66758a", textAlign: "center" }}>Selecione o período e clique em <strong>Buscar</strong> para ver o ranking.</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                <div style={{ ...tableWrap, minWidth: 480 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                    <div>#</div>
+                    <div>Produto</div>
+                    <div style={{ textAlign: "right" }}>Qtd.</div>
+                    <div style={{ textAlign: "right" }}>Receita</div>
+                  </div>
+                  {rankingMaisVendidos.map((item, idx) => {
+                    const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
+                    return (
+                      <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
+                        <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
+                        <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
+                          {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                        </div>
+                        <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moeda(item.totalReceita)}</div>
                       </div>
-                      <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moeda(item.totalReceita)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              </div>
+                    );
+                  })}
+                </div>
+                </div>
+              )
             )}
           </section>
         )}
@@ -1691,4 +1710,26 @@ const etiquetaBox: React.CSSProperties = {
   background: "#fff",
   maxWidth: 320,
   boxShadow: "0 4px 14px rgba(0,0,0,.06)",
+};
+
+const subTabAtivo: React.CSSProperties = {
+  padding: "8px 18px",
+  borderRadius: 12,
+  border: "none",
+  background: "#1a7b39",
+  color: "#fff",
+  fontWeight: 800,
+  fontSize: 14,
+  cursor: "pointer",
+};
+
+const subTabInativo: React.CSSProperties = {
+  padding: "8px 18px",
+  borderRadius: 12,
+  border: "1px solid #dde3ea",
+  background: "#f8fafc",
+  color: "#243447",
+  fontWeight: 700,
+  fontSize: 14,
+  cursor: "pointer",
 };
