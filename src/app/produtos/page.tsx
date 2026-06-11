@@ -801,98 +801,204 @@ export default function ProdutosPage() {
               </div>
             )}
 
-            <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 680 }}>
-              <div style={thead}>
-                <div>Produto</div>
-                <div>Cód. interno</div>
-                <div>EAN</div>
-                <div>Custo</div>
-                <div>Dinheiro</div>
-                <div>Cartão</div>
-                <div>Estoque</div>
-                <div>Ações</div>
-              </div>
-
-              {produtosFiltrados.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>
-                  {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
-                </div>
-              ) : (
-                produtosFiltrados.map((produto) => {
-                  const inline = editandoInline?.id === produto.id;
-                  return (
-                    <div key={produto.id} style={{ ...trow, background: inline ? "#f0fdf4" : undefined, border: inline ? "2px solid #86efac" : undefined }}>
-                      <div>
+            {isMobile ? (
+              /* ── Layout mobile: cards ── */
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {produtosFiltrados.length === 0 ? (
+                  <div style={{ padding: 16, color: "#66758a" }}>
+                    {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
+                  </div>
+                ) : (
+                  produtosFiltrados.map((produto) => {
+                    const inline = editandoInline?.id === produto.id;
+                    const estoqueNum = Number(produto.estoque ?? 0);
+                    const estoqueColor = estoqueNum <= 0 ? "#dc2626" : estoqueNum <= 5 ? "#d97706" : "#15803d";
+                    return (
+                      <div key={produto.id} style={{
+                        border: inline ? "2px solid #86efac" : "1px solid #e5eaf0",
+                        borderRadius: 16,
+                        padding: 14,
+                        background: inline ? "#f0fdf4" : "#fff",
+                      }}>
+                        {/* Nome */}
                         {inline ? (
                           <input
-                            style={{ ...inputInline, fontWeight: 800, fontSize: 15 }}
+                            style={{ ...inputInline, fontWeight: 800, fontSize: 15, marginBottom: 10, width: "100%" }}
                             value={editandoInline!.nome}
                             onChange={(e) => setEditandoInline({ ...editandoInline!, nome: e.target.value })}
                             autoFocus
                           />
                         ) : (
-                          <>
-                            <div style={{ fontWeight: 900, fontSize: 18, color: "#10243d", lineHeight: 1.05 }}>{produto.nome}</div>
-                            <div style={{ color: "#66758a", marginTop: 2 }}>{produto.categoria || "-"}</div>
-                          </>
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontWeight: 900, fontSize: 16, color: "#10243d" }}>{produto.nome}</div>
+                            <div style={{ color: "#66758a", fontSize: 13 }}>{produto.categoria || "-"}</div>
+                          </div>
                         )}
+
+                        {/* Infos em grid 2 colunas */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 13, marginBottom: 10 }}>
+                          <div>
+                            <span style={cardLabel}>Cód. interno</span>
+                            <div style={cardVal}>{produto.codigo || "-"}</div>
+                          </div>
+                          <div>
+                            <span style={cardLabel}>EAN</span>
+                            <div style={cardVal}>{produto.ean || "-"}</div>
+                          </div>
+                          <div>
+                            <span style={cardLabel}>Custo</span>
+                            {inline ? (
+                              <input style={inputInline} value={editandoInline!.custo} inputMode="numeric"
+                                onChange={(e) => setEditandoInline({ ...editandoInline!, custo: formatarDinheiroInput(e.target.value) })} />
+                            ) : <div style={cardVal}>{moeda(produto.custo)}</div>}
+                          </div>
+                          <div>
+                            <span style={cardLabel}>Estoque</span>
+                            {inline ? (
+                              <input style={inputInline} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
+                                onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
+                            ) : (
+                              <div style={{ ...cardVal, color: estoqueColor, fontWeight: 700 }}>
+                                {estoqueNum}{produto.unidade ? ` ${produto.unidade}` : ""}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <span style={cardLabel}>Dinheiro</span>
+                            {inline ? (
+                              <input style={inputInline} value={editandoInline!.preco} inputMode="numeric"
+                                onChange={(e) => setEditandoInline({ ...editandoInline!, preco: formatarDinheiroInput(e.target.value) })} />
+                            ) : <div style={cardVal}>{moeda(produto.preco)}</div>}
+                          </div>
+                          <div>
+                            <span style={cardLabel}>Cartão</span>
+                            {inline ? (
+                              <input style={inputInline} value={editandoInline!.preco_cartao} inputMode="numeric"
+                                onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
+                            ) : <div style={cardVal}>{moeda(produto.preco_cartao)}</div>}
+                          </div>
+                        </div>
+
+                        {/* Botões */}
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {inline ? (
+                            <>
+                              <button onClick={salvarInline} disabled={salvandoInline}
+                                style={{ ...editButton, flex: 1, background: "#1faa4a", color: "#fff", border: "none" }}>
+                                {salvandoInline ? "..." : "✔ Salvar"}
+                              </button>
+                              <button onClick={() => setEditandoInline(null)}
+                                style={{ ...editButton, flex: 1, color: "#64748b" }}>
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => abrirInline(produto)} style={{ ...editButton, flex: 1 }}>✏️ Editar</button>
+                              <button onClick={() => excluirProduto(produto.id)} style={{ ...deleteButton, flex: 1 }}>Excluir</button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div>{produto.codigo || "-"}</div>
-                      <div>{produto.ean || "-"}</div>
-                      <div>
-                        {inline ? (
-                          <input style={inputInline} value={editandoInline!.custo} inputMode="numeric"
-                            onChange={(e) => setEditandoInline({ ...editandoInline!, custo: formatarDinheiroInput(e.target.value) })} />
-                        ) : moeda(produto.custo)}
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              /* ── Layout desktop: tabela ── */
+              <div style={{ overflowX: "auto" }}>
+              <div style={{ ...tableWrap, minWidth: 680 }}>
+                <div style={thead}>
+                  <div>Produto</div>
+                  <div>Cód. interno</div>
+                  <div>EAN</div>
+                  <div>Custo</div>
+                  <div>Dinheiro</div>
+                  <div>Cartão</div>
+                  <div>Estoque</div>
+                  <div>Ações</div>
+                </div>
+
+                {produtosFiltrados.length === 0 ? (
+                  <div style={{ padding: 16, color: "#66758a" }}>
+                    {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
+                  </div>
+                ) : (
+                  produtosFiltrados.map((produto) => {
+                    const inline = editandoInline?.id === produto.id;
+                    return (
+                      <div key={produto.id} style={{ ...trow, background: inline ? "#f0fdf4" : undefined, border: inline ? "2px solid #86efac" : undefined }}>
+                        <div>
+                          {inline ? (
+                            <input
+                              style={{ ...inputInline, fontWeight: 800, fontSize: 15 }}
+                              value={editandoInline!.nome}
+                              onChange={(e) => setEditandoInline({ ...editandoInline!, nome: e.target.value })}
+                              autoFocus
+                            />
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: 900, fontSize: 18, color: "#10243d", lineHeight: 1.05 }}>{produto.nome}</div>
+                              <div style={{ color: "#66758a", marginTop: 2 }}>{produto.categoria || "-"}</div>
+                            </>
+                          )}
+                        </div>
+                        <div>{produto.codigo || "-"}</div>
+                        <div>{produto.ean || "-"}</div>
+                        <div>
+                          {inline ? (
+                            <input style={inputInline} value={editandoInline!.custo} inputMode="numeric"
+                              onChange={(e) => setEditandoInline({ ...editandoInline!, custo: formatarDinheiroInput(e.target.value) })} />
+                          ) : moeda(produto.custo)}
+                        </div>
+                        <div>
+                          {inline ? (
+                            <input style={inputInline} value={editandoInline!.preco} inputMode="numeric"
+                              onChange={(e) => setEditandoInline({ ...editandoInline!, preco: formatarDinheiroInput(e.target.value) })} />
+                          ) : moeda(produto.preco)}
+                        </div>
+                        <div>
+                          {inline ? (
+                            <input style={inputInline} value={editandoInline!.preco_cartao} inputMode="numeric"
+                              onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
+                          ) : moeda(produto.preco_cartao)}
+                        </div>
+                        <div>
+                          {inline ? (
+                            <input style={{ ...inputInline, width: 64 }} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
+                              onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
+                          ) : (
+                            <span style={{ fontWeight: 700, whiteSpace: "nowrap", color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
+                              {produto.estoque ?? 0}{produto.unidade ? ` ${produto.unidade}` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {inline ? (
+                            <>
+                              <button onClick={salvarInline} disabled={salvandoInline}
+                                style={{ ...editButton, background: "#1faa4a", color: "#fff", border: "none" }}>
+                                {salvandoInline ? "..." : "✔ Salvar"}
+                              </button>
+                              <button onClick={() => setEditandoInline(null)}
+                                style={{ ...editButton, color: "#64748b" }}>
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => abrirInline(produto)} style={editButton}>✏️ Editar</button>
+                              <button onClick={() => excluirProduto(produto.id)} style={deleteButton}>Excluir</button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        {inline ? (
-                          <input style={inputInline} value={editandoInline!.preco} inputMode="numeric"
-                            onChange={(e) => setEditandoInline({ ...editandoInline!, preco: formatarDinheiroInput(e.target.value) })} />
-                        ) : moeda(produto.preco)}
-                      </div>
-                      <div>
-                        {inline ? (
-                          <input style={inputInline} value={editandoInline!.preco_cartao} inputMode="numeric"
-                            onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
-                        ) : moeda(produto.preco_cartao)}
-                      </div>
-                      <div>
-                        {inline ? (
-                          <input style={{ ...inputInline, width: 64 }} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
-                            onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
-                        ) : (
-                          <span style={{ fontWeight: 700, whiteSpace: "nowrap", color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
-                            {produto.estoque ?? 0}{produto.unidade ? ` ${produto.unidade}` : ""}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {inline ? (
-                          <>
-                            <button onClick={salvarInline} disabled={salvandoInline}
-                              style={{ ...editButton, background: "#1faa4a", color: "#fff", border: "none" }}>
-                              {salvandoInline ? "..." : "✔ Salvar"}
-                            </button>
-                            <button onClick={() => setEditandoInline(null)}
-                              style={{ ...editButton, color: "#64748b" }}>
-                              Cancelar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => abrirInline(produto)} style={editButton}>✏️ Editar</button>
-                            <button onClick={() => excluirProduto(produto.id)} style={deleteButton}>Excluir</button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            </div>
+                    );
+                  })
+                )}
+              </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -1164,4 +1270,20 @@ const inputInline: React.CSSProperties = {
   color: "#0f172a",
   background: "#fff",
   outline: "none",
+};
+
+const cardLabel: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#8fa3b8",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  marginBottom: 2,
+};
+
+const cardVal: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: "#1f2937",
 };
