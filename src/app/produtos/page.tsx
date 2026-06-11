@@ -864,7 +864,7 @@ export default function ProdutosPage() {
                             onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
                         ) : (
                           <span style={{ fontWeight: 700, color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
-                            {produto.estoque ?? 0}
+                            {produto.estoque ?? 0}{produto.unidade ? ` ${produto.unidade}` : ""}
                           </span>
                         )}
                       </div>
