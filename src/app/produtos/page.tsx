@@ -1113,7 +1113,7 @@ const tableWrap: React.CSSProperties = {
 
 const thead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr .8fr",
+  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr 1fr",
   gap: 14,
   padding: "14px 12px",
   color: "#25354b",
@@ -1123,7 +1123,7 @@ const thead: React.CSSProperties = {
 
 const trow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr .8fr",
+  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr 1fr",
   gap: 14,
   padding: "14px 12px",
   alignItems: "center",
@@ -1140,6 +1140,7 @@ const editButton: React.CSSProperties = {
   height: 40,
   fontWeight: 800,
   cursor: "pointer",
+  width: "100%",
 };
 
 const deleteButton: React.CSSProperties = {
@@ -1150,6 +1151,7 @@ const deleteButton: React.CSSProperties = {
   height: 40,
   fontWeight: 900,
   cursor: "pointer",
+  width: "100%",
 };
 
 const inputInline: React.CSSProperties = {
