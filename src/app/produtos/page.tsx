@@ -107,6 +107,7 @@ export default function ProdutosPage() {
   const [precoDinheiro, setPrecoDinheiro] = useState("0,00");
   const [margemCartao, setMargemCartao] = useState("0,00");
   const [precoCartao, setPrecoCartao] = useState("0,00");
+  const [estoqueForm, setEstoqueForm] = useState("0");
 
   /* ── Barcode scanner ── */
   async function aoEscanear(codigo: string) {
@@ -275,6 +276,7 @@ export default function ProdutosPage() {
     setPrecoDinheiro("0,00");
     setMargemCartao("0,00");
     setPrecoCartao("0,00");
+    setEstoqueForm("0");
   }
 
   async function salvarProduto(e: React.FormEvent) {
@@ -287,7 +289,7 @@ export default function ProdutosPage() {
       codigo: codigoInterno.trim() || null,
       preco: parseBRL(precoDinheiro),
       preco_cartao: parseBRL(precoCartao),
-      estoque: 0,
+      estoque: Math.max(0, parseInt(estoqueForm) || 0),
       categoria: categoria.trim() || null,
       custo: parseBRL(precoCusto),
       unidade: unidade,
@@ -338,6 +340,7 @@ export default function ProdutosPage() {
     setPrecoCartao(formatarDinheiroInput(String(Math.round(Number(produto.preco_cartao || 0) * 100))));
     setMargemDinheiro(formatPercent(calcularMargem(Number(produto.custo || 0), Number(produto.preco || 0))));
     setMargemCartao(formatPercent(calcularMargem(Number(produto.custo || 0), Number(produto.preco_cartao || 0))));
+    setEstoqueForm(String(produto.estoque ?? 0));
     setMensagem(`Editando produto: ${produto.nome}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -583,7 +586,7 @@ export default function ProdutosPage() {
 
   const [buscaLista, setBuscaLista] = useState("");
   const [editandoInline, setEditandoInline] = useState<{
-    id: string; nome: string; custo: string; preco: string; preco_cartao: string;
+    id: string; nome: string; custo: string; preco: string; preco_cartao: string; estoque: string;
   } | null>(null);
   const [salvandoInline, setSalvandoInline] = useState(false);
 
@@ -605,6 +608,7 @@ export default function ProdutosPage() {
       custo: formatarDinheiroInput(String(Math.round(Number(produto.custo || 0) * 100))),
       preco: formatarDinheiroInput(String(Math.round(Number(produto.preco || 0) * 100))),
       preco_cartao: formatarDinheiroInput(String(Math.round(Number(produto.preco_cartao || 0) * 100))),
+      estoque: String(produto.estoque ?? 0),
     });
   }
 
@@ -616,6 +620,7 @@ export default function ProdutosPage() {
       custo: parseBRL(editandoInline.custo),
       preco: parseBRL(editandoInline.preco),
       preco_cartao: parseBRL(editandoInline.preco_cartao),
+      estoque: Math.max(0, parseInt(editandoInline.estoque) || 0),
     }) as any).eq("id", editandoInline.id);
     setSalvandoInline(false);
     if (!error) { setEditandoInline(null); carregarDados(); }
@@ -746,6 +751,10 @@ export default function ProdutosPage() {
                 <Field label="Preço final - pagamento em cartão">
                   <input style={input} value={precoCartao} onChange={(e) => recalcularMargemPorPrecoCartao(e.target.value)} placeholder="0,00" inputMode="numeric" />
                 </Field>
+
+                <Field label="Estoque atual (unidades)">
+                  <input style={input} type="number" min={0} value={estoqueForm} onChange={(e) => setEstoqueForm(e.target.value)} inputMode="numeric" />
+                </Field>
               </div>
 
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -793,7 +802,7 @@ export default function ProdutosPage() {
             )}
 
             <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 600 }}>
+            <div style={{ ...tableWrap, minWidth: 680 }}>
               <div style={thead}>
                 <div>Produto</div>
                 <div>Cód. interno</div>
@@ -801,6 +810,7 @@ export default function ProdutosPage() {
                 <div>Custo</div>
                 <div>Dinheiro</div>
                 <div>Cartão</div>
+                <div>Estoque</div>
                 <div>Ações</div>
               </div>
 
@@ -847,6 +857,16 @@ export default function ProdutosPage() {
                           <input style={inputInline} value={editandoInline!.preco_cartao} inputMode="numeric"
                             onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
                         ) : moeda(produto.preco_cartao)}
+                      </div>
+                      <div>
+                        {inline ? (
+                          <input style={{ ...inputInline, width: 64 }} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
+                            onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
+                        ) : (
+                          <span style={{ fontWeight: 700, color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
+                            {produto.estoque ?? 0}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {inline ? (
@@ -1093,7 +1113,7 @@ const tableWrap: React.CSSProperties = {
 
 const thead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .8fr",
+  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr .8fr",
   gap: 14,
   padding: "14px 12px",
   color: "#25354b",
@@ -1103,7 +1123,7 @@ const thead: React.CSSProperties = {
 
 const trow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .8fr",
+  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr .8fr",
   gap: 14,
   padding: "14px 12px",
   alignItems: "center",
