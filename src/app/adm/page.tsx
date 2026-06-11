@@ -120,6 +120,8 @@ export default function AdmPage() {
   const [produtoBusca, setProdutoBusca] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [rankingMaisVendidos, setRankingMaisVendidos] = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
+  const [carregandoRanking, setCarregandoRanking] = useState(false);
 
   const permPadrao = {
     perm_finalizar: true, perm_cancelar_item: true, perm_cancelar_venda: true,
@@ -206,6 +208,27 @@ export default function AdmPage() {
     setVendas((vendasData || []) as Venda[]);
     setItensCancelados((itensData || []) as Cancelado[]);
     setCuponsCancelados((cuponsData || []) as Cancelado[]);
+
+    // Ranking de itens mais vendidos
+    setCarregandoRanking(true);
+    try {
+      const ids: string[] = (vendasData || []).map((v: any) => v.id);
+      if (ids.length > 0) {
+        const { data: itensVenda } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
+        const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
+        for (const item of (itensVenda || []) as any[]) {
+          const nome = item.produto_nome || "Sem nome";
+          if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
+          mapa[nome].totalQtd += Number(item.quantidade || 0);
+          mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+        }
+        setRankingMaisVendidos(Object.values(mapa).sort((a, b) => b.totalQtd - a.totalQtd));
+      } else {
+        setRankingMaisVendidos([]);
+      }
+    } finally {
+      setCarregandoRanking(false);
+    }
   }, [dataInicio, dataFim]);
 
   // Carrega produtos só quando a aba etiquetas for aberta (lazy)
@@ -953,6 +976,37 @@ export default function AdmPage() {
               ))}
             </div>
             </div>
+
+            <div style={{ ...title, fontSize: 20, marginTop: 28 }}>🏆 Itens mais vendidos</div>
+            {carregandoRanking ? (
+              <div style={{ padding: 16, color: "#66758a" }}>Carregando ranking...</div>
+            ) : rankingMaisVendidos.length === 0 ? (
+              <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada no período.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+              <div style={{ ...tableWrap, minWidth: 480 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                  <div>#</div>
+                  <div>Produto</div>
+                  <div style={{ textAlign: "right" }}>Qtd.</div>
+                  <div style={{ textAlign: "right" }}>Receita</div>
+                </div>
+                {rankingMaisVendidos.map((item, idx) => {
+                  const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
+                  return (
+                    <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
+                      <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
+                      <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
+                      <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
+                        {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                      </div>
+                      <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moeda(item.totalReceita)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              </div>
+            )}
           </section>
         )}
 
