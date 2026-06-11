@@ -863,7 +863,7 @@ export default function ProdutosPage() {
                           <input style={{ ...inputInline, width: 64 }} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
                             onChange={(e) => setEditandoInline({ ...editandoInline!, estoque: e.target.value })} />
                         ) : (
-                          <span style={{ fontWeight: 700, color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
+                          <span style={{ fontWeight: 700, whiteSpace: "nowrap", color: Number(produto.estoque ?? 0) <= 0 ? "#dc2626" : Number(produto.estoque) <= 5 ? "#d97706" : "#15803d" }}>
                             {produto.estoque ?? 0}{produto.unidade ? ` ${produto.unidade}` : ""}
                           </span>
                         )}
