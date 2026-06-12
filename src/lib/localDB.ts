@@ -43,12 +43,12 @@ export interface PendingVenda {
   synced: number; // 0 = pendente, 1 = sincronizado
 }
 
-class HortiDB extends (Dexie as unknown as new (name: string) => DexieType) {
+class UmbrelaDB extends (Dexie as unknown as new (name: string) => DexieType) {
   produtos!: TableType<LocalProduto>;
   pendingVendas!: TableType<PendingVenda>;
 
   constructor() {
-    super("HortiGestao");
+    super("UmbrelaGestao");
     (this as unknown as DexieType).version(1).stores({
       produtos:      "id, nome, codigo, ean",
       pendingVendas: "localId, synced, createdAt",
@@ -56,9 +56,9 @@ class HortiDB extends (Dexie as unknown as new (name: string) => DexieType) {
   }
 }
 
-function criarLocalDB(): HortiDB | null {
+function criarLocalDB(): UmbrelaDB | null {
   if (typeof window === "undefined" || !Dexie) return null;
-  try { return new HortiDB(); } catch { return null; }
+  try { return new UmbrelaDB(); } catch { return null; }
 }
 
-export const localDB: HortiDB | null = criarLocalDB();
+export const localDB: UmbrelaDB | null = criarLocalDB();

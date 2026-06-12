@@ -1,4 +1,4 @@
-const CACHE = 'horti-gestao-v1';
+const CACHE = 'umbrela-gestao-v1';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

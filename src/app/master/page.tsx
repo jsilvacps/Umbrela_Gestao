@@ -155,11 +155,11 @@ export default function MasterPage() {
   function montarMsgWhatsApp(nome: string, codigo: string) {
     return (
       `Olá, *${nome}*! 🌿\n\n` +
-      `Seja bem-vindo(a) ao *Horti Gestão PDV*!\n\n` +
+      `Seja bem-vindo(a) ao *Umbrela Gestão PDV*!\n\n` +
       `Seu sistema está pronto para uso. Veja suas informações de acesso:\n\n` +
       `🔑 *Código de ativação:* \`${codigo}\`\n\n` +
       `🌐 *Acesse pelo navegador:*\n` +
-      `https://horti-gestao.vercel.app/login\n\n` +
+      `https://umbrela-gestao.vercel.app/login\n\n` +
       `📱 *Como começar:*\n` +
       `1. Abra o link acima no celular ou computador\n` +
       `2. Digite o código de ativação\n` +
@@ -304,7 +304,7 @@ export default function MasterPage() {
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <div style={{ fontSize: 36 }}>🔑</div>
             <div style={{ color: "#e2e8f0", fontWeight: 900, fontSize: 22, marginTop: 8 }}>Painel Master</div>
-            <div style={{ color: "#64748b", fontSize: 13, marginTop: 4 }}>Horti Gestão — Área restrita</div>
+            <div style={{ color: "#64748b", fontSize: 13, marginTop: 4 }}>Umbrela Gestão — Área restrita</div>
           </div>
           <input
             type="password"
@@ -344,7 +344,7 @@ export default function MasterPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 26, fontWeight: 900, color: "#f0fdf4" }}>🌿 Painel Master</div>
-            <div style={{ color: "#64748b", fontSize: 13 }}>Horti Gestão — Área restrita</div>
+            <div style={{ color: "#64748b", fontSize: 13 }}>Umbrela Gestão — Área restrita</div>
           </div>
           <button onClick={() => setLiberado(false)} style={{ background: "transparent", border: "1px solid #2d3f54", borderRadius: 8, color: "#94a3b8", padding: "7px 16px", cursor: "pointer", fontSize: 13 }}>
             Sair

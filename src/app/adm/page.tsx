@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import HeaderCebolao from "@/components/HeaderCebolao";
+import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { supabase, db, isConfigurado } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { gerarChave } from "@/lib/licenca";
@@ -139,18 +139,18 @@ export default function AdmPage() {
 
   // ── Abrir PDV ───────────────────────────────────────────────────────────────
   const [modalDownloadPDV, setModalDownloadPDV] = useState(false);
-  const [urlDownloadPDV, setUrlDownloadPDV] = useState("https://github.com/jsilvacps/horti-gestao/releases/latest");
+  const [urlDownloadPDV, setUrlDownloadPDV] = useState("https://github.com/jsilvacps/umbrela-gestao/releases/latest");
 
   function abrirCaixaPDV() {
     let abriu = false;
     const onBlur = () => { abriu = true; window.removeEventListener("blur", onBlur); };
     window.addEventListener("blur", onBlur);
-    window.location.href = "hortigestao://open";
+    window.location.href = "umbrelagestao://open";
     setTimeout(() => {
       window.removeEventListener("blur", onBlur);
       if (!abriu) {
         // Busca URL do instalador mais recente
-        fetch("https://horti-gestao.vercel.app/version.json")
+        fetch("https://umbrela-gestao.vercel.app/version.json")
           .then(r => r.json())
           .then(j => { if (j.download) setUrlDownloadPDV(j.download); })
           .catch(() => {});
@@ -538,7 +538,7 @@ export default function AdmPage() {
     return (
       <main style={{ minHeight: "100vh", background: "#f3f5f7", display: "grid", placeItems: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 480, background: "#fff", border: "1px solid #dde3ea", borderRadius: 28, boxShadow: "0 12px 30px rgba(15,23,42,.06)", padding: 28 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#6b7280" }}>Horti Gestão</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#6b7280" }}>Umbrela Gestão</div>
           <div style={{ fontSize: 34, fontWeight: 900, color: "#11243d", marginTop: 6 }}>ADM protegido</div>
           <div style={{ color: "#66758a", marginTop: 8, marginBottom: 18 }}>Digite a senha gerencial para entrar.</div>
 
@@ -560,7 +560,7 @@ export default function AdmPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: isMobile ? 8 : 12, overflowX: "hidden" }}>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
-        <HeaderCebolao />
+        <HeaderUmbrela />
 
         <section style={{ ...card, padding: isMobile ? 12 : 22, marginBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
@@ -646,7 +646,7 @@ export default function AdmPage() {
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/logo.svg" alt="Logo padrão" style={{ width: 64, height: 64, objectFit: "contain", opacity: 0.5 }} />
-                        <span style={{ color: "#6b7280", fontSize: 13 }}>Padrão Horti Gestão</span>
+                        <span style={{ color: "#6b7280", fontSize: 13 }}>Padrão Umbrela Gestão</span>
                       </div>
                     )}
                   </div>
@@ -1453,7 +1453,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
       {/* Rodapé com versão */}
       <div style={{ textAlign: "center", color: "#475569", fontSize: 12, paddingTop: 24, paddingBottom: 8, lineHeight: 1.7 }}>
-        Horti Gestão · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
+        Umbrela Gestão · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
         Desenvolvido por Jean Silva
       </div>
     </main>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import HeaderCebolao from "@/components/HeaderCebolao";
+import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { db } from "@/lib/supabaseClient";
 
 type Operador = {
@@ -70,7 +70,7 @@ export default function HomePage() {
   return (
     <main className="page-main" style={{ minHeight: "100vh", background: "#f3f5f7", padding: 12 }}>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
-        <HeaderCebolao />
+        <HeaderUmbrela />
 
         <section style={heroCard}>
           <div className="hero-grid" style={heroGrid}>
@@ -84,8 +84,8 @@ export default function HomePage() {
             </div>
 
             <div style={contentPane}>
-              <div style={heroTitle}>{nomeEmpresa || "HORTI GESTÃO"}</div>
-              <div style={heroSubtitle}>Soluções inteligentes para gestão do seu hortifruti.</div>
+              <div style={heroTitle}>{nomeEmpresa || "UMBRELA GESTÃO"}</div>
+              <div style={heroSubtitle}>Soluções inteligentes para gestão do seu comércio.</div>
 
               {operador ? (
                 <div style={operadorBadge}>Operador logado: {operador.nome || operador.username}</div>

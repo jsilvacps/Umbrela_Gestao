@@ -27,7 +27,7 @@ export type AuditoriaRegistro = {
   autorizadoPor?: string;
 };
 
-const STORAGE_AUDITORIA = "horti_auditoria";
+const STORAGE_AUDITORIA = "umbrela_auditoria";
 
 function gerarId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;

@@ -296,7 +296,7 @@ export default function LoginPage() {
     return (
       <main style={{ minHeight: "100vh", background: "#0c121a", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ color: "#1faa4a", fontSize: 22, fontFamily: "Segoe UI, sans-serif", fontWeight: 900 }}>
-          HORTI GESTÃO…
+          UMBRELA GESTÃO…
         </div>
       </main>
     );
@@ -308,7 +308,7 @@ export default function LoginPage() {
       <main style={{ minHeight: "100vh", background: "#f3f5f7", display: "grid", placeItems: "center", padding: isMobile ? "12px 10px" : 20 }}>
         <div style={{ width: "100%", maxWidth: 460, background: "#fff", border: "1px solid #dde3ea", borderRadius: 28, padding: isMobile ? "28px 20px" : 36, boxShadow: "0 12px 30px rgba(15,23,42,.06)", textAlign: "center" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="logo" style={{ width: isMobile ? 80 : 72, height: isMobile ? 80 : 72, marginBottom: 16 }} />
+          <img src="/logo.png" alt="logo" style={{ width: isMobile ? 80 : 72, height: isMobile ? 80 : 72, marginBottom: 16 }} />
           <div style={{ fontSize: isMobile ? 32 : 28, fontWeight: 900, color: "#11243d" }}>Tudo pronto! 🎉</div>
           <div style={{ fontSize: isMobile ? 22 : 20, fontWeight: 700, color: "#1fb14e", marginTop: 8 }}>
             {nomeEmpresaPronta}
@@ -333,7 +333,7 @@ export default function LoginPage() {
       <main style={{ minHeight: "100vh", background: "#f3f5f7", display: "grid", placeItems: "center", padding: isMobile ? "12px 10px" : 20 }}>
         <div style={{ width: "100%", maxWidth: 460, background: "#fff", border: "1px solid #dde3ea", borderRadius: 28, padding: isMobile ? "28px 20px" : 28, boxShadow: "0 12px 30px rgba(15,23,42,.06)" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="logo" style={{ width: isMobile ? 72 : 56, height: isMobile ? 72 : 56, marginBottom: 12 }} />
+          <img src="/logo.png" alt="logo" style={{ width: isMobile ? 72 : 56, height: isMobile ? 72 : 56, marginBottom: 12 }} />
           <div style={{ fontSize: isMobile ? 36 : 32, fontWeight: 900, color: "#11243d", marginTop: 4 }}>Entrar no PDV</div>
           <div style={{ color: "#66758a", marginTop: 6, marginBottom: isMobile ? 24 : 18, fontSize: isMobile ? 16 : 14 }}>Informe suas credenciais de operador.</div>
           <form onSubmit={entrar}>
@@ -435,8 +435,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: isMobile ? 20 : 28 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Horti Gestão" style={{ width: isMobile ? 88 : 80, height: isMobile ? 88 : 80, marginBottom: 12 }} />
-          <div style={{ fontSize: isMobile ? 28 : 26, fontWeight: 900, color: "#14532d" }}>Horti Gestão PDV</div>
+          <img src="/logo.png" alt="Umbrela Gestão" style={{ width: isMobile ? 88 : 80, height: isMobile ? 88 : 80, marginBottom: 12 }} />
+          <div style={{ fontSize: isMobile ? 28 : 26, fontWeight: 900, color: "#14532d" }}>Umbrela Gestão PDV</div>
           <div style={{ color: "#16a34a", fontSize: isMobile ? 16 : 15, marginTop: 4 }}>Configuração inicial do sistema</div>
         </div>
 
@@ -460,7 +460,7 @@ export default function LoginPage() {
             <>
               <div style={{ fontWeight: 900, fontSize: isMobile ? 22 : 18, color: "#0f172a", marginBottom: 6 }}>🔑 Código de ativação</div>
               <div style={{ color: "#64748b", fontSize: isMobile ? 15 : 13, marginBottom: 20, lineHeight: 1.7 }}>
-                Insira o código fornecido pela Horti Gestão para ativar o sistema.
+                Insira o código fornecido pela Umbrela Gestão para ativar o sistema.
               </div>
               <label style={lbl}>Código de ativação</label>
               <input
@@ -549,7 +549,7 @@ export default function LoginPage() {
 
         </div>
         <div style={{ textAlign: "center", marginTop: 14, color: "#86efac", fontSize: 12 }}>
-          Horti Gestão PDV © {new Date().getFullYear()}
+          Umbrela Gestão PDV © {new Date().getFullYear()}
         </div>
       </div>
     </main>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import HeaderCebolao from "@/components/HeaderCebolao";
+import HeaderUmbrela from "@/components/HeaderUmbrela";
 import BarcodeScannerModal from "@/components/BarcodeScannerModal";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -641,7 +641,7 @@ export default function ProdutosPage() {
         }
       `}</style>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
-        <HeaderCebolao />
+        <HeaderUmbrela />
 
         {mensagem ? (
           <div style={msgBox}>{mensagem}</div>

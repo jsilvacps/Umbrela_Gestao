@@ -1,6 +1,6 @@
 /**
  * licenca.ts
- * Sistema de licenciamento do Horti Gestão PDV
+ * Sistema de licenciamento do Umbrela Gestão PDV
  *
  * Planos:
  *  trial  — 15 dias, funcionalidades Pro completas
@@ -218,11 +218,11 @@ export async function inicializarLicenca(): Promise<LicencaStatus> {
 
 // ── Gerador de chave (utilitário para uso no dashboard) ─────────────────────
 
-/** Gera uma chave no formato HORTI-XXXXX-XXXXX-XXXXX */
+/** Gera uma chave no formato UMBRELA-XXXXX-XXXXX-XXXXX */
 export function gerarChave(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem I, O, 0, 1
   function bloco(n: number) {
     return Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   }
-  return `HORTI-${bloco(5)}-${bloco(5)}-${bloco(5)}`;
+  return `UMBRELA-${bloco(5)}-${bloco(5)}-${bloco(5)}`;
 }

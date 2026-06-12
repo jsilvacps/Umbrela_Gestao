@@ -1052,7 +1052,7 @@ ${dados.tipoPagamento === "Dinheiro" ? `
 
 ${rod}
 <hr>
-<div class="c" style="font-size:7pt">Sistema Horti Gestão</div>
+<div class="c" style="font-size:7pt">Sistema Umbrela Gestão</div>
 <br>
 </body></html>`;
 
@@ -1905,7 +1905,7 @@ ${rod}
 
             {/* Versão */}
             <div style={{ textAlign: "center", marginTop: 6, color: "#94a3b8", fontSize: 10, letterSpacing: 0.5, lineHeight: 1.6 }}>
-              Horti Gestão PDV · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
+              Umbrela Gestão PDV · v{process.env.NEXT_PUBLIC_APP_VERSION || "—"}<br/>
               Desenvolvido por Jean Silva
             </div>
           </aside>
@@ -1947,7 +1947,7 @@ ${rod}
               </div>
               <div style={{ fontSize: 13, color: "#475569", marginTop: 6, lineHeight: 1.7 }}>
                 {plano === "pro"
-                  ? "Todos os recursos desbloqueados. Obrigado por usar o Horti Gestão!"
+                  ? "Todos os recursos desbloqueados. Obrigado por usar o Umbrela Gestão!"
                   : plano === "trial"
                   ? `Você tem ${diasTrial} dia${diasTrial !== 1 ? "s" : ""} de avaliação completa. Ative antes do prazo para não perder os recursos avançados.`
                   : "Somente venda básica disponível. Ative o Pro para desbloquear fiado, sangria, fechamento, relatórios e mais."}
@@ -1982,7 +1982,7 @@ ${rod}
                   value={chaveInput}
                   onChange={(e) => setChaveInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => { if (e.key === "Enter") ativarLicenca(); if (e.key === "Escape") { if (plano !== "free") setModalLicenca(false); } }}
-                  placeholder="HORTI-XXXXX-XXXXX-XXXXX"
+                  placeholder="UMBRELA-XXXXX-XXXXX-XXXXX"
                   style={{ ...inputModal, fontSize: 16, fontWeight: 700, letterSpacing: 2, textAlign: "center", marginBottom: erroLicenca ? 6 : 14 }}
                 />
                 {erroLicenca && (

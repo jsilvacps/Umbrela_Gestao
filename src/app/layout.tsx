@@ -4,13 +4,13 @@ import PresenceTracker from "@/components/PresenceTracker";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 export const metadata: Metadata = {
-  title: "Horti Gestão",
-  description: "Sistema PDV para hortifruti e pequeno comércio",
+  title: "Umbrela Gestão",
+  description: "Sistema PDV para qualquer tipo de comércio",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Horti Gestão",
+    title: "Umbrela Gestão",
   },
   icons: {
     icon: [

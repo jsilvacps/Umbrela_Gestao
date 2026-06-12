@@ -67,13 +67,13 @@ export default function PWAInstallBanner() {
       <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }`}</style>
 
       {/* Ícone */}
-      <img src="/icon-72x72.png" alt="Horti Gestão" width={44} height={44}
+      <img src="/icon-72x72.png" alt="Umbrela Gestão" width={44} height={44}
         style={{ borderRadius: 10, flexShrink: 0 }} />
 
       {/* Texto */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ color: '#f0fdf4', fontWeight: 700, fontSize: 14 }}>
-          Instalar Horti Gestão
+          Instalar Umbrela Gestão
         </div>
         <div style={{ color: '#86efac', fontSize: 12, marginTop: 2 }}>
           {isIOS

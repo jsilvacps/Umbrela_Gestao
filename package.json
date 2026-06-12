@@ -1,8 +1,8 @@
 {
-  "name": "horti-gestao",
+  "name": "umbrela-gestao",
   "version": "1.1.27",
-  "description": "Sistema PDV para hortifruti e pequeno comércio",
-  "author": "Horti Gestão",
+  "description": "Sistema PDV para qualquer tipo de comércio",
+  "author": "Umbrela Gestão",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",

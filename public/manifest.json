@@ -1,7 +1,7 @@
 {
-  "name": "Horti Gestão PDV",
-  "short_name": "Horti Gestão",
-  "description": "Sistema PDV para hortifruti e pequeno comércio",
+  "name": "Umbrela Gestão PDV",
+  "short_name": "Umbrela Gestão",
+  "description": "Sistema PDV para qualquer tipo de comércio",
   "start_url": "/adm",
   "scope": "/",
   "display": "standalone",

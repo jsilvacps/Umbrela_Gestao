@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import HeaderCebolao from "@/components/HeaderCebolao";
+import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -183,7 +183,7 @@ export default function VendasPage() {
     setBusca("");
   }
 
-  const nomeEmpresa    = empresa.nome_fantasia || "Horti Gestão";
+  const nomeEmpresa    = empresa.nome_fantasia || "Umbrela Gestão";
   const dataImpressao  = new Date().toLocaleString("pt-BR");
   const filtroTexto    = [
     dataFiltro      ? `Data: ${dataFiltro.split("-").reverse().join("/")}` : "Todas as datas",
@@ -198,7 +198,7 @@ export default function VendasPage() {
 
         {/* Header — oculto no print */}
         <div className="no-print">
-          <HeaderCebolao />
+          <HeaderUmbrela />
         </div>
 
         {/* ── Tabs ── */}

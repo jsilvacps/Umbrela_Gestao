@@ -6,7 +6,7 @@ import { db } from "@/lib/supabaseClient";
 
 const PAGES_WITH_BACK = ["/produtos", "/clientes", "/relatorios", "/vendas", "/dashboard", "/painel"];
 
-export default function HeaderCebolao() {
+export default function HeaderUmbrela() {
   const [nome, setNome]       = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router   = useRouter();

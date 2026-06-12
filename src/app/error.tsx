@@ -22,7 +22,7 @@ export default function GlobalError({
         }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
           <div style={{ color: "#f87171", fontWeight: 900, fontSize: 20, marginBottom: 12 }}>
-            Erro no Horti Gestão PDV
+            Erro no Umbrela Gestão PDV
           </div>
           <div style={{
             background: "#1f2937", borderRadius: 8, padding: 14,

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
         await resend.emails.send({
-          from:    "Horti Gestão Suporte <onboarding@resend.dev>",
+          from:    "Umbrela Gestão Suporte <onboarding@resend.dev>",
           to:      ["jeansilva3323@gmail.com"],
           subject: `[Suporte] ${assuntoLabel[assunto] ?? assunto} — ${estabelecimento || nome}`,
           html: `
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
                 </div>` : ""}
               </div>
               <div style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">
-                Horti Gestão PDV · ${new Date().toLocaleString("pt-BR")}
+                Umbrela Gestão PDV · ${new Date().toLocaleString("pt-BR")}
               </div>
             </div>
           `,

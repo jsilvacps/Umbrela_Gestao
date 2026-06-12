@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import HeaderCebolao from "@/components/HeaderCebolao";
+import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -293,7 +293,7 @@ export default function ClientesPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: 12 }}>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
-        <HeaderCebolao />
+        <HeaderUmbrela />
 
         {mensagem ? <div style={msgBox}>{mensagem}</div> : null}
 

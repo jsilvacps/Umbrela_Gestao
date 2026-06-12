@@ -16,7 +16,7 @@ type VendaFinalizada = { id: string; numero: number; operador: string; caixaId: 
 type MovimentoEstoque = { id: string; produtoId: string; produtoCodigo: string; produtoDescricao: string; tipo: "ENTRADA" | "AJUSTE" | "PERDA" | "QUEBRA" | "SAIDA_VENDA"; quantidade: number; estoqueAnterior: number; estoqueAtual: number; motivo: string; usuario: string; dataHora: string; };
 type UsuarioSistema = { login: string; senha: string; perfil: string; };
 
-const STORAGE_USER="horti_usuario"; const STORAGE_CAIXA="horti_caixa_atual"; const STORAGE_VENDAS="horti_vendas"; const STORAGE_PRODUTOS="horti_produtos"; const STORAGE_ESTOQUE_MOVIMENTOS="horti_estoque_movimentos"; const STORAGE_CLIENTES="horti_clientes"; const STORAGE_FIADO="horti_fiado_lancamentos";
+const STORAGE_USER="umbrela_usuario"; const STORAGE_CAIXA="umbrela_caixa_atual"; const STORAGE_VENDAS="umbrela_vendas"; const STORAGE_PRODUTOS="umbrela_produtos"; const STORAGE_ESTOQUE_MOVIMENTOS="umbrela_estoque_movimentos"; const STORAGE_CLIENTES="umbrela_clientes"; const STORAGE_FIADO="umbrela_fiado_lancamentos";
 function gerarId(){ return `${Date.now()}-${Math.random().toString(36).slice(2,10)}`; }
 function formatMoney(value:number){ return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(value); }
 
