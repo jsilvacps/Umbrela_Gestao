@@ -633,11 +633,12 @@ export default function ProdutosPage() {
     <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: 12 }}>
       <style>{`
         .prod-cards { display: none; flex-direction: column; gap: 10px; }
-        .prod-table { display: block; }
-        @media (max-width: 768px) {
-          .prod-cards { display: flex !important; }
+        .prod-table { display: block; overflow-x: auto; }
+        @media screen and (max-width: 768px) {
+          .prod-cards { display: flex !important; flex-direction: column; gap: 10px; }
           .prod-table { display: none !important; }
           .prod-grid  { grid-template-columns: 1fr !important; }
+          .prod-form-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
@@ -689,7 +690,7 @@ export default function ProdutosPage() {
             </div>
 
             <form onSubmit={salvarProduto}>
-              <div style={{ ...grid2, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0,1fr))" }}>
+              <div className="prod-form-grid" style={{ ...grid2, gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
                 <Field label="Código interno">
                   <input style={input} value={codigoInterno} onChange={(e) => setCodigoInterno(e.target.value)} placeholder="Código interno" />
                 </Field>
