@@ -629,18 +629,10 @@ export default function ProdutosPage() {
 
   const totalProdutos = useMemo(() => produtos.length, [produtos]);
 
+  if (isMobile === null) return null;
+
   return (
     <main style={{ minHeight: "100vh", background: "#f3f5f7", padding: 12 }}>
-      <style>{`
-        .prod-cards { display: none; flex-direction: column; gap: 10px; }
-        .prod-table { display: block; overflow-x: auto; }
-        @media screen and (max-width: 768px) {
-          .prod-cards { display: flex !important; flex-direction: column; gap: 10px; }
-          .prod-table { display: none !important; }
-          .prod-grid  { grid-template-columns: 1fr !important; }
-          .prod-form-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
       <div style={{ maxWidth: 1460, margin: "0 auto" }}>
         <HeaderUmbrela />
 
@@ -648,7 +640,7 @@ export default function ProdutosPage() {
           <div style={msgBox}>{mensagem}</div>
         ) : null}
 
-        <div className="prod-grid" style={{ ...contentGrid, gridTemplateColumns: "490px 1fr" }}>
+        <div style={{ ...contentGrid, gridTemplateColumns: isMobile ? "1fr" : "490px 1fr" }}>
           <section style={cardLeft}>
             <div style={title}>{editandoId ? "Editar produto" : "Novo produto"}</div>
 
@@ -690,7 +682,7 @@ export default function ProdutosPage() {
             </div>
 
             <form onSubmit={salvarProduto}>
-              <div className="prod-form-grid" style={{ ...grid2, gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
+              <div style={{ ...grid2, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0,1fr))" }}>
                 <Field label="Código interno">
                   <input style={input} value={codigoInterno} onChange={(e) => setCodigoInterno(e.target.value)} placeholder="Código interno" />
                 </Field>
@@ -811,8 +803,7 @@ export default function ProdutosPage() {
               </div>
             )}
 
-            {/* ── Cards (mobile via CSS) ── */}
-            <div className="prod-cards">
+            {isMobile ? <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {produtosFiltrados.length === 0 ? (
                   <div style={{ padding: 16, color: "#66758a" }}>
                     {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
@@ -912,10 +903,7 @@ export default function ProdutosPage() {
                     );
                   })
                 )}
-            </div>
-
-            {/* ── Tabela (desktop via CSS) ── */}
-            <div className="prod-table" style={{ overflowX: "auto" }}>
+            </div> : <div style={{ overflowX: "auto" }}>
               <div style={{ ...tableWrap, minWidth: 680 }}>
                 <div style={thead}>
                   <div>Produto</div>
@@ -1006,7 +994,7 @@ export default function ProdutosPage() {
                   })
                 )}
               </div>
-            </div>
+            </div>}
           </section>
         </div>
       </div>

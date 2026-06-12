@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 
 export function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia(`(max-width: ${breakpoint}px)`).matches
-      : false
-  );
+  const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
     setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
@@ -15,5 +13,5 @@ export function useIsMobile(breakpoint = 768) {
     return () => mq.removeEventListener("change", handler);
   }, [breakpoint]);
 
-  return isMobile;
+  return mounted ? isMobile : null;
 }
