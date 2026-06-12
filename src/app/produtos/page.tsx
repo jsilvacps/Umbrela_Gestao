@@ -801,9 +801,8 @@ export default function ProdutosPage() {
               </div>
             )}
 
-            {isMobile ? (
-              /* ── Layout mobile: cards ── */
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* ── Cards (mobile via CSS) ── */}
+            <div className="produtos-cards">
                 {produtosFiltrados.length === 0 ? (
                   <div style={{ padding: 16, color: "#66758a" }}>
                     {buscaLista ? `Nenhum produto encontrado para "${buscaLista}".` : "Nenhum produto cadastrado."}
@@ -903,10 +902,10 @@ export default function ProdutosPage() {
                     );
                   })
                 )}
-              </div>
-            ) : (
-              /* ── Layout desktop: tabela ── */
-              <div style={{ overflowX: "auto" }}>
+            </div>
+
+            {/* ── Tabela (desktop via CSS) ── */}
+            <div className="produtos-tabela" style={{ overflowX: "auto" }}>
               <div style={{ ...tableWrap, minWidth: 680 }}>
                 <div style={thead}>
                   <div>Produto</div>
@@ -997,8 +996,7 @@ export default function ProdutosPage() {
                   })
                 )}
               </div>
-              </div>
-            )}
+            </div>
           </section>
         </div>
       </div>
