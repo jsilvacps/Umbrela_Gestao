@@ -779,7 +779,7 @@ export default function PDVPage() {
     setCarregandoRel(true);
     try {
       const [rV, rC, rIt, rS] = await Promise.all([
-        db("vendas").select("id, total, tipo_pagamento, created_at")
+        db("vendas").select("id, total, tipo_pagamento, created_at, cliente_cpf")
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
         db("cupons_cancelados").select("*")
@@ -809,11 +809,11 @@ export default function PDVPage() {
       try {
         const ids: string[] = (rV.data || []).map((v: any) => v.id);
         if (ids.length > 0) {
-          const { data: itensVenda, error: erroItens } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
+          const { data: itensVenda, error: erroItens } = await (db("itens_venda").select("produto_nome, quantidade, preco, produtos(nome)") as any).in("venda_id", ids);
           if (erroItens) throw new Error(erroItens.message);
           const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
           for (const item of (itensVenda || []) as any[]) {
-            const nome = item.produto_nome || "Sem nome";
+            const nome = item.produto_nome || item.produtos?.nome || "Sem nome";
             if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
             mapa[nome].totalQtd += Number(item.quantidade || 0);
             mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
@@ -2735,8 +2735,14 @@ ${rod}
               ) : abaRelatorio === "vendas" ? (
                 <TabelaRelatorio
                   dados={relVendas}
-                  colunas={["Data/Hora", "Pagamento", "Total"]}
-                  renderLinha={(r) => [fmtHora(r.created_at), r.tipo_pagamento || "—", moedaBR(r.total || 0)]}
+                  colunas={["Cupom", "Data/Hora", "Pagamento", "Cliente", "Total"]}
+                  renderLinha={(r) => [
+                    "#" + String(r.id).slice(0, 8).toUpperCase(),
+                    fmtHora(r.created_at),
+                    r.tipo_pagamento || "—",
+                    r.cliente_cpf ? r.cliente_cpf : "—",
+                    moedaBR(r.total || 0),
+                  ]}
                   vazio="Nenhuma venda no período."
                 />
               ) : abaRelatorio === "cupons" ? (
