@@ -2374,7 +2374,7 @@ ${rod}
                     ref={refValorRecebido}
                     type="text" inputMode="decimal"
                     value={valorRecebido}
-                    onChange={(e) => setValorRecebido(e.target.value)}
+                    onChange={(e) => setValorRecebido(e.target.value.replace(/[^0-9,\.]/g, ""))}
                     onKeyDown={(e) => { if (e.key === "Enter") confirmarVenda(); }}
                     placeholder="0,00"
                     style={{ ...inputModal, fontSize: 22, fontWeight: 800, textAlign: "right" }}
