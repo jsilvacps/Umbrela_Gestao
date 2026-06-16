@@ -152,13 +152,17 @@ export default function PDVPage() {
 
   /* ── Relatórios PDV ── */
   const [modalRelatorios, setModalRelatorios] = useState(false);
-  const [abaRelatorio, setAbaRelatorio] = useState<"cupons" | "itens" | "sangrias" | "operadores">("cupons");
+  const [abaRelatorio, setAbaRelatorio] = useState<"vendas" | "cupons" | "itens" | "sangrias" | "ranking">("vendas");
+  const [relVendas, setRelVendas]       = useState<any[]>([]);
   const [relCupons, setRelCupons]       = useState<any[]>([]);
   const [relItens, setRelItens]         = useState<any[]>([]);
   const [relSangrias, setRelSangrias]   = useState<any[]>([]);
-  const [relOperadores, setRelOperadores] = useState<any[]>([]);
+  const [relRanking, setRelRanking]     = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
   const [carregandoRel, setCarregandoRel] = useState(false);
+  const [carregandoRankingRel, setCarregandoRankingRel] = useState(false);
   const [erroRelatorio, setErroRelatorio] = useState<string | null>(null);
+  const [dataInicioRel, setDataInicioRel] = useState(() => new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10));
+  const [dataFimRel, setDataFimRel]       = useState(() => new Date().toISOString().slice(0, 10));
 
   /* ── Fechamento de caixa ── */
   const [modalFechamento, setModalFechamento]   = useState(false);
@@ -526,9 +530,9 @@ export default function PDVPage() {
     if (termo.length < 3) { setSugestoes([]); return; }
 
     const filtrado = todosProdutos.filter((p) =>
-      p.nome.toLowerCase().includes(termo) ||
-      (p.codigo && p.codigo.toLowerCase().includes(termo)) ||
-      (p.ean   && p.ean.includes(termo))
+      p.nome.toLowerCase().startsWith(termo) ||
+      (p.codigo && p.codigo.toLowerCase().startsWith(termo)) ||
+      (p.ean   && p.ean.startsWith(termo))
     ).slice(0, 8);
 
     setSugestoes(filtrado);
@@ -736,35 +740,64 @@ export default function PDVPage() {
   }
 
   /* ── Carrega dados dos relatórios ── */
-  async function abrirRelatorios() {
-    if (exigirPro("relatorios")) return;
-    if (!temPerm("perm_relatorios")) { semPermissao("ver relatórios"); return; }
-    setModalRelatorios(true);
+  async function buscarRelatorios(inicio: string, fim: string) {
     setErroRelatorio(null);
     setCarregandoRel(true);
     try {
-      const [rC, rIt, rS, rOp] = await Promise.all([
-        db("cupons_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
-        db("itens_cancelados").select("*").order("created_at", { ascending: false }).limit(100),
-        db("sangrias").select("*").order("created_at", { ascending: false }).limit(100),
-        db("operadores").select("id, nome, username, blocked").order("username", { ascending: true }),
+      const [rV, rC, rIt, rS] = await Promise.all([
+        db("vendas").select("id, total, tipo_pagamento, created_at")
+          .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+          .order("created_at", { ascending: false }).limit(500),
+        db("cupons_cancelados").select("*")
+          .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+          .order("created_at", { ascending: false }).limit(500),
+        db("itens_cancelados").select("*")
+          .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+          .order("created_at", { ascending: false }).limit(500),
+        db("sangrias").select("*")
+          .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+          .order("created_at", { ascending: false }).limit(500),
       ]);
-      // Detecta qualquer erro vindo do Supabase
       const erros = [
+        rV.error  && `vendas: ${rV.error.message}`,
         rC.error  && `cupons_cancelados: ${rC.error.message}`,
         rIt.error && `itens_cancelados: ${rIt.error.message}`,
         rS.error  && `sangrias: ${rS.error.message}`,
-        rOp.error && `operadores: ${rOp.error.message}`,
       ].filter(Boolean);
       if (erros.length) setErroRelatorio(erros.join(" | "));
+      setRelVendas(rV.data  || []);
       setRelCupons(rC.data  || []);
       setRelItens(rIt.data  || []);
       setRelSangrias(rS.data || []);
-      setRelOperadores(rOp.data || []);
+
+      // Ranking
+      setCarregandoRankingRel(true);
+      const ids: string[] = (rV.data || []).map((v: any) => v.id);
+      if (ids.length > 0) {
+        const { data: itensVenda } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
+        const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
+        for (const item of (itensVenda || []) as any[]) {
+          const nome = item.produto_nome || "Sem nome";
+          if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
+          mapa[nome].totalQtd += Number(item.quantidade || 0);
+          mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+        }
+        setRelRanking(Object.values(mapa).sort((a, b) => b.totalQtd - a.totalQtd));
+      } else {
+        setRelRanking([]);
+      }
+      setCarregandoRankingRel(false);
     } catch (ex: any) {
       setErroRelatorio(ex?.message || "Erro inesperado ao carregar relatórios");
     }
     setCarregandoRel(false);
+  }
+
+  async function abrirRelatorios() {
+    if (exigirPro("relatorios")) return;
+    if (!temPerm("perm_relatorios")) { semPermissao("ver relatórios"); return; }
+    setModalRelatorios(true);
+    await buscarRelatorios(dataInicioRel, dataFimRel);
   }
 
   /* ── Fechamento de caixa ── */
@@ -1107,7 +1140,7 @@ ${rod}
 
   /* ── Abre modal finalizar ── */
   function abrirFinalizar() {
-    if (carrinho.length === 0) { setMensagem("Adicione itens antes de finalizar."); return; }
+    if (carrinho.length === 0) { setMensagem("Adicione itens antes de finalizar."); setTimeout(() => setMensagem(""), 4000); return; }
     if (!temPerm("perm_finalizar")) { semPermissao("finalizar venda"); return; }
     setDesconto("");
     setTipoDesconto("R$");
@@ -2554,16 +2587,28 @@ ${rod}
       {/* ══════════ MODAL RELATÓRIOS ══════════ */}
       {modalRelatorios && (
         <div style={{ ...overlay, alignItems: "flex-start", paddingTop: 30 }}>
-          <div style={{ ...modalBox, width: "min(96vw, 820px)", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>📊 Relatórios do Caixa</div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button type="button" onClick={abrirRelatorios}
-                  style={{ border: "1px solid #d1d5db", background: "#f9fafb", borderRadius: 8, padding: "4px 12px", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 600 }}>
-                  🔄 Recarregar
-                </button>
-                <button type="button" onClick={() => setModalRelatorios(false)} style={{ border: "none", background: "none", fontSize: 22, cursor: "pointer", color: "#475569" }}>×</button>
+          <div style={{ ...modalBox, width: "min(96vw, 900px)", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>📊 Relatórios</div>
+              <button type="button" onClick={() => setModalRelatorios(false)} style={{ border: "none", background: "none", fontSize: 22, cursor: "pointer", color: "#475569" }}>×</button>
+            </div>
+
+            {/* Filtro de data */}
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Data início</div>
+                <input type="date" value={dataInicioRel} onChange={(e) => setDataInicioRel(e.target.value)}
+                  style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 10px", fontSize: 14 }} />
               </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Data fim</div>
+                <input type="date" value={dataFimRel} onChange={(e) => setDataFimRel(e.target.value)}
+                  style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 10px", fontSize: 14 }} />
+              </div>
+              <button type="button" onClick={() => buscarRelatorios(dataInicioRel, dataFimRel)}
+                style={{ height: 36, padding: "0 18px", background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                🔍 Buscar
+              </button>
             </div>
 
             {erroRelatorio && (
@@ -2574,16 +2619,17 @@ ${rod}
 
             {/* Abas */}
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {(["cupons", "itens", "sangrias", "operadores"] as const).map((aba) => (
+              {(["vendas", "itens", "cupons", "sangrias", "ranking"] as const).map((aba) => (
                 <button key={aba} type="button" onClick={() => setAbaRelatorio(aba)}
                   style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
                     background: abaRelatorio === aba ? "#1e3a5f" : "#f1f5f9",
                     color: abaRelatorio === aba ? "#fff" : "#374151",
                   }}>
-                  { aba === "cupons" ? "Cupons Cancelados"
-                  : aba === "itens" ? "Itens Cancelados"
+                  { aba === "vendas"   ? "Vendas"
+                  : aba === "itens"   ? "Itens Cancelados"
+                  : aba === "cupons"  ? "Cupons Cancelados"
                   : aba === "sangrias" ? "Sangrias"
-                  : "Operadores" }
+                  : "🏆 Mais Vendidos" }
                 </button>
               ))}
             </div>
@@ -2591,6 +2637,13 @@ ${rod}
             <div style={{ flex: 1, overflowY: "auto" }}>
               {carregandoRel ? (
                 <div style={{ color: "#64748b", padding: 20 }}>Carregando...</div>
+              ) : abaRelatorio === "vendas" ? (
+                <TabelaRelatorio
+                  dados={relVendas}
+                  colunas={["Data/Hora", "Pagamento", "Total"]}
+                  renderLinha={(r) => [fmtHora(r.created_at), r.tipo_pagamento || "—", moedaBR(r.total || 0)]}
+                  vazio="Nenhuma venda no período."
+                />
               ) : abaRelatorio === "cupons" ? (
                 <TabelaRelatorio
                   dados={relCupons}
@@ -2617,12 +2670,32 @@ ${rod}
                   vazio="Nenhuma sangria registrada."
                 />
               ) : (
-                <TabelaRelatorio
-                  dados={relOperadores}
-                  colunas={["Usuário", "Nome", "Situação"]}
-                  renderLinha={(r) => [r.username, r.nome || "—", r.blocked ? "🔴 Bloqueado" : "🟢 Ativo"]}
-                  vazio="Nenhum operador cadastrado."
-                />
+                carregandoRankingRel ? (
+                  <div style={{ color: "#64748b", padding: 20 }}>Carregando ranking...</div>
+                ) : relRanking.length === 0 ? (
+                  <div style={{ padding: 24, color: "#66758a", textAlign: "center" }}>Nenhuma venda no período.</div>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <div style={{ minWidth: 400 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                        <div>#</div><div>Produto</div><div style={{ textAlign: "right" }}>Qtd.</div><div style={{ textAlign: "right" }}>Receita</div>
+                      </div>
+                      {relRanking.map((item, idx) => {
+                        const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
+                        return (
+                          <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
+                            <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
+                            <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
+                            <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
+                              {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                            </div>
+                            <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moedaBR(item.totalReceita)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </div>
