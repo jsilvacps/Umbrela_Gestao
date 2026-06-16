@@ -106,7 +106,12 @@ export default function PDVPage() {
   const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
   const [quantidade, setQuantidade] = useState("1");
   const [precoUnitario, setPrecoUnitario] = useState("");
-  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>(() => {
+    try {
+      const salvo = typeof window !== "undefined" ? localStorage.getItem("pdv_carrinho") : null;
+      return salvo ? JSON.parse(salvo) : [];
+    } catch { return []; }
+  });
   const [mensagem, setMensagem] = useState("");
 
   /* ── Busca rápida (autocomplete) ── */
@@ -441,6 +446,10 @@ export default function PDVPage() {
   /* ── Bloqueia fechar/atualizar com venda em aberto ── */
   const carrinhoRef = useRef(carrinho);
   carrinhoRef.current = carrinho;
+
+  useEffect(() => {
+    localStorage.setItem("pdv_carrinho", JSON.stringify(carrinho));
+  }, [carrinho]);
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (carrinhoRef.current.length === 0) return;
