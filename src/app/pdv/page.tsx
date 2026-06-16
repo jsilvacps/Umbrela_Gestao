@@ -167,12 +167,14 @@ export default function PDVPage() {
 
   /* ── Relatórios PDV ── */
   const [modalRelatorios, setModalRelatorios] = useState(false);
-  const [abaRelatorio, setAbaRelatorio] = useState<"vendas" | "cupons" | "itens" | "sangrias" | "ranking">("vendas");
+  const [abaRelatorio, setAbaRelatorio] = useState<"vendas" | "cupons" | "itens" | "sangrias" | "ranking" | "fiado">("vendas");
   const [relVendas, setRelVendas]       = useState<any[]>([]);
   const [relCupons, setRelCupons]       = useState<any[]>([]);
   const [relItens, setRelItens]         = useState<any[]>([]);
   const [relSangrias, setRelSangrias]   = useState<any[]>([]);
   const [relRanking, setRelRanking]     = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
+  const [relFiado, setRelFiado]         = useState<any[]>([]);
+  const [filtroFiado, setFiltroFiado]   = useState("");
   const [carregandoRel, setCarregandoRel] = useState(false);
   const [carregandoRankingRel, setCarregandoRankingRel] = useState(false);
   const [erroRelatorio, setErroRelatorio] = useState<string | null>(null);
@@ -795,7 +797,7 @@ export default function PDVPage() {
     setErroRelatorio(null);
     setCarregandoRel(true);
     try {
-      const [rV, rC, rIt, rS] = await Promise.all([
+      const [rV, rC, rIt, rS, rF] = await Promise.all([
         db("vendas").select("id, total, tipo_pagamento, created_at, cliente_cpf")
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
@@ -806,6 +808,10 @@ export default function PDVPage() {
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
         db("sangrias").select("*")
+          .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+          .order("created_at", { ascending: false }).limit(500),
+        db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf")
+          .eq("tipo_pagamento", "fiado")
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
       ]);
@@ -820,6 +826,7 @@ export default function PDVPage() {
       setRelCupons(rC.data  || []);
       setRelItens(rIt.data  || []);
       setRelSangrias(rS.data || []);
+      setRelFiado(rF.data || []);
 
       // Ranking
       setCarregandoRankingRel(true);
@@ -1160,6 +1167,91 @@ ${rod}
     }, 400);
   }
 
+  /* ── Cupom de fiado (com campo de assinatura) ── */
+  function imprimirCupomFiado(dados: {
+    itens: ItensCupom[]; totalFinal: number; descontoVal: number; totalGeral: number;
+    nomeCliente: string; nomeOperador: string; dataHora?: string; cupomId?: string;
+  }) {
+    const mm = cupomCfg.largura;
+    const pt = mm === 58 ? "8pt" : "9pt";
+    const ptG = mm === 58 ? "11pt" : "13pt";
+    const interno = `${mm - 8}mm`;
+    const cab = (cupomCfg.cabecalho || cupomCfg.nome || "").split("\n").map((l) => `<div class="c">${l}</div>`).join("");
+    const dtStr = dados.dataHora ?? (() => {
+      const agora = new Date();
+      return agora.toLocaleDateString("pt-BR") + "  " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    })();
+    const itensHtml = dados.itens.map((item) => {
+      const qtd = item.quantidade % 1 === 0 ? String(item.quantidade) : item.quantidade.toFixed(3);
+      return `<tr>
+        <td class="nome">${item.nome}</td>
+        <td class="r">${qtd}</td>
+        <td class="r">${moedaBR(item.precoUnitario)}</td>
+        <td class="r b">${moedaBR(item.quantidade * item.precoUnitario)}</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  @page { size: ${mm}mm auto; margin: 4mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: ${interno}; font-family: 'Courier New', Courier, monospace; font-size: ${pt}; color: #000; line-height: 1.6; }
+  .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+  hr { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 1px 2px; vertical-align: top; }
+  .nome { width: 45%; word-break: break-word; }
+  .tot { display: flex; justify-content: space-between; padding: 1px 0; }
+  .tot-grande { font-size: ${ptG}; font-weight: bold; }
+  .assinatura { margin-top: 24px; border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: ${pt}; }
+</style>
+</head><body>
+${cab}
+<hr>
+<div class="c b">COMPROVANTE DE FIADO</div>
+<div class="c">${dtStr}</div>
+${dados.cupomId ? `<div class="c">Cupom: ${dados.cupomId.slice(-8).toUpperCase()}</div>` : ""}
+<hr>
+<div><strong>Cliente:</strong> ${dados.nomeCliente}</div>
+<div>Operador: ${dados.nomeOperador}</div>
+<hr>
+<table>
+  <thead><tr>
+    <td class="nome b">ITEM</td><td class="r b">QTD</td><td class="r b">UNIT</td><td class="r b">TOTAL</td>
+  </tr></thead>
+  <tbody>${itensHtml}</tbody>
+</table>
+<hr>
+${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR(dados.totalGeral)}</span></div><div class="tot"><span>Desconto</span><span>- ${moedaBR(dados.descontoVal)}</span></div>` : ""}
+<div class="tot tot-grande"><span>TOTAL A PRAZO</span><span>${moedaBR(dados.totalFinal)}</span></div>
+<hr>
+<div class="c" style="font-size:${pt};margin-top:4px">Declaro que recebi os produtos acima descritos</div>
+<div class="c" style="font-size:${pt}">e me comprometo a pagar o valor indicado.</div>
+<div class="assinatura">
+  <br><br><br>
+  _____________________________________________<br>
+  Assinatura do cliente<br>
+  ${dados.nomeCliente}
+</div>
+<br>
+<div class="c" style="font-size:7pt">Sistema Umbrela Gestão</div>
+<br>
+</body></html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 3000);
+    }, 400);
+  }
+
   /* ── Abre o caixa com fundo inicial ── */
   function abrirCaixa() {
     const valor = parseFloat(valorAbertura.replace(",", ".")) || 0;
@@ -1311,6 +1403,7 @@ ${rod}
         troco:           ehDinheiro ? troco : 0,
         cliente_cpf:     cpf.replace(/\D/g, "") || null,
         cliente_id:      tipoPagamento === "fiado" ? (clienteFiado?.id ?? null) : null,
+        cliente_nome:    tipoPagamento === "fiado" ? (clienteFiado?.nome ?? null) : null,
       };
 
       const itensSalvos = carrinho.map((item) => ({
@@ -1383,16 +1476,22 @@ ${rod}
       }
 
       // ── Imprime cupom ────────────────────────────────────────────────────
+      const itensCupom = carrinho.map((i) => ({ nome: i.produto.nome, quantidade: i.quantidade, precoUnitario: i.precoUnitario }));
       imprimirCupom({
-        itens: carrinho.map((i) => ({
-          nome: i.produto.nome, quantidade: i.quantidade, precoUnitario: i.precoUnitario,
-        })),
+        itens: itensCupom,
         totalGeral, descontoVal, totalFinal,
         tipoPagamento: labelPagamento,
         valorRecebidoVal: ehDinheiro ? valorRecebidoVal : totalFinal,
         troco: ehDinheiro ? troco : 0,
         nomeOperador, clienteLabel, cpf,
       });
+      // Cupom adicional de fiado com campo de assinatura
+      if (tipoPagamento === "fiado" && clienteFiado) {
+        imprimirCupomFiado({
+          itens: itensCupom, totalFinal, descontoVal, totalGeral,
+          nomeCliente: clienteFiado.nome, nomeOperador,
+        });
+      }
 
       // ── Limpa cupom ──────────────────────────────────────────────────────
       setCarrinho([]);
@@ -2732,7 +2831,7 @@ ${rod}
 
             {/* Abas */}
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {(["vendas", "itens", "cupons", "sangrias", "ranking"] as const).map((aba) => (
+              {(["vendas", "itens", "cupons", "sangrias", "ranking", "fiado"] as const).map((aba) => (
                 <button key={aba} type="button" onClick={() => setAbaRelatorio(aba)}
                   style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
                     background: abaRelatorio === aba ? "#1e3a5f" : "#f1f5f9",
@@ -2742,7 +2841,8 @@ ${rod}
                   : aba === "itens"   ? "Itens Cancelados"
                   : aba === "cupons"  ? "Cupons Cancelados"
                   : aba === "sangrias" ? "Sangrias"
-                  : "🏆 Mais Vendidos" }
+                  : aba === "ranking" ? "🏆 Mais Vendidos"
+                  : "📒 Fiado" }
                 </button>
               ))}
             </div>
@@ -2788,6 +2888,62 @@ ${rod}
                   renderLinha={(r) => [fmtHora(r.created_at), r.operador || "—", moedaBR(r.valor || 0), r.observacao || "—"]}
                   vazio="Nenhuma sangria registrada."
                 />
+              ) : abaRelatorio === "fiado" ? (
+                (() => {
+                  const termo = filtroFiado.toLowerCase().trim();
+                  const fiadoFiltrado = termo
+                    ? relFiado.filter((r) => (r.cliente_nome || "").toLowerCase().includes(termo))
+                    : relFiado;
+                  // Agrupa por cliente
+                  const porCliente: Record<string, { nome: string; total: number; cupons: any[] }> = {};
+                  for (const r of fiadoFiltrado) {
+                    const nome = r.cliente_nome || "Sem nome";
+                    if (!porCliente[nome]) porCliente[nome] = { nome, total: 0, cupons: [] };
+                    porCliente[nome].total += Number(r.total || 0);
+                    porCliente[nome].cupons.push(r);
+                  }
+                  const clientes = Object.values(porCliente).sort((a, b) => a.nome.localeCompare(b.nome));
+                  return (
+                    <div>
+                      <div style={{ marginBottom: 12 }}>
+                        <input
+                          type="text"
+                          placeholder="🔍 Buscar por nome do cliente..."
+                          value={filtroFiado}
+                          onChange={(e) => setFiltroFiado(e.target.value)}
+                          style={{ width: "100%", height: 36, padding: "0 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 14, outline: "none" }}
+                        />
+                      </div>
+                      {clientes.length === 0 ? (
+                        <div style={{ padding: 24, color: "#66758a", textAlign: "center" }}>Nenhum lançamento de fiado no período.</div>
+                      ) : clientes.map((cli) => (
+                        <div key={cli.nome} style={{ marginBottom: 16, border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                          <div style={{ background: "#1e3a5f", color: "#fff", padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: 800, fontSize: 15 }}>👤 {cli.nome}</span>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>{moedaBR(cli.total)}</span>
+                          </div>
+                          <div style={{ background: "#f8fafc" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, padding: "6px 14px", fontWeight: 700, fontSize: 12, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>
+                              <div>Cupom</div><div>Data/Hora</div><div style={{ textAlign: "right" }}>Valor</div>
+                            </div>
+                            {cli.cupons.map((r: any) => (
+                              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, padding: "6px 14px", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}>
+                                <div style={{ fontFamily: "monospace", color: "#1e3a5f", fontWeight: 700 }}>#{String(r.id).slice(0, 8).toUpperCase()}</div>
+                                <div style={{ color: "#475569" }}>{fmtHora(r.created_at)}</div>
+                                <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moedaBR(r.total || 0)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {clientes.length > 0 && (
+                        <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #1e3a5f", color: "#1e3a5f" }}>
+                          Total geral: {moedaBR(fiadoFiltrado.reduce((s: number, r: any) => s + Number(r.total || 0), 0))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 carregandoRankingRel ? (
                   <div style={{ color: "#64748b", padding: 20 }}>Carregando ranking...</div>

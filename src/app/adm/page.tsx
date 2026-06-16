@@ -122,7 +122,9 @@ export default function AdmPage() {
   const [dataFim, setDataFim] = useState("");
   const [rankingMaisVendidos, setRankingMaisVendidos] = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
   const [carregandoRanking, setCarregandoRanking] = useState(false);
-  const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking">("geral");
+  const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking" | "fiado">("geral");
+  const [vendasFiado, setVendasFiado] = useState<any[]>([]);
+  const [filtroFiadoAdm, setFiltroFiadoAdm] = useState("");
 
   const permPadrao = {
     perm_finalizar: true, perm_cancelar_item: true, perm_cancelar_venda: true,
@@ -195,7 +197,7 @@ export default function AdmPage() {
   const carregarRelatorios = useCallback(async () => {
     const inicio = dataInicio || new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const fim    = dataFim    || new Date().toISOString().slice(0, 10);
-    const [{ data: vendasData }, { data: itensData }, { data: cuponsData }] = await Promise.all([
+    const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
       db("vendas").select("id, total, tipo_pagamento, created_at")
         .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
         .order("created_at", { ascending: false }).limit(500),
@@ -205,10 +207,15 @@ export default function AdmPage() {
       db("cupons_cancelados").select("*")
         .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
         .order("created_at", { ascending: false }).limit(500),
+      db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf")
+        .eq("tipo_pagamento", "Fiado")
+        .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+        .order("created_at", { ascending: false }).limit(500),
     ]);
     setVendas((vendasData || []) as Venda[]);
     setItensCancelados((itensData || []) as Cancelado[]);
     setCuponsCancelados((cuponsData || []) as Cancelado[]);
+    setVendasFiado(fiadoData || []);
 
     // Ranking de itens mais vendidos
     setCarregandoRanking(true);
@@ -897,17 +904,14 @@ export default function AdmPage() {
 
             {/* Sub-abas */}
             <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-              <button
-                onClick={() => setSubAbaRel("geral")}
-                style={subAbaRel === "geral" ? subTabAtivo : subTabInativo}
-              >
+              <button onClick={() => setSubAbaRel("geral")} style={subAbaRel === "geral" ? subTabAtivo : subTabInativo}>
                 📋 Relatórios gerais
               </button>
-              <button
-                onClick={() => setSubAbaRel("ranking")}
-                style={subAbaRel === "ranking" ? subTabAtivo : subTabInativo}
-              >
+              <button onClick={() => setSubAbaRel("ranking")} style={subAbaRel === "ranking" ? subTabAtivo : subTabInativo}>
                 🏆 Itens mais vendidos
+              </button>
+              <button onClick={() => setSubAbaRel("fiado")} style={subAbaRel === "fiado" ? subTabAtivo : subTabInativo}>
+                📒 Fiado
               </button>
             </div>
 
@@ -1026,6 +1030,60 @@ export default function AdmPage() {
                 </div>
               )
             )}
+
+            {subAbaRel === "fiado" && (() => {
+              const termo = filtroFiadoAdm.toLowerCase().trim();
+              const fiadoFiltrado = termo
+                ? vendasFiado.filter((r) => (r.cliente_nome || "").toLowerCase().includes(termo))
+                : vendasFiado;
+              const porCliente: Record<string, { nome: string; total: number; cupons: any[] }> = {};
+              for (const r of fiadoFiltrado) {
+                const nome = r.cliente_nome || "Sem nome";
+                if (!porCliente[nome]) porCliente[nome] = { nome, total: 0, cupons: [] };
+                porCliente[nome].total += Number(r.total || 0);
+                porCliente[nome].cupons.push(r);
+              }
+              const clientes = Object.values(porCliente).sort((a, b) => a.nome.localeCompare(b.nome));
+              const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+              return (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍 Buscar por nome do cliente..."
+                    value={filtroFiadoAdm}
+                    onChange={(e) => setFiltroFiadoAdm(e.target.value)}
+                    style={{ ...input, width: "100%", marginBottom: 16 }}
+                  />
+                  {clientes.length === 0 ? (
+                    <div style={{ padding: 24, color: "#66758a", textAlign: "center" }}>Nenhum lançamento de fiado no período.</div>
+                  ) : clientes.map((cli) => (
+                    <div key={cli.nome} style={{ marginBottom: 16, border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                      <div style={{ background: "#1e3a5f", color: "#fff", padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 800, fontSize: 15 }}>👤 {cli.nome}</span>
+                        <span style={{ fontWeight: 700, fontSize: 15 }}>{moeda(cli.total)}</span>
+                      </div>
+                      <div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, padding: "6px 14px", fontWeight: 700, fontSize: 12, color: "#64748b", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                          <div>Cupom</div><div>Data/Hora</div><div style={{ textAlign: "right" }}>Valor</div>
+                        </div>
+                        {cli.cupons.map((r: any) => (
+                          <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, padding: "6px 14px", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}>
+                            <div style={{ fontFamily: "monospace", color: "#1e3a5f", fontWeight: 700 }}>#{String(r.id).slice(0, 8).toUpperCase()}</div>
+                            <div style={{ color: "#475569" }}>{fmtData(r.created_at)}</div>
+                            <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(r.total || 0)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {clientes.length > 0 && (
+                    <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #1e3a5f", color: "#1e3a5f" }}>
+                      Total geral: {moeda(fiadoFiltrado.reduce((s: number, r: any) => s + Number(r.total || 0), 0))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
         )}
 
