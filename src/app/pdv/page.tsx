@@ -463,7 +463,7 @@ export default function PDVPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mostrarModalCPF, cpf]);
+  }, [mostrarModalCPF, cpf, carrinho]);
 
   /* ── Teclado do modal finalizar (1-4 = tipo pagamento, Esc = fechar) ── */
   useEffect(() => {
