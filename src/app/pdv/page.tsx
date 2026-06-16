@@ -126,6 +126,15 @@ export default function PDVPage() {
   const [salvandoAdm, setSalvandoAdm] = useState(false);
   const refSenhaAdm = useRef<HTMLInputElement>(null);
 
+  /* ── Modal motivo cancelamento ── */
+  const [modalMotivo, setModalMotivo] = useState<{
+    titulo: string;
+    descricao: string;
+    onConfirmar: (motivo: string) => void;
+  } | null>(null);
+  const [motivoInput, setMotivoInput] = useState("");
+  const refMotivo = useRef<HTMLInputElement>(null);
+
   /* ── Finalizar venda ── */
   const [modalFinalizar, setModalFinalizar] = useState(false);
   const [tipoPagamento, setTipoPagamento]   = useState<"dinheiro" | "pix" | "cartao" | "fiado">("dinheiro");
@@ -636,30 +645,38 @@ export default function PDVPage() {
     if (!item) return;
     if (exigirPro("cancelar_item")) return;
     if (!temPerm("perm_cancelar_item")) { semPermissao("cancelar item"); return; }
-    pedirSenha(
-      "Cancelar item",
-      `Cancelar "${item.produto.nome}" — ${item.quantidade} × ${moedaBR(item.precoUnitario)}?`,
-      async () => {
-        const basePayload = {
-          operador:     nomeOperador,
-          produto_nome: item.produto.nome,
-          quantidade:   item.quantidade,
-          motivo:       "Cancelado pelo operador no PDV",
-        };
-        let r = await db("itens_cancelados").insert([{ ...basePayload, preco: item.precoUnitario }]);
-        if (r.error?.message?.toLowerCase().includes("preco")) {
-          r = await db("itens_cancelados").insert([{ ...basePayload, valor: item.precoUnitario }]);
-        }
-        if (r.error?.message?.toLowerCase().includes("valor")) {
-          r = await db("itens_cancelados").insert([basePayload]);
-        }
-        if (r.error) {
-          setMensagem(`⚠️ Erro ao registrar cancelamento: ${r.error.message}`);
-          setTimeout(() => setMensagem(""), 6000);
-        }
-        removerItemDireto(itemId);
-      }
-    );
+    setMotivoInput("");
+    setModalMotivo({
+      titulo: "Cancelar item",
+      descricao: `"${item.produto.nome}" — ${item.quantidade} × ${moedaBR(item.precoUnitario)}`,
+      onConfirmar: (motivo) => {
+        pedirSenha(
+          "Cancelar item",
+          `Cancelar "${item.produto.nome}" — ${item.quantidade} × ${moedaBR(item.precoUnitario)}?`,
+          async () => {
+            const basePayload = {
+              operador:     nomeOperador,
+              produto_nome: item.produto.nome,
+              quantidade:   item.quantidade,
+              motivo:       motivo || "Cancelado pelo operador no PDV",
+            };
+            let r = await db("itens_cancelados").insert([{ ...basePayload, preco: item.precoUnitario }]);
+            if (r.error?.message?.toLowerCase().includes("preco")) {
+              r = await db("itens_cancelados").insert([{ ...basePayload, valor: item.precoUnitario }]);
+            }
+            if (r.error?.message?.toLowerCase().includes("valor")) {
+              r = await db("itens_cancelados").insert([basePayload]);
+            }
+            if (r.error) {
+              setMensagem(`⚠️ Erro ao registrar cancelamento: ${r.error.message}`);
+              setTimeout(() => setMensagem(""), 6000);
+            }
+            removerItemDireto(itemId);
+          }
+        );
+      },
+    });
+    setTimeout(() => refMotivo.current?.focus(), 80);
   }
 
   /* ── Cancela cupom inteiro (verifica permissão) ── */
@@ -667,22 +684,30 @@ export default function PDVPage() {
     if (carrinho.length === 0) return;
     if (exigirPro("cancelar_venda")) return;
     if (!temPerm("perm_cancelar_venda")) { semPermissao("cancelar cupom"); return; }
-    pedirSenha(
-      "Cancelar cupom",
-      `Cancelar cupom com ${totalItens} itens — Total ${moedaBR(totalGeral)}?`,
-      async () => {
-        await db("cupons_cancelados").insert([{
-          operador: nomeOperador,
-          total:    totalGeral,
-          motivo:   "Cancelado pelo operador no PDV",
-        }]);
-        setCarrinho([]);
-        setClienteLabel("Sem cliente identificado");
-        setCpf("");
-        setMostrarModalCPF(true);
-        setMensagem("");
-      }
-    );
+    setMotivoInput("");
+    setModalMotivo({
+      titulo: "Cancelar cupom",
+      descricao: `Cupom com ${totalItens} itens — Total ${moedaBR(totalGeral)}`,
+      onConfirmar: (motivo) => {
+        pedirSenha(
+          "Cancelar cupom",
+          `Cancelar cupom com ${totalItens} itens — Total ${moedaBR(totalGeral)}?`,
+          async () => {
+            await db("cupons_cancelados").insert([{
+              operador: nomeOperador,
+              total:    totalGeral,
+              motivo:   motivo || "Cancelado pelo operador no PDV",
+            }]);
+            setCarrinho([]);
+            setClienteLabel("Sem cliente identificado");
+            setCpf("");
+            setMostrarModalCPF(true);
+            setMensagem("");
+          }
+        );
+      },
+    });
+    setTimeout(() => refMotivo.current?.focus(), 80);
   }
 
   /* ── Sangria ── */
@@ -2355,6 +2380,38 @@ ${rod}
                 style={{ ...btnConfirmarModal, background: "#15803d", fontSize: 15,
                   opacity: (tipoPagamento === "fiado" && !clienteFiado) ? 0.5 : 1 }}>
                 {finalizando ? "Gravando..." : "✔ Confirmar venda"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MODAL MOTIVO CANCELAMENTO ══════════ */}
+      {modalMotivo && (
+        <div style={overlay}>
+          <div style={modalBox}>
+            <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a", marginBottom: 6 }}>
+              ❌ {modalMotivo.titulo}
+            </div>
+            <div style={{ color: "#475569", fontSize: 14, marginBottom: 16 }}>{modalMotivo.descricao}</div>
+            <label style={labelModal}>Motivo do cancelamento</label>
+            <input
+              ref={refMotivo}
+              type="text"
+              value={motivoInput}
+              onChange={(e) => setMotivoInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { const cb = modalMotivo.onConfirmar; setModalMotivo(null); cb(motivoInput); }
+                if (e.key === "Escape") setModalMotivo(null);
+              }}
+              placeholder="Ex: produto errado, troca, etc."
+              style={inputModal}
+              maxLength={120}
+            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
+              <button type="button" onClick={() => setModalMotivo(null)} style={btnCancelarModal}>Cancelar (ESC)</button>
+              <button type="button" onClick={() => { const cb = modalMotivo.onConfirmar; setModalMotivo(null); cb(motivoInput); }} style={btnConfirmarModal}>
+                Continuar (Enter)
               </button>
             </div>
           </div>
