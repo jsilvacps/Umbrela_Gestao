@@ -133,6 +133,26 @@ export function precisaRevalidar(): boolean {
   return dias >= DIAS_REVALIDAR;
 }
 
+// ── Salva/busca chave na tabela empresa (Supabase) ──────────────────────────
+
+async function salvarChaveNoBanco(chave: string) {
+  try {
+    const { data: emp } = await supabase.from("empresa").select("empresa_id").limit(1).maybeSingle();
+    if (emp?.empresa_id) {
+      await supabase.from("empresa").update({ chave_licenca: chave }).eq("empresa_id", emp.empresa_id);
+    } else {
+      await supabase.from("empresa").insert([{ chave_licenca: chave }]);
+    }
+  } catch { /* silencioso */ }
+}
+
+async function buscarChaveDoBanco(): Promise<string | null> {
+  try {
+    const { data } = await supabase.from("empresa").select("chave_licenca").limit(1).maybeSingle();
+    return (data as any)?.chave_licenca || null;
+  } catch { return null; }
+}
+
 // ── Validação online ─────────────────────────────────────────────────────────
 
 export async function validarLicencaOnline(chave: string): Promise<LicencaStatus> {
@@ -164,29 +184,26 @@ export async function validarLicencaOnline(chave: string): Promise<LicencaStatus
           validade:   validade5anos.toISOString(),
         })
         .eq("chave", chaveLimpa);
-
-      return {
-        plano:   data.plano as Plano,
-        valida:  true,
-        cliente: (data.cliente as string) || undefined,
-        chave:   chaveLimpa,
-      };
     }
 
-    const validade = new Date(data.validade as string);
-    validade.setHours(23, 59, 59);
-    if (validade < new Date()) {
+    const validade = data.validade ? new Date(data.validade as string) : null;
+    if (validade) validade.setHours(23, 59, 59);
+    if (validade && validade < new Date()) {
       return { plano: "free", valida: false };
     }
 
-    return {
+    const status: LicencaStatus = {
       plano:   data.plano as Plano,
       valida:  true,
       cliente: (data.cliente as string) || undefined,
       chave:   chaveLimpa,
     };
+
+    // Salva a chave no banco para outros dispositivos/instalações
+    salvarChaveNoBanco(chaveLimpa);
+
+    return status;
   } catch {
-    // Offline: retorna cache
     return getLicencaCache();
   }
 }
@@ -194,9 +211,18 @@ export async function validarLicencaOnline(chave: string): Promise<LicencaStatus
 // ── Inicialização completa ──────────────────────────────────────────────────
 
 export async function inicializarLicenca(): Promise<LicencaStatus> {
-  const chave = getChaveSalva();
+  let chave = getChaveSalva();
 
-  // Sem chave salva → trial ou free
+  // Sem chave local → tenta buscar do banco (outro dispositivo já ativou)
+  if (!chave) {
+    const chaveBanco = await buscarChaveDoBanco();
+    if (chaveBanco) {
+      salvarChave(chaveBanco);
+      chave = chaveBanco;
+    }
+  }
+
+  // Sem chave em lugar nenhum → trial ou free
   if (!chave) {
     const dias = getDiasTrialRestantes();
     const status: LicencaStatus = dias > 0
