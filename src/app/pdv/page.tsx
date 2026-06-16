@@ -806,21 +806,28 @@ export default function PDVPage() {
 
       // Ranking
       setCarregandoRankingRel(true);
-      const ids: string[] = (rV.data || []).map((v: any) => v.id);
-      if (ids.length > 0) {
-        const { data: itensVenda } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
-        const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
-        for (const item of (itensVenda || []) as any[]) {
-          const nome = item.produto_nome || "Sem nome";
-          if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
-          mapa[nome].totalQtd += Number(item.quantidade || 0);
-          mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+      try {
+        const ids: string[] = (rV.data || []).map((v: any) => v.id);
+        if (ids.length > 0) {
+          const { data: itensVenda, error: erroItens } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
+          if (erroItens) throw new Error(erroItens.message);
+          const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
+          for (const item of (itensVenda || []) as any[]) {
+            const nome = item.produto_nome || "Sem nome";
+            if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
+            mapa[nome].totalQtd += Number(item.quantidade || 0);
+            mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+          }
+          setRelRanking(Object.values(mapa).sort((a, b) => b.totalQtd - a.totalQtd));
+        } else {
+          setRelRanking([]);
         }
-        setRelRanking(Object.values(mapa).sort((a, b) => b.totalQtd - a.totalQtd));
-      } else {
+      } catch (exRanking: any) {
+        setErroRelatorio((prev) => prev ? prev + " | ranking: " + exRanking.message : "ranking: " + exRanking.message);
         setRelRanking([]);
+      } finally {
+        setCarregandoRankingRel(false);
       }
-      setCarregandoRankingRel(false);
     } catch (ex: any) {
       setErroRelatorio(ex?.message || "Erro inesperado ao carregar relatórios");
     }
@@ -970,10 +977,7 @@ export default function PDVPage() {
   }
 
   /* ── Totais ── */
-  const totalItens = useMemo(
-    () => carrinho.reduce((acc, i) => acc + i.quantidade, 0),
-    [carrinho]
-  );
+  const totalItens = useMemo(() => carrinho.length, [carrinho]);
 
   const totalGeral = useMemo(
     () => carrinho.reduce((acc, i) => acc + i.quantidade * i.precoUnitario, 0),
