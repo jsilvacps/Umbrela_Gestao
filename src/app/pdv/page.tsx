@@ -483,8 +483,8 @@ export default function PDVPage() {
       else if (k === "F" && temRecurso(plano, "fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
       else if (e.key === "Escape") { e.preventDefault(); setModalFinalizar(false); }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalFinalizar, plano]);
 
