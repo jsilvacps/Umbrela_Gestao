@@ -1,13 +1,13 @@
 # electron-builder.yml
-# Configuração de empacotamento do Horti Gestão PDV para Windows .exe
+# Configuração de empacotamento do Umbrela Gestão PDV para Windows .exe
 
-appId: "com.hortigestao.pdv"
-productName: "Horti Gestão PDV"
-copyright: "© 2025 Horti Gestão"
+appId: "com.umbrelagestao.pdv"
+productName: "Umbrela Gestão PDV"
+copyright: "© 2025 Umbrela Gestão"
 
 # Diretório de saída dos instaladores (LOCAL — fora do Google Drive para evitar truncagem de arquivos)
 directories:
-  output: "C:\\horti-builds"
+  output: "C:\\umbrela-builds"
   buildResources: "electron"
 
 # Arquivos incluídos no pacote Electron (o mínimo necessário)
@@ -50,14 +50,14 @@ nsis:
   perMachine: false                     # instala por usuário (não precisa admin)
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: "Horti Gestão PDV"
+  shortcutName: "Umbrela Gestão PDV"
   installerLanguages:
     - pt_BR
   language: "1046"                      # Português Brasil
-  artifactName: "HortiGestao-PDV-Setup-${version}.exe"
+  artifactName: "UmbrelaGestao-PDV-Setup-${version}.exe"
 
-# ── Publicação (GitHub Releases — opcional para auto-update) ─────────────────
-# publish:
-#   provider: github
-#   owner: seu-usuario
-#   repo: horti-gestao
+# ── Publicação (GitHub Releases) ─────────────────────────────────────────────
+publish:
+  provider: github
+  owner: jsilvacps
+  repo: Umbrela_Gestao

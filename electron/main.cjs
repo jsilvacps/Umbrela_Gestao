@@ -20,7 +20,7 @@ const https  = require("https");
 const { spawn } = require("child_process");
 
 // URL pública onde fica o version.json (no Vercel)
-const VERSION_URL = "https://horti-gestao.vercel.app/version.json";
+const VERSION_URL = "https://umbrela-gestao.vercel.app/version.json";
 
 const PORT     = 3210;
 const DEV_URL  = "http://localhost:3000/login";   // dev: login detecta se precisa de setup
@@ -247,7 +247,7 @@ function abrirJanelaProgresso(versao) {
 // ── Download com progresso e instalação automática ───────────────────────────
 function baixarEInstalar(urlDownload, versao) {
   const os  = require("os");
-  const destino = path.join(os.tmpdir(), `HortiGestao-Setup-${versao}.exe`);
+  const destino = path.join(os.tmpdir(), `UmbrelaGestao-PDV-Setup-${versao}.exe`);
 
   abrirJanelaProgresso(versao);
 
@@ -534,7 +534,7 @@ function createAdmWindow() {
 // ── Ciclo de vida do app ─────────────────────────────────────────────────────
 
 // Registra protocolo hortigestao:// para que o portal ADM possa abrir o app
-app.setAsDefaultProtocolClient("hortigestao");
+app.setAsDefaultProtocolClient("umbrelagestao");
 
 // Garante uma única instância do app — evita múltiplos servidores na mesma porta
 const gotTheLock = app.requestSingleInstanceLock();
