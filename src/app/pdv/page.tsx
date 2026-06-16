@@ -429,41 +429,27 @@ export default function PDVPage() {
   }, [isOnline]);
 
   /* ── Teclado global ── */
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      // F2 → foca busca de produto
-      if (e.key === "F2") {
-        e.preventDefault();
-        refCodigo.current?.focus();
-        refCodigo.current?.select();
-        return;
-      }
-      // F3 → finalizar venda
-      if (e.key === "F3") { e.preventDefault(); abrirFinalizar(); return; }
-      // F4 → buscar cupons
-      if (e.key === "F4") { e.preventDefault(); abrirBuscarCupons(); return; }
-      // F6 → cancelar cupom
-      if (e.key === "F6") { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
-      // F7 → sangria
-      if (e.key === "F7") { e.preventDefault(); abrirSangria(); return; }
-      // F8 → relatórios
-      if (e.key === "F8") { e.preventDefault(); abrirRelatorios(); return; }
-      // F9 → fechar caixa
-      if (e.key === "F9") { e.preventDefault(); abrirFechamento(); return; }
-      // F10 → identificar CPF
-      if (e.key === "F10") { e.preventDefault(); setMostrarModalCPF(true); return; }
-      // F12 → licença
-      if (e.key === "F12") { e.preventDefault(); setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); return; }
-      // Teclas do modal CPF (só quando modal CPF estiver aberto)
-      if (mostrarModalCPF) {
-        if (e.key === "Enter") { e.preventDefault(); confirmarCPF(); }
-        if (e.key === "Escape") { e.preventDefault(); fecharModalCPF(); }
-      }
+  const teclasHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  teclasHandlerRef.current = (e: KeyboardEvent) => {
+    if (e.key === "F2") { e.preventDefault(); refCodigo.current?.focus(); refCodigo.current?.select(); return; }
+    if (e.key === "F3") { e.preventDefault(); abrirFinalizar(); return; }
+    if (e.key === "F4") { e.preventDefault(); abrirBuscarCupons(); return; }
+    if (e.key === "F6") { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
+    if (e.key === "F7") { e.preventDefault(); abrirSangria(); return; }
+    if (e.key === "F8") { e.preventDefault(); abrirRelatorios(); return; }
+    if (e.key === "F9") { e.preventDefault(); abrirFechamento(); return; }
+    if (e.key === "F10") { e.preventDefault(); setMostrarModalCPF(true); return; }
+    if (e.key === "F12") { e.preventDefault(); setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); return; }
+    if (mostrarModalCPF) {
+      if (e.key === "Enter") { e.preventDefault(); confirmarCPF(); }
+      if (e.key === "Escape") { e.preventDefault(); fecharModalCPF(); }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mostrarModalCPF, cpf, carrinho]);
+  };
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => teclasHandlerRef.current(e);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   /* ── Teclado do modal finalizar (1-4 = tipo pagamento, Esc = fechar) ── */
   useEffect(() => {
