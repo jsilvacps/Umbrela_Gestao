@@ -809,11 +809,11 @@ export default function PDVPage() {
       try {
         const ids: string[] = (rV.data || []).map((v: any) => v.id);
         if (ids.length > 0) {
-          const { data: itensVenda, error: erroItens } = await (db("itens_venda").select("produto_nome, quantidade, preco, produtos(nome)") as any).in("venda_id", ids);
+          const { data: itensVenda, error: erroItens } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
           if (erroItens) throw new Error(erroItens.message);
           const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
           for (const item of (itensVenda || []) as any[]) {
-            const nome = item.produto_nome || item.produtos?.nome || "Sem nome";
+            const nome = item.produto_nome || "Sem nome";
             if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
             mapa[nome].totalQtd += Number(item.quantidade || 0);
             mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
