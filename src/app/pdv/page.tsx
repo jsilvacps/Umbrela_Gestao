@@ -438,6 +438,17 @@ export default function PDVPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
+  /* ── Bloqueia fechar/atualizar com venda em aberto ── */
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (carrinho.length === 0) return;
+      e.preventDefault();
+      e.returnValue = "Há uma venda em aberto. Finalize a venda antes de sair.";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [carrinho]);
+
   /* ── Teclado global ── */
   const teclasHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   teclasHandlerRef.current = (e: KeyboardEvent) => {
