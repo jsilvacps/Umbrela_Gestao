@@ -484,15 +484,32 @@ export default function PDVPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  /* ── Teclado do modal finalizar (1-4 = tipo pagamento, Esc = fechar) ── */
+  /* ── Teclado do modal finalizar ── */
+  const subtipoCartaoRef = useRef(subtipoCartao);
+  subtipoCartaoRef.current = subtipoCartao;
+  const tipoPagamentoRef = useRef(tipoPagamento);
+  tipoPagamentoRef.current = tipoPagamento;
+
   useEffect(() => {
     if (!modalFinalizar) return;
+    const subtipos: Array<"debito" | "credito" | "alimentacao"> = ["debito", "credito", "alimentacao"];
     function onKey(e: KeyboardEvent) {
       const k = e.key.toUpperCase();
+      // Navegação entre subtipos de cartão com setas
+      if (tipoPagamentoRef.current === "cartao" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        const idx = subtipos.indexOf(subtipoCartaoRef.current);
+        const next = e.key === "ArrowRight"
+          ? subtipos[(idx + 1) % subtipos.length]
+          : subtipos[(idx - 1 + subtipos.length) % subtipos.length];
+        setSubtipoCartao(next);
+        return;
+      }
       if (k === "D") { e.preventDefault(); selecionarPagamento("dinheiro"); }
       else if (k === "P") { e.preventDefault(); selecionarPagamento("pix"); }
       else if (k === "C") { e.preventDefault(); selecionarPagamento("cartao"); }
       else if (k === "F" && temRecurso(plano, "fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
+      else if (e.key === "Enter") { e.preventDefault(); confirmarVenda(); }
       else if (e.key === "Escape") { e.preventDefault(); setModalFinalizar(false); }
     }
     window.addEventListener("keydown", onKey, true);
