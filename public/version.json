@@ -1,5 +1,5 @@
 {
-  "version": "1.1.27",
-  "notas": "- Fix: fiado — cadastro e busca de cliente direto no PDV sem precisar do F10\n- Fix: botão ← ADM nas páginas do ADM web",
-  "download": "https://github.com/jsilvacps/horti-gestao/releases/download/v1.1.27/HortiGestao-PDV-Setup-1.1.27.exe"
+  "version": "1.1.28",
+  "notas": "- Pesquisa de produto por início do nome\n- Teclas D/P/C/F para pagamento\n- Cartão com Débito, Crédito, Alimentação\n- Motivo ao cancelar item ou cupom\n- Carrinho salvo automaticamente\n- Relatórios com Vendas e Ranking\n- Subtotal mostra número de itens\n- Corrigido F3/F6/F7",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.28/UmbrelaGestao-PDV-Setup-1.1.28.exe"
 }

@@ -2,8 +2,8 @@ name: Build e Release Windows
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   build:
@@ -22,14 +22,24 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Ler versão do package.json
+        id: pkg
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+
       - name: Build Electron (Windows)
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload instalador na release
+      - name: Criar release e subir instalador
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: v${{ steps.pkg.outputs.version }}
+          files: C:\umbrela-builds\*.exe
+          body_path: RELEASE_NOTES.md
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
