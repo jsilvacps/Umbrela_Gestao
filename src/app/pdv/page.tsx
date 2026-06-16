@@ -465,8 +465,6 @@ export default function PDVPage() {
   useEffect(() => {
     if (!modalFinalizar) return;
     function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName?.toUpperCase();
-      if (tag === "INPUT" || tag === "TEXTAREA") return; // não intercepta campos de texto
       const k = e.key.toUpperCase();
       if (k === "D") { e.preventDefault(); selecionarPagamento("dinheiro"); }
       else if (k === "P") { e.preventDefault(); selecionarPagamento("pix"); }
