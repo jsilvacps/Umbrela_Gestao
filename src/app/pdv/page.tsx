@@ -138,6 +138,7 @@ export default function PDVPage() {
   /* ── Finalizar venda ── */
   const [modalFinalizar, setModalFinalizar] = useState(false);
   const [tipoPagamento, setTipoPagamento]   = useState<"dinheiro" | "pix" | "cartao" | "fiado">("dinheiro");
+  const [subtipoCartao, setSubtipoCartao]   = useState<"debito" | "credito" | "alimentacao">("debito");
   const [desconto, setDesconto]             = useState("");
   const [tipoDesconto, setTipoDesconto]     = useState<"R$" | "%">("R$");
   const [valorRecebido, setValorRecebido]   = useState("");
@@ -466,10 +467,11 @@ export default function PDVPage() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName?.toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA") return; // não intercepta campos de texto
-      if (e.key === "1") { e.preventDefault(); selecionarPagamento("dinheiro"); }
-      else if (e.key === "2") { e.preventDefault(); selecionarPagamento("pix"); }
-      else if (e.key === "3") { e.preventDefault(); selecionarPagamento("cartao"); }
-      else if (e.key === "4" && temRecurso(plano, "fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
+      const k = e.key.toUpperCase();
+      if (k === "D") { e.preventDefault(); selecionarPagamento("dinheiro"); }
+      else if (k === "P") { e.preventDefault(); selecionarPagamento("pix"); }
+      else if (k === "C") { e.preventDefault(); selecionarPagamento("cartao"); }
+      else if (k === "F" && temRecurso(plano, "fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
       else if (e.key === "Escape") { e.preventDefault(); setModalFinalizar(false); }
     }
     window.addEventListener("keydown", onKey);
@@ -1157,6 +1159,7 @@ ${rod}
     setTipoDesconto("R$");
     setValorRecebido("");
     setTipoPagamento("dinheiro");
+    setSubtipoCartao("debito");
     setModalFinalizar(true);
     setTimeout(() => refValorRecebido.current?.focus(), 80);
   }
@@ -1165,7 +1168,9 @@ ${rod}
   const labelPagamento =
     tipoPagamento === "dinheiro" ? "Dinheiro" :
     tipoPagamento === "pix"     ? "PIX"      :
-    tipoPagamento === "fiado"   ? "Fiado"    : "Cartão";
+    tipoPagamento === "fiado"   ? "Fiado"    :
+    subtipoCartao === "debito"  ? "Cartão Débito" :
+    subtipoCartao === "credito" ? "Cartão Crédito" : "Cartão Alimentação";
 
   /* ── Busca cliente por CPF para fiado ── */
   async function buscarClienteFiado(cpfRaw: string) {
@@ -2199,12 +2204,12 @@ ${rod}
             </div>
 
             {/* Tipo de pagamento */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: tipoPagamento === "cartao" ? 10 : 20 }}>
               {([
-                { tipo: "dinheiro", label: "💵 Dinheiro", cor: "#15803d", bg: "#f0fdf4", tecla: "1" },
-                { tipo: "pix",      label: "📱 PIX",      cor: "#0369a1", bg: "#f0f9ff", tecla: "2" },
-                { tipo: "cartao",   label: "💳 Cartão",   cor: "#1d4ed8", bg: "#eff6ff", tecla: "3" },
-                ...(temRecurso(plano, "fiado") ? [{ tipo: "fiado" as const, label: "📒 Fiado", cor: "#92400e", bg: "#fffbeb", tecla: "4" }] : []),
+                { tipo: "dinheiro", label: "💵 Dinheiro", cor: "#15803d", bg: "#f0fdf4", tecla: "D" },
+                { tipo: "pix",      label: "📱 PIX",      cor: "#0369a1", bg: "#f0f9ff", tecla: "P" },
+                { tipo: "cartao",   label: "💳 Cartão",   cor: "#1d4ed8", bg: "#eff6ff", tecla: "C" },
+                ...(temRecurso(plano, "fiado") ? [{ tipo: "fiado" as const, label: "📒 Fiado", cor: "#92400e", bg: "#fffbeb", tecla: "F" }] : []),
               ] as const).map(({ tipo, label, cor, bg, tecla }) => (
                 <button key={tipo} type="button"
                   onClick={() => selecionarPagamento(tipo)}
@@ -2224,6 +2229,28 @@ ${rod}
                 </button>
               ))}
             </div>
+
+            {/* Sub-tipo cartão */}
+            {tipoPagamento === "cartao" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {([
+                  { sub: "debito",      label: "Débito",      cor: "#1d4ed8" },
+                  { sub: "credito",     label: "Crédito",     cor: "#7c3aed" },
+                  { sub: "alimentacao", label: "Alimentação", cor: "#059669" },
+                ] as const).map(({ sub, label, cor }) => (
+                  <button key={sub} type="button"
+                    onClick={() => setSubtipoCartao(sub)}
+                    style={{
+                      height: 38, border: "2px solid", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                      borderColor: subtipoCartao === sub ? cor : "#e2e8f0",
+                      background:  subtipoCartao === sub ? cor : "#f9fafb",
+                      color:       subtipoCartao === sub ? "#fff" : "#64748b",
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Fiado: bloco de busca */}
             {tipoPagamento === "fiado" && (
