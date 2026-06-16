@@ -439,15 +439,18 @@ export default function PDVPage() {
   }, [isOnline]);
 
   /* ── Bloqueia fechar/atualizar com venda em aberto ── */
+  const carrinhoRef = useRef(carrinho);
+  carrinhoRef.current = carrinho;
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (carrinho.length === 0) return;
+      if (carrinhoRef.current.length === 0) return;
       e.preventDefault();
-      e.returnValue = "Há uma venda em aberto. Finalize a venda antes de sair.";
+      e.returnValue = "";
+      return "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [carrinho]);
+  }, []);
 
   /* ── Teclado global ── */
   const teclasHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
