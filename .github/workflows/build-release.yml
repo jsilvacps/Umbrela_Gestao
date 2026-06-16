@@ -31,12 +31,36 @@ jobs:
           $v = (Get-Content package.json | ConvertFrom-Json).version
           echo "version=$v" >> $env:GITHUB_OUTPUT
 
-      - name: Build Electron (Windows)
-        run: npm run electron:build
+      - name: Build Next.js
+        run: npm run build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Normalizar standalone (mover server.js para raiz)
+        run: |
+          $standalone = ".next\standalone"
+          $serverJs = Get-ChildItem -Path $standalone -Recurse -Filter "server.js" | Select-Object -First 1
+          if ($null -eq $serverJs) { Write-Error "server.js não encontrado!"; exit 1 }
+          Write-Host "server.js encontrado em: $($serverJs.FullName)"
+          $serverDir = $serverJs.DirectoryName
+          if ($serverDir -ne (Resolve-Path $standalone).Path) {
+            Write-Host "Movendo conteúdo de $serverDir para $standalone"
+            Get-ChildItem -Path $serverDir | ForEach-Object {
+              $dest = Join-Path $standalone $_.Name
+              if (-not (Test-Path $dest)) {
+                Move-Item $_.FullName $standalone
+              }
+            }
+          } else {
+            Write-Host "server.js já está na raiz do standalone"
+          }
+          node electron/copy-static.cjs
+
+      - name: Empacotar Electron (Windows)
+        run: electron-builder build --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Criar release e subir instalador
         uses: softprops/action-gh-release@v2
