@@ -211,11 +211,11 @@ export default function PDVPage() {
   const difGav      = gavetaNum - esperadoGav;
 
   /* ── Fiado ── */
-  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito: number; saldo_fiado: number } | null>(null);
+  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito: number } | null>(null);
   const [buscandoFiado, setBuscandoFiado]       = useState(false);
   const [erroFiado, setErroFiado]               = useState("");
   const [buscaFiado, setBuscaFiado]             = useState("");
-  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito: number; saldo_fiado: number }[]>([]);
+  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito: number }[]>([]);
 
   /* ── Seleção / cadastro de cliente no fiado ── */
   const [modalSelecionarCliente, setModalSelecionarCliente] = useState(false);
@@ -1398,12 +1398,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     setErroFiado("");
     setClienteFiado(null);
     const { data } = await db("clientes")
-      .select("id, nome, limite_credito, saldo_fiado")
+      .select("id, nome, limite_credito")
       .eq("cpf", cpfLimpo)
       .maybeSingle();
     setBuscandoFiado(false);
     if (!data) { setErroFiado("Cliente não encontrado. Cadastre-o antes de usar fiado."); return; }
-    setClienteFiado(data as { id: string; nome: string; limite_credito: number; saldo_fiado: number });
+    setClienteFiado(data as { id: string; nome: string; limite_credito: number });
   }
 
   // Carrega todos os clientes ao abrir o modal de seleção
@@ -1419,7 +1419,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
   /* ── Busca cliente fiado por nome (vazio = todos) ── */
   async function buscarClienteFiadoPorNome(termo: string) {
     setBuscandoFiado(true);
-    const q = db("clientes").select("id, nome, limite_credito, saldo_fiado") as any;
+    const q = db("clientes").select("id, nome, limite_credito") as any;
     const { data, error } = termo.trim()
       ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
       : await q.order("nome", { ascending: true }).limit(50);
@@ -1457,13 +1457,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       endereco: novoCliEndereco.trim() || null,
       numero: novoCliNumero.trim() || null,
       limite_credito: novoCliLimite ? Number(novoCliLimite.replace(",", ".")) : 0,
-      saldo_fiado: 0,
     };
     const { data, error } = await db("clientes").insert([payload]).select().single() as any;
     setSalvandoNovoCli(false);
     if (error) { setErroFiado("Erro ao cadastrar: " + error.message); setModalNovoCliente(false); return; }
     if (data) {
-      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: data.limite_credito || 0, saldo_fiado: 0 });
+      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: data.limite_credito || 0 });
       setErroFiado("");
     }
     setModalNovoCliente(false);
@@ -1478,7 +1477,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     // Validação fiado
     if (tipoPagamento === "fiado") {
       if (!clienteFiado) { setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
-      const disponivel = (clienteFiado.limite_credito || 0) - (clienteFiado.saldo_fiado || 0);
+      const disponivel = clienteFiado.limite_credito || 0;
       if (totalFinal > disponivel) {
         setErroFiado(`Limite insuficiente. Disponível: ${moedaBR(disponivel)}`);
         return;
@@ -1534,12 +1533,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             await db("produtos")
               .update({ estoque: Math.max(0, atual - upd.delta) }).eq("id", upd.id);
           }
-          // Fiado
-          if (fiadoUpdate && clienteFiado) {
-            await db("clientes")
-              .update({ saldo_fiado: (clienteFiado.saldo_fiado || 0) + totalFinal })
-              .eq("id", clienteFiado.id);
-          }
+          // Fiado: registrado via vendas, sem coluna saldo_fiado
           gravouOnline = true;
         }
       } catch {
@@ -2045,8 +2039,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                         <div>
                           <div style={{ fontWeight: 800, fontSize: 14 }}>{c.nome}</div>
                           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                            Limite: <b>{moedaBR(c.limite_credito || 0)}</b> &nbsp;·&nbsp;
-                            <span style={{ color: "#dc2626" }}>Em aberto: <b>{moedaBR(c.saldo_fiado || 0)}</b></span>
+                            Limite: <b>{moedaBR(c.limite_credito || 0)}</b>
                           </div>
                         </div>
                         <button type="button"
@@ -2563,8 +2556,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                     </div>
                     <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 13 }}>
                       <span style={{ color: "#475569" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
-                      <span style={{ color: "#dc2626" }}>Em aberto: <b>{moedaBR(clienteFiado.saldo_fiado || 0)}</b></span>
-                      <span style={{ color: "#15803d" }}>Disponível: <b>{moedaBR((clienteFiado.limite_credito || 0) - (clienteFiado.saldo_fiado || 0))}</b></span>
+                      <span style={{ color: "#15803d" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
                     </div>
                   </div>
                 ) : (
