@@ -1420,10 +1420,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
   async function buscarClienteFiadoPorNome(termo: string) {
     setBuscandoFiado(true);
     const q = db("clientes").select("id, nome, limite_credito, saldo_fiado") as any;
-    const { data } = termo.trim()
+    const { data, error } = termo.trim()
       ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
       : await q.order("nome", { ascending: true }).limit(50);
+    console.log("[fiado] clientes:", { data, error, eid: localStorage.getItem("hg_empresa_id") });
     setBuscandoFiado(false);
+    if (error) setErroFiado(`Erro ao buscar clientes: ${error.message}`);
     setResultadosFiado(data || []);
   }
 
