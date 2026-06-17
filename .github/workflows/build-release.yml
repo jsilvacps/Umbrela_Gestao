@@ -58,7 +58,7 @@ jobs:
           node electron/copy-static.cjs
 
       - name: Empacotar Electron (Windows)
-        run: electron-builder build --win --x64
+        run: npx electron-builder build --win --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
