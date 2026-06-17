@@ -858,6 +858,88 @@ export default function PDVPage() {
     setCarregandoRel(false);
   }
 
+  function imprimirRelatorio() {
+    const nomeAba =
+      abaRelatorio === "vendas"   ? "Vendas"
+      : abaRelatorio === "cupons"  ? "Cupons Cancelados"
+      : abaRelatorio === "itens"   ? "Itens Cancelados"
+      : abaRelatorio === "sangrias"? "Sangrias"
+      : abaRelatorio === "ranking" ? "Itens Mais Vendidos"
+      : "Fiado";
+
+    const periodo = `${dataInicioRel.split("-").reverse().join("/")} a ${dataFimRel.split("-").reverse().join("/")}`;
+    const fmt = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+    let corpoHtml = "";
+
+    if (abaRelatorio === "vendas") {
+      corpoHtml = `<table><thead><tr><th>Cupom</th><th>Data/Hora</th><th>Pagamento</th><th>Cliente</th><th>Total</th></tr></thead><tbody>
+        ${relVendas.map(r => `<tr><td>#${String(r.id).slice(0,8).toUpperCase()}</td><td>${fmt(r.created_at)}</td><td>${r.tipo_pagamento||"—"}</td><td>${r.cliente_cpf||"—"}</td><td class="r">${moedaBR(r.total||0)}</td></tr>`).join("")}
+        <tr class="total"><td colspan="4"><b>Total</b></td><td class="r"><b>${moedaBR(relVendas.reduce((s,r)=>s+Number(r.total||0),0))}</b></td></tr>
+      </tbody></table>`;
+    } else if (abaRelatorio === "cupons") {
+      corpoHtml = `<table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Total</th><th>Motivo</th></tr></thead><tbody>
+        ${relCupons.map(r => `<tr><td>${fmt(r.created_at)}</td><td>${r.operador||"—"}</td><td class="r">${moedaBR(r.total||0)}</td><td>${r.motivo||"—"}</td></tr>`).join("")}
+        <tr class="total"><td colspan="2"><b>Total cancelado</b></td><td class="r"><b>${moedaBR(relCupons.reduce((s,r)=>s+Number(r.total||0),0))}</b></td><td></td></tr>
+      </tbody></table>`;
+    } else if (abaRelatorio === "itens") {
+      corpoHtml = `<table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Motivo</th></tr></thead><tbody>
+        ${relItens.map(r => { const p=r.preco??r.valor??0; return `<tr><td>${fmt(r.created_at)}</td><td>${r.operador||"—"}</td><td>${r.produto_nome||"—"}</td><td class="r">${r.quantidade??""}</td><td class="r">${moedaBR((r.quantidade??0)*p)}</td><td>${r.motivo||"—"}</td></tr>`; }).join("")}
+      </tbody></table>`;
+    } else if (abaRelatorio === "sangrias") {
+      corpoHtml = `<table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Valor</th><th>Observação</th></tr></thead><tbody>
+        ${relSangrias.map(r => `<tr><td>${fmt(r.created_at)}</td><td>${r.operador||"—"}</td><td class="r">${moedaBR(r.valor||0)}</td><td>${r.observacao||"—"}</td></tr>`).join("")}
+        <tr class="total"><td colspan="2"><b>Total</b></td><td class="r"><b>${moedaBR(relSangrias.reduce((s,r)=>s+Number(r.valor||0),0))}</b></td><td></td></tr>
+      </tbody></table>`;
+    } else if (abaRelatorio === "ranking") {
+      corpoHtml = `<table><thead><tr><th>#</th><th>Produto</th><th>Qtd</th><th>Receita</th></tr></thead><tbody>
+        ${relRanking.map((item,idx) => `<tr><td>${idx+1}</td><td>${item.nome}</td><td class="r">${item.totalQtd % 1 === 0 ? item.totalQtd : item.totalQtd.toFixed(3)}</td><td class="r">${moedaBR(item.totalReceita)}</td></tr>`).join("")}
+      </tbody></table>`;
+    } else if (abaRelatorio === "fiado") {
+      const termo = filtroFiado.toLowerCase().trim();
+      const fiadoFiltrado = termo ? relFiado.filter(r => (r.cliente_nome||"").toLowerCase().includes(termo)) : relFiado;
+      const porCliente: Record<string, {nome:string;total:number;cupons:any[]}> = {};
+      for (const r of fiadoFiltrado) {
+        const nome = r.cliente_nome||"Sem nome";
+        if (!porCliente[nome]) porCliente[nome] = {nome,total:0,cupons:[]};
+        porCliente[nome].total += Number(r.total||0);
+        porCliente[nome].cupons.push(r);
+      }
+      corpoHtml = Object.values(porCliente).sort((a,b)=>a.nome.localeCompare(b.nome)).map(cli => `
+        <h3 style="margin:16px 0 4px;background:#1e3a5f;color:#fff;padding:6px 10px;border-radius:4px;display:flex;justify-content:space-between">
+          <span>${cli.nome}</span><span>${moedaBR(cli.total)}</span>
+        </h3>
+        <table><thead><tr><th>Cupom</th><th>Data/Hora</th><th class="r">Valor</th></tr></thead><tbody>
+          ${cli.cupons.map((r:any)=>`<tr><td>#${String(r.id).slice(0,8).toUpperCase()}</td><td>${fmt(r.created_at)}</td><td class="r">${moedaBR(r.total||0)}</td></tr>`).join("")}
+        </tbody></table>`).join("") +
+        `<p style="text-align:right;font-weight:bold;font-size:15px;margin-top:12px">Total geral: ${moedaBR(fiadoFiltrado.reduce((s:number,r:any)=>s+Number(r.total||0),0))}</p>`;
+    }
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${nomeAba} — ${periodo}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #000; padding: 20px; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      .sub { font-size: 12px; color: #555; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      th { background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
+      td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+      tr:nth-child(even) td { background: #f9fafb; }
+      .r { text-align: right; }
+      .total td { background: #f0f4f8; font-weight: bold; border-top: 2px solid #1e3a5f; }
+      @media print { @page { margin: 15mm; } }
+    </style></head><body>
+    <h1>📊 ${nomeAba}</h1>
+    <div class="sub">Período: ${periodo} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString("pt-BR")}</div>
+    ${corpoHtml}
+    </body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 400);
+  }
+
   async function abrirRelatorios() {
     if (exigirPro("relatorios")) return;
     if (!temPerm("perm_relatorios")) { semPermissao("ver relatórios"); return; }
@@ -2802,7 +2884,13 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
           <div style={{ ...modalBox, width: "min(96vw, 900px)", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>📊 Relatórios</div>
-              <button type="button" onClick={() => setModalRelatorios(false)} style={{ border: "none", background: "none", fontSize: 22, cursor: "pointer", color: "#475569" }}>×</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button type="button" onClick={imprimirRelatorio}
+                  style={{ height: 34, padding: "0 14px", background: "#0f766e", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  🖨️ Imprimir / PDF
+                </button>
+                <button type="button" onClick={() => setModalRelatorios(false)} style={{ border: "none", background: "none", fontSize: 22, cursor: "pointer", color: "#475569" }}>×</button>
+              </div>
             </div>
 
             {/* Filtro de data */}

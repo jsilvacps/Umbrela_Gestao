@@ -60,6 +60,9 @@ type Cancelado = {
   operador?: string | null;
   produto_nome?: string | null;
   total?: number | null;
+  quantidade?: number | null;
+  preco?: number | null;
+  valor?: number | null;
 };
 
 type SenhasOperacionais = {
@@ -535,6 +538,78 @@ export default function AdmPage() {
     });
   }, [vendas, dataInicio, dataFim]);
 
+  function imprimirRelatorioAdm() {
+    const nomeAba = subAbaRel === "geral" ? "Relatório Geral" : subAbaRel === "ranking" ? "Itens Mais Vendidos" : "Fiado";
+    const inicio = dataInicio || new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+    const fim = dataFim || new Date().toISOString().slice(0,10);
+    const periodo = `${inicio.split("-").reverse().join("/")} a ${fim.split("-").reverse().join("/")}`;
+    const fmt = (d: string) => new Date(d).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
+
+    let corpoHtml = "";
+    if (subAbaRel === "geral") {
+      corpoHtml = `
+        <h2>Vendas</h2>
+        <table><thead><tr><th>Data/Hora</th><th>Pagamento</th><th class="r">Total</th></tr></thead><tbody>
+          ${vendasFiltradas.map(v=>`<tr><td>${fmt(v.created_at)}</td><td>${v.tipo_pagamento||"—"}</td><td class="r">${moeda(v.total)}</td></tr>`).join("")}
+          <tr class="total"><td colspan="2"><b>Total</b></td><td class="r"><b>${moeda(vendasFiltradas.reduce((s,v)=>s+Number(v.total||0),0))}</b></td></tr>
+        </tbody></table>
+        <h2>Cupons Cancelados</h2>
+        <table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Total</th><th>Motivo</th></tr></thead><tbody>
+          ${cuponsCancelados.map(r=>`<tr><td>${fmt(r.created_at)}</td><td>${r.operador||"—"}</td><td class="r">${moeda(r.total)}</td><td>${(r as any).motivo||"—"}</td></tr>`).join("")}
+        </tbody></table>
+        <h2>Itens Cancelados</h2>
+        <table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Motivo</th></tr></thead><tbody>
+          ${itensCancelados.map(r=>{ const p=(r as any).preco??(r as any).valor??0; return `<tr><td>${fmt(r.created_at)}</td><td>${r.operador||"—"}</td><td>${r.produto_nome||"—"}</td><td class="r">${r.quantidade??""}</td><td class="r">${moeda((r.quantidade??0)*p)}</td><td>${(r as any).motivo||"—"}</td></tr>`; }).join("")}
+        </tbody></table>`;
+    } else if (subAbaRel === "ranking") {
+      corpoHtml = `<table><thead><tr><th>#</th><th>Produto</th><th>Qtd</th><th>Receita</th></tr></thead><tbody>
+        ${rankingMaisVendidos.map((item,idx)=>`<tr><td>${idx+1}</td><td>${item.nome}</td><td class="r">${item.totalQtd%1===0?item.totalQtd:item.totalQtd.toFixed(3)}</td><td class="r">${moeda(item.totalReceita)}</td></tr>`).join("")}
+      </tbody></table>`;
+    } else {
+      const termo = filtroFiadoAdm.toLowerCase().trim();
+      const fiadoFiltrado = termo ? vendasFiado.filter(r=>(r.cliente_nome||"").toLowerCase().includes(termo)) : vendasFiado;
+      const porCliente: Record<string,{nome:string;total:number;cupons:any[]}> = {};
+      for (const r of fiadoFiltrado) {
+        const nome = r.cliente_nome||"Sem nome";
+        if (!porCliente[nome]) porCliente[nome] = {nome,total:0,cupons:[]};
+        porCliente[nome].total += Number(r.total||0);
+        porCliente[nome].cupons.push(r);
+      }
+      corpoHtml = Object.values(porCliente).sort((a,b)=>a.nome.localeCompare(b.nome)).map(cli=>`
+        <h3 style="margin:16px 0 4px;background:#1e3a5f;color:#fff;padding:6px 10px;border-radius:4px;display:flex;justify-content:space-between">
+          <span>${cli.nome}</span><span>${moeda(cli.total)}</span>
+        </h3>
+        <table><thead><tr><th>Cupom</th><th>Data/Hora</th><th class="r">Valor</th></tr></thead><tbody>
+          ${cli.cupons.map((r:any)=>`<tr><td>#${String(r.id).slice(0,8).toUpperCase()}</td><td>${fmt(r.created_at)}</td><td class="r">${moeda(r.total||0)}</td></tr>`).join("")}
+        </tbody></table>`).join("") +
+        `<p style="text-align:right;font-weight:bold;font-size:15px;margin-top:12px">Total geral: ${moeda(fiadoFiltrado.reduce((s:number,r:any)=>s+Number(r.total||0),0))}</p>`;
+    }
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${nomeAba} — ${periodo}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #000; padding: 20px; }
+      h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 14px; margin: 20px 0 6px; color: #1e3a5f; }
+      .sub { font-size: 12px; color: #555; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      th { background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
+      td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+      tr:nth-child(even) td { background: #f9fafb; }
+      .r { text-align: right; }
+      .total td { background: #f0f4f8; font-weight: bold; border-top: 2px solid #1e3a5f; }
+      @media print { @page { margin: 15mm; } }
+    </style></head><body>
+    <h1>📊 ${nomeAba}</h1>
+    <div class="sub">Período: ${periodo} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString("pt-BR")}</div>
+    ${corpoHtml}
+    </body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 400);
+  }
+
   const produtoEtiqueta = useMemo(() => {
     const termo = produtoBusca.trim().toLowerCase();
     if (!termo) return null;
@@ -900,7 +975,13 @@ export default function AdmPage() {
 
         {aba === "relatorios" && (
           <section style={card}>
-            <div style={title}>Relatórios</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={title}>Relatórios</div>
+              <button onClick={imprimirRelatorioAdm}
+                style={{ height: 36, padding: "0 16px", background: "#0f766e", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                🖨️ Imprimir / PDF
+              </button>
+            </div>
 
             {/* Sub-abas */}
             <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
