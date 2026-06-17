@@ -1,5 +1,5 @@
 {
-  "version": "1.1.30",
-  "notas": "- Relatório de Fiado: agrupa por cliente, filtro por nome\n- Cupom de fiado com campo de assinatura do cliente\n- Enter confirma venda, Esc cancela no modal de finalização\n- Setas navegam entre Débito, Crédito e Alimentação no cartão",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.30/UmbrelaGestao-PDV-Setup-1.1.30.exe"
+  "version": "1.1.31",
+  "notas": "- Abas do ADM com quebra de linha (Produtos e Clientes sempre visíveis)\n- Correção do server.js no executável\n- Relatório de Fiado com filtro por cliente\n- Cupom de fiado com campo de assinatura",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.31/UmbrelaGestao-PDV-Setup-1.1.31.exe"
 }
