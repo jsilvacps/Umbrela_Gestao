@@ -583,7 +583,7 @@ export default function AdmPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } as React.CSSProperties}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingBottom: 4 }}>
             {[
               ["config", "⚙️ Empresa"],
               ["cupom", "🖨️ Cupom"],
