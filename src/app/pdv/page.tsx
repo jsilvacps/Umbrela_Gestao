@@ -223,6 +223,7 @@ export default function PDVPage() {
   const [novoCliTelefone, setNovoCliTelefone]   = useState("");
   const [novoCliCpf, setNovoCliCpf]             = useState("");
   const [novoCliCep, setNovoCliCep]             = useState("");
+  const [novoCliLimite, setNovoCliLimite]       = useState("");
   const [novoCliEndereco, setNovoCliEndereco]   = useState("");
   const [novoCliNumero, setNovoCliNumero]        = useState("");
   const [buscandoCep, setBuscandoCep]           = useState(false);
@@ -1442,19 +1443,19 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       cep: novoCliCep.replace(/\D/g, "") || null,
       endereco: novoCliEndereco.trim() || null,
       numero: novoCliNumero.trim() || null,
-      limite_credito: 0,
+      limite_credito: novoCliLimite ? Number(novoCliLimite.replace(",", ".")) : 0,
       saldo_fiado: 0,
     };
     const { data, error } = await db("clientes").insert([payload]).select().single() as any;
     setSalvandoNovoCli(false);
     if (error) { setErroFiado("Erro ao cadastrar: " + error.message); setModalNovoCliente(false); return; }
     if (data) {
-      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: 0, saldo_fiado: 0 });
+      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: data.limite_credito || 0, saldo_fiado: 0 });
       setErroFiado("");
     }
     setModalNovoCliente(false);
     setNovoCliNome(""); setNovoCliTelefone(""); setNovoCliCpf("");
-    setNovoCliCep(""); setNovoCliEndereco(""); setNovoCliNumero("");
+    setNovoCliCep(""); setNovoCliEndereco(""); setNovoCliNumero(""); setNovoCliLimite("");
   }
 
   /* ── Grava venda — online primeiro, offline como fallback ── */
@@ -2037,13 +2038,19 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                           {buscandoCep ? "Buscando endereço..." : `📍 ${novoCliEndereco}`}
                         </div>
                       )}
+                      <div>
+                        <label style={labelModal}>Limite de crédito (R$) *</label>
+                        <input style={inputModal} value={novoCliLimite}
+                          onChange={(e) => setNovoCliLimite(e.target.value.replace(/[^0-9,\.]/g, ""))}
+                          placeholder="Ex: 200,00" inputMode="decimal" required />
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
                       <button type="button" onClick={() => setModalNovoCliente(false)}
                         style={{ height: 44, borderRadius: 12, border: "1px solid #d5dde7", background: "#f8fafc", color: "#374151", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
                         Cancelar
                       </button>
-                      <button type="submit" disabled={salvandoNovoCli || !novoCliNome.trim()}
+                      <button type="submit" disabled={salvandoNovoCli || !novoCliNome.trim() || !novoCliLimite.trim()}
                         style={{ height: 44, borderRadius: 12, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", opacity: !novoCliNome.trim() ? 0.5 : 1 }}>
                         {salvandoNovoCli ? "Salvando..." : "✔ Salvar e selecionar"}
                       </button>
