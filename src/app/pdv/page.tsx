@@ -1406,13 +1406,19 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     setClienteFiado(data as { id: string; nome: string; limite_credito: number; saldo_fiado: number });
   }
 
-  /* ── Busca cliente fiado por nome ou telefone ── */
+  // Carrega todos os clientes ao abrir o modal de seleção
+  useEffect(() => {
+    if (modalSelecionarCliente) buscarClienteFiadoPorNome("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalSelecionarCliente]);
+
+  /* ── Busca cliente fiado por nome (vazio = todos) ── */
   async function buscarClienteFiadoPorNome(termo: string) {
-    if (!termo.trim()) { setResultadosFiado([]); return; }
     setBuscandoFiado(true);
-    const { data } = await (db("clientes").select("id, nome, limite_credito, saldo_fiado") as any)
-      .ilike("nome", `%${termo.trim()}%`)
-      .limit(6);
+    const q = db("clientes").select("id, nome, limite_credito, saldo_fiado") as any;
+    const { data } = termo.trim()
+      ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
+      : await q.order("nome", { ascending: true }).limit(50);
     setBuscandoFiado(false);
     setResultadosFiado(data || []);
   }
@@ -2005,48 +2011,48 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             {/* Modal: cadastro rápido de cliente para fiado */}
             {/* Modal: selecionar cliente para fiado */}
             {modalSelecionarCliente && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
-                <div style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 22, padding: 28, boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div
+                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <div style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: 22, padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: "80vh" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a" }}>👤 Selecionar cliente</div>
                     <button type="button" onClick={() => setModalSelecionarCliente(false)} style={{ border: "none", background: "none", fontSize: 22, cursor: "pointer", color: "#475569" }}>×</button>
                   </div>
                   <input
                     type="text"
-                    placeholder="Buscar por nome..."
+                    placeholder="Filtrar por nome..."
                     value={buscaFiado}
                     autoFocus
-                    onChange={(e) => {
-                      setBuscaFiado(e.target.value);
-                      if (e.target.value.length >= 2) buscarClienteFiadoPorNome(e.target.value);
-                      else setResultadosFiado([]);
-                    }}
+                    onChange={(e) => { setBuscaFiado(e.target.value); buscarClienteFiadoPorNome(e.target.value); }}
+                    onKeyDown={(e) => e.stopPropagation()}
                     style={{ width: "100%", height: 40, borderRadius: 10, border: "1px solid #fcd34d", padding: "0 12px", fontSize: 14, outline: "none", marginBottom: 10, boxSizing: "border-box" }}
                   />
-                  {buscandoFiado && <div style={{ fontSize: 13, color: "#92400e", marginBottom: 8 }}>Buscando...</div>}
-                  {resultadosFiado.length > 0 && (
-                    <div style={{ border: "1px solid #fcd34d", borderRadius: 10, overflow: "hidden", marginBottom: 12, maxHeight: 240, overflowY: "auto" }}>
-                      {resultadosFiado.map((c) => (
-                        <button key={c.id} type="button"
-                          onClick={() => { setClienteFiado(c); setBuscaFiado(""); setResultadosFiado([]); setModalSelecionarCliente(false); setErroFiado(""); }}
-                          style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "#fff", border: "none", borderBottom: "1px solid #fde68a", cursor: "pointer", fontSize: 14 }}
-                        >
-                          <div style={{ fontWeight: 800 }}>{c.nome}</div>
+                  {buscandoFiado && <div style={{ fontSize: 13, color: "#92400e", marginBottom: 6 }}>Carregando...</div>}
+                  <div style={{ flex: 1, overflowY: "auto", border: "1px solid #fde68a", borderRadius: 10, marginBottom: 12 }}>
+                    {resultadosFiado.length === 0 && !buscandoFiado ? (
+                      <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>Nenhum cliente encontrado.</div>
+                    ) : resultadosFiado.map((c) => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #fef9c3" }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14 }}>{c.nome}</div>
                           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                            Limite: {moedaBR(c.limite_credito || 0)} &nbsp;·&nbsp;
-                            <span style={{ color: "#dc2626" }}>Em aberto: {moedaBR(c.saldo_fiado || 0)}</span> &nbsp;·&nbsp;
-                            <span style={{ color: "#15803d" }}>Disponível: {moedaBR((c.limite_credito||0)-(c.saldo_fiado||0))}</span>
+                            Limite: <b>{moedaBR(c.limite_credito || 0)}</b> &nbsp;·&nbsp;
+                            <span style={{ color: "#dc2626" }}>Em aberto: <b>{moedaBR(c.saldo_fiado || 0)}</b></span>
                           </div>
+                        </div>
+                        <button type="button"
+                          onClick={() => { setClienteFiado(c); setBuscaFiado(""); setResultadosFiado([]); setModalSelecionarCliente(false); setErroFiado(""); }}
+                          style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", background: "#1e3a5f", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0, marginLeft: 10 }}>
+                          Selecionar
                         </button>
-                      ))}
-                    </div>
-                  )}
-                  {buscaFiado.length >= 2 && !buscandoFiado && resultadosFiado.length === 0 && (
-                    <div style={{ fontSize: 13, color: "#92400e", marginBottom: 10 }}>Nenhum cliente encontrado.</div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                   <button type="button"
                     onClick={() => { setModalSelecionarCliente(false); setModalNovoCliente(true); }}
-                    style={{ width: "100%", height: 42, borderRadius: 10, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 4 }}>
+                    style={{ width: "100%", height: 42, borderRadius: 10, border: "none", background: "#1faa4a", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
                     + Cadastrar novo cliente
                   </button>
                 </div>
