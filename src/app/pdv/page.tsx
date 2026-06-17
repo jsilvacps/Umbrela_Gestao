@@ -1408,7 +1408,11 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
   // Carrega todos os clientes ao abrir o modal de seleção
   useEffect(() => {
-    if (modalSelecionarCliente) buscarClienteFiadoPorNome("");
+    if (modalSelecionarCliente) {
+      setBuscaFiado("");
+      setResultadosFiado([]);
+      buscarClienteFiadoPorNome("");
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalSelecionarCliente]);
 
@@ -2029,9 +2033,10 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                     onKeyDown={(e) => e.stopPropagation()}
                     style={{ width: "100%", height: 40, borderRadius: 10, border: "1px solid #fcd34d", padding: "0 12px", fontSize: 14, outline: "none", marginBottom: 10, boxSizing: "border-box" }}
                   />
-                  {buscandoFiado && <div style={{ fontSize: 13, color: "#92400e", marginBottom: 6 }}>Carregando...</div>}
                   <div style={{ flex: 1, overflowY: "auto", border: "1px solid #fde68a", borderRadius: 10, marginBottom: 12 }}>
-                    {resultadosFiado.length === 0 && !buscandoFiado ? (
+                    {buscandoFiado ? (
+                      <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>Carregando...</div>
+                    ) : resultadosFiado.length === 0 ? (
                       <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>Nenhum cliente encontrado.</div>
                     ) : resultadosFiado.map((c) => (
                       <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #fef9c3" }}>
