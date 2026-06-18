@@ -2033,7 +2033,10 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                     {buscandoFiado ? (
                       <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>Carregando...</div>
                     ) : resultadosFiado.length === 0 ? (
-                      <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>Nenhum cliente encontrado.</div>
+                      <div style={{ padding: 20, textAlign: "center", color: "#92400e", fontSize: 14 }}>
+                        Nenhum cliente encontrado.<br/>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>(empresa_id: {localStorage.getItem("hg_empresa_id") ?? "não definido"})</span>
+                      </div>
                     ) : resultadosFiado.map((c) => (
                       <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #fef9c3" }}>
                         <div>
