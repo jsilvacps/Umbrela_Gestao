@@ -2012,7 +2012,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             {/* Modal: selecionar cliente para fiado */}
             {modalSelecionarCliente && (
               <div
-                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
+                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 11000 }}
                 onKeyDown={(e) => e.stopPropagation()}
               >
                 <div style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: 22, padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: "80vh" }}>
@@ -2063,7 +2063,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             )}
 
             {modalNovoCliente && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 11000 }}>
                 <div style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 22, padding: 28, boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", marginBottom: 4 }}>Cadastrar cliente</div>
                   <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Preencha os dados para fiado. Após salvar, o cliente será selecionado automaticamente.</div>
