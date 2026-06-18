@@ -211,11 +211,11 @@ export default function PDVPage() {
   const difGav      = gavetaNum - esperadoGav;
 
   /* ── Fiado ── */
-  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito: number } | null>(null);
+  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito?: number } | null>(null);
   const [buscandoFiado, setBuscandoFiado]       = useState(false);
   const [erroFiado, setErroFiado]               = useState("");
   const [buscaFiado, setBuscaFiado]             = useState("");
-  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito: number }[]>([]);
+  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito?: number }[]>([]);
 
   /* ── Seleção / cadastro de cliente no fiado ── */
   const [modalSelecionarCliente, setModalSelecionarCliente] = useState(false);
@@ -493,11 +493,17 @@ export default function PDVPage() {
   subtipoCartaoRef.current = subtipoCartao;
   const tipoPagamentoRef = useRef(tipoPagamento);
   tipoPagamentoRef.current = tipoPagamento;
+  const modalSelecionarClienteRef = useRef(modalSelecionarCliente);
+  modalSelecionarClienteRef.current = modalSelecionarCliente;
+  const modalNovoClienteRef = useRef(modalNovoCliente);
+  modalNovoClienteRef.current = modalNovoCliente;
 
   useEffect(() => {
     if (!modalFinalizar) return;
     const subtipos: Array<"debito" | "credito" | "alimentacao"> = ["debito", "credito", "alimentacao"];
     function onKey(e: KeyboardEvent) {
+      // Se sub-modal de cliente estiver aberto, não interceptar teclas
+      if (modalSelecionarClienteRef.current || modalNovoClienteRef.current) return;
       const k = e.key.toUpperCase();
       // Navegação entre subtipos de cartão com setas
       if (tipoPagamentoRef.current === "cartao" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
@@ -1419,7 +1425,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
   /* ── Busca cliente fiado por nome (vazio = todos) ── */
   async function buscarClienteFiadoPorNome(termo: string) {
     setBuscandoFiado(true);
-    const q = db("clientes").select("id, nome, limite_credito") as any;
+    const q = db("clientes").select("id, nome") as any;
     const { data, error } = termo.trim()
       ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
       : await q.order("nome", { ascending: true }).limit(50);
