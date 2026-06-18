@@ -3331,7 +3331,7 @@ const overlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
   background: "rgba(0,0,0,.65)",
-  zIndex: 1000,
+  zIndex: 10000,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
