@@ -217,6 +217,16 @@ export default function PDVPage() {
   const [buscaFiado, setBuscaFiado]             = useState("");
   const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito?: number }[]>([]);
 
+  /* ── Recebimento de fiado ── */
+  const [modalReceberFiado, setModalReceberFiado]     = useState(false);
+  const [clienteReceberFiado, setClienteReceberFiado] = useState<{ id: string; nome: string } | null>(null);
+  const [saldoDevedor, setSaldoDevedor]               = useState(0);
+  const [valorPagamento, setValorPagamento]           = useState("");
+  const [obsPagamento, setObsPagamento]               = useState("");
+  const [salvandoPagamento, setSalvandoPagamento]     = useState(false);
+  const [listaClientesFiado, setListaClientesFiado]   = useState<{ id: string; nome: string }[]>([]);
+  const [buscaClienteRec, setBuscaClienteRec]         = useState("");
+
   /* ── Seleção / cadastro de cliente no fiado ── */
   const [modalSelecionarCliente, setModalSelecionarCliente] = useState(false);
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
@@ -471,6 +481,7 @@ export default function PDVPage() {
     if (e.key === "F2") { e.preventDefault(); refCodigo.current?.focus(); refCodigo.current?.select(); return; }
     if (e.key === "F3") { e.preventDefault(); abrirFinalizar(); return; }
     if (e.key === "F4") { e.preventDefault(); abrirBuscarCupons(); return; }
+    if (e.key === "F5") { e.preventDefault(); abrirReceberFiado(); return; }
     if (e.key === "F6") { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
     if (e.key === "F7") { e.preventDefault(); abrirSangria(); return; }
     if (e.key === "F8") { e.preventDefault(); abrirRelatorios(); return; }
@@ -818,8 +829,8 @@ export default function PDVPage() {
         db("sangrias").select("*")
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
-        db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf")
-          .eq("tipo_pagamento", "fiado")
+        db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf, cliente_id")
+          .ilike("tipo_pagamento", "fiado")
           .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
           .order("created_at", { ascending: false }).limit(500),
       ]);
@@ -1425,7 +1436,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
   /* ── Busca cliente fiado por nome (vazio = todos) ── */
   async function buscarClienteFiadoPorNome(termo: string) {
     setBuscandoFiado(true);
-    const q = db("clientes").select("id, nome") as any;
+    const q = db("clientes").select("id, nome, limite_credito") as any;
     const { data, error } = termo.trim()
       ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
       : await q.order("nome", { ascending: true }).limit(50);
@@ -1433,6 +1444,55 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     setBuscandoFiado(false);
     if (error) setErroFiado(`Erro ao buscar clientes: ${error.message}`);
     setResultadosFiado(data || []);
+  }
+
+  /* ── Recebimento de fiado ── */
+  async function abrirReceberFiado() {
+    setModalReceberFiado(true);
+    setClienteReceberFiado(null);
+    setSaldoDevedor(0);
+    setValorPagamento("");
+    setObsPagamento("");
+    setBuscaClienteRec("");
+    // Carrega lista de clientes com saldo devedor
+    const { data } = await (db("clientes").select("id, nome") as any).order("nome", { ascending: true }).limit(100);
+    setListaClientesFiado(data || []);
+  }
+
+  async function selecionarClienteParaReceber(cliente: { id: string; nome: string }) {
+    setClienteReceberFiado(cliente);
+    // Calcula saldo: soma vendas fiado - soma pagamentos
+    const [rVendas, rPag] = await Promise.all([
+      (db("vendas").select("total") as any).ilike("tipo_pagamento", "fiado").eq("cliente_id", cliente.id),
+      (db("pagamentos_fiado").select("valor") as any).eq("cliente_id", cliente.id),
+    ]);
+    const totalVendas = (rVendas.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
+    const totalPago   = (rPag.data   || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+    setSaldoDevedor(Math.max(0, totalVendas - totalPago));
+    setValorPagamento("");
+  }
+
+  async function confirmarPagamentoFiado() {
+    if (!clienteReceberFiado) return;
+    const valor = parseFloat(valorPagamento.replace(",", "."));
+    if (!valor || valor <= 0) return;
+    setSalvandoPagamento(true);
+    const { error } = await db("pagamentos_fiado").insert([{
+      cliente_id:   clienteReceberFiado.id,
+      cliente_nome: clienteReceberFiado.nome,
+      valor,
+      operador: nomeOperador,
+      observacao: obsPagamento || null,
+    }]);
+    setSalvandoPagamento(false);
+    if (error) { alert("Erro ao registrar pagamento: " + error.message); return; }
+    // Atualiza saldo
+    setSaldoDevedor(prev => Math.max(0, prev - valor));
+    setValorPagamento("");
+    setObsPagamento("");
+    setMensagem(`✅ Pagamento de ${moedaBR(valor)} registrado para ${clienteReceberFiado.nome}`);
+    setTimeout(() => setMensagem(""), 5000);
+    setModalReceberFiado(false);
   }
 
   /* ── CEP auto-complete ── */
@@ -1483,11 +1543,6 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     // Validação fiado
     if (tipoPagamento === "fiado") {
       if (!clienteFiado) { setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
-      const disponivel = clienteFiado.limite_credito || 0;
-      if (totalFinal > disponivel) {
-        setErroFiado(`Limite insuficiente. Disponível: ${moedaBR(disponivel)}`);
-        return;
-      }
     }
 
     setFinalizando(true);
@@ -2237,6 +2292,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 onClick={abrirSangria}
                 badge={totalCaixa >= 300 ? moedaBR(totalCaixa) : undefined}
               />
+              <BotaoAtalho tecla="F5"    texto="Receber Fiado"   cor="#4a1d96" onClick={abrirReceberFiado} />
               <BotaoAtalho tecla="F8"    texto="Relatórios"      cor="#1e3a5f"
                 onClick={() => pedirSenha("Relatórios do Caixa", "Informe a senha ADM para acessar os relatórios.", async () => { abrirRelatorios(); })} />
               <BotaoAtalho tecla="F9"    texto="Fechar Caixa"   cor="#4c1d95" onClick={abrirFechamento} />
@@ -2565,7 +2621,6 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                     </div>
                     <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 13 }}>
                       <span style={{ color: "#475569" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
-                      <span style={{ color: "#15803d" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
                     </div>
                   </div>
                 ) : (
@@ -2732,6 +2787,110 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 {salvandoAdm ? "Verificando..." : "Confirmar (Enter)"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MODAL RECEBER FIADO ══════════ */}
+      {modalReceberFiado && (
+        <div style={overlay}>
+          <div style={{ ...modalBox, width: "min(96vw, 480px)" }}>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#0f172a", marginBottom: 18 }}>
+              📒 Receber Fiado
+            </div>
+
+            {!clienteReceberFiado ? (
+              <>
+                <div style={{ fontSize: 14, color: "#475569", marginBottom: 10 }}>Selecione o cliente:</div>
+                <input
+                  type="text"
+                  placeholder="Filtrar por nome..."
+                  value={buscaClienteRec}
+                  onChange={(e) => setBuscaClienteRec(e.target.value)}
+                  autoFocus
+                  style={{ width: "100%", height: 40, borderRadius: 10, border: "1px solid #c7d2fe", padding: "0 12px", fontSize: 14, marginBottom: 10, boxSizing: "border-box" }}
+                />
+                <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 16 }}>
+                  {listaClientesFiado
+                    .filter(c => !buscaClienteRec.trim() || c.nome.toLowerCase().includes(buscaClienteRec.toLowerCase()))
+                    .map(c => (
+                      <div key={c.id}
+                        onClick={() => selecionarClienteParaReceber(c)}
+                        style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "")}
+                      >
+                        <span style={{ fontWeight: 700 }}>{c.nome}</span>
+                        <span style={{ fontSize: 12, color: "#6366f1" }}>Selecionar →</span>
+                      </div>
+                    ))
+                  }
+                  {listaClientesFiado.filter(c => !buscaClienteRec.trim() || c.nome.toLowerCase().includes(buscaClienteRec.toLowerCase())).length === 0 && (
+                    <div style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>Nenhum cliente encontrado</div>
+                  )}
+                </div>
+                <button type="button" onClick={() => setModalReceberFiado(false)} style={btnCancelarModal}>Cancelar</button>
+              </>
+            ) : (
+              <>
+                <div style={{ background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{clienteReceberFiado.nome}</div>
+                  <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#64748b", fontSize: 14 }}>Saldo devedor:</span>
+                    <span style={{ fontWeight: 900, fontSize: 22, color: saldoDevedor > 0 ? "#dc2626" : "#16a34a" }}>
+                      {moedaBR(saldoDevedor)}
+                    </span>
+                  </div>
+                </div>
+
+                {saldoDevedor <= 0 ? (
+                  <div style={{ textAlign: "center", color: "#16a34a", fontWeight: 700, fontSize: 16, marginBottom: 16 }}>
+                    ✅ Cliente sem débitos em aberto!
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Valor recebido (R$)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        max={saldoDevedor}
+                        value={valorPagamento}
+                        onChange={(e) => setValorPagamento(e.target.value)}
+                        autoFocus
+                        placeholder={`Máx: ${moedaBR(saldoDevedor)}`}
+                        style={{ width: "100%", height: 44, borderRadius: 10, border: "2px solid #6366f1", padding: "0 12px", fontSize: 18, fontWeight: 700, boxSizing: "border-box" }}
+                      />
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Observação (opcional)</label>
+                      <input
+                        type="text"
+                        value={obsPagamento}
+                        onChange={(e) => setObsPagamento(e.target.value)}
+                        placeholder="Ex: pagou com pix, dinheiro..."
+                        style={{ width: "100%", height: 38, borderRadius: 10, border: "1px solid #c7d2fe", padding: "0 12px", fontSize: 14, boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" onClick={() => setClienteReceberFiado(null)} style={btnCancelarModal}>← Voltar</button>
+                  {saldoDevedor > 0 && (
+                    <button
+                      type="button"
+                      onClick={confirmarPagamentoFiado}
+                      disabled={salvandoPagamento || !valorPagamento}
+                      style={{ flex: 1, height: 44, borderRadius: 12, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer" }}
+                    >
+                      {salvandoPagamento ? "Registrando..." : `✅ Confirmar recebimento`}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
