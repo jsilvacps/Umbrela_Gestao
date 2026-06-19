@@ -1,5 +1,5 @@
 {
-  "version": "1.1.38",
-  "notas": "- Correção crítica: executável inicia corretamente (MODULE_NOT_FOUND resolvido)\n- Normalização do standalone melhorada para garantir node_modules no lugar certo",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.38/UmbrelaGestao-PDV-Setup-1.1.38.exe"
+  "version": "1.1.39",
+  "notas": "- Correção: executável inicia sem erro MODULE_NOT_FOUND\n- node_modules copiados corretamente para o instalador",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.39/UmbrelaGestao-PDV-Setup-1.1.39.exe"
 }
