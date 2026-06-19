@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/supabaseClient";
+import { db, supabase } from "@/lib/supabaseClient";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import {
   syncProdutosLocal, getProdutosLocal, debitarEstoqueLocal,
@@ -383,13 +383,35 @@ export default function PDVPage() {
   /* ── Verifica e executa ação protegida ── */
   async function confirmarSenhaAdm() {
     if (!modalAdm) return;
-    if (senhaAdmInput !== senhaAdmConfig) {
+    setSalvandoAdm(true);
+
+    // 1. Aceita senha ADM direto
+    let autorizado = senhaAdmInput === senhaAdmConfig;
+
+    // 2. Aceita senha do próprio operador logado (verifica no banco)
+    if (!autorizado) {
+      try {
+        const op = JSON.parse(sessionStorage.getItem("operador_logado") || "{}");
+        if (op?.username) {
+          const { data } = await (supabase as any)
+            .from("operadores")
+            .select("id")
+            .eq("username", op.username)
+            .eq("password", senhaAdmInput)
+            .maybeSingle();
+          if (data) autorizado = true;
+        }
+      } catch { /* ignora */ }
+    }
+
+    if (!autorizado) {
       setErroSenhaAdm("Senha inválida. Tente novamente.");
       setSenhaAdmInput("");
+      setSalvandoAdm(false);
       setTimeout(() => refSenhaAdm.current?.focus(), 30);
       return;
     }
-    setSalvandoAdm(true);
+
     try {
       await modalAdm.onConfirmar();
       setModalAdm(null);
