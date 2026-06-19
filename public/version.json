@@ -1,5 +1,5 @@
 {
-  "version": "1.1.36",
-  "notas": "- Venda fiado salva corretamente como Fiado (não mais como Dinheiro)\n- Cupom de fiado imprime com nome do cliente e campo de assinatura\n- Relatório de fiado exibe vendas corretamente\n- F5: Modal de recebimento de fiado com saldo devedor por cliente\n- Operador pode autorizar ações com a própria senha (sangria, relatório, cancelamento)\n- Imprimir relatório funciona (corrigido bloqueio de popup no navegador)\n- Teclado não interfere ao digitar nome do cliente no modal fiado",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.36/UmbrelaGestao-PDV-Setup-1.1.36.exe"
+  "version": "1.1.37",
+  "notas": "- Correção crítica: server.js não encontrado no executável\n- Todas as correções da v1.1.36 incluídas",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.37/UmbrelaGestao-PDV-Setup-1.1.37.exe"
 }
