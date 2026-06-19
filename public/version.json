@@ -1,5 +1,5 @@
 {
-  "version": "1.1.34",
-  "notas": "- Clientes fiado aparecem no modal de seleção\n- Teclado não interfere ao digitar nome do cliente\n- Modal de senha ADM acima do alerta de caixa cheio\n- Correções de z-index nos modais",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.34/UmbrelaGestao-PDV-Setup-1.1.34.exe"
+  "version": "1.1.35",
+  "notas": "- Venda fiado salva corretamente (não mais como dinheiro)\n- Cupom fiado com nome do cliente e campo de assinatura\n- Relatório fiado exibe vendas corretamente\n- F5: Modal de recebimento de fiado com saldo devedor\n- Teclado bloqueado corretamente ao digitar nome do cliente",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.35/UmbrelaGestao-PDV-Setup-1.1.35.exe"
 }
