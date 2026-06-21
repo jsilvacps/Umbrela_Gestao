@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { masterSupabase, db, salvarEmpresaId } from "@/lib/supabaseClient";
 
@@ -19,7 +19,7 @@ function mascararTel(v: string) {
     .replace(/\) (\d{5})(\d)/, ") $1-$2");
 }
 
-export default function AtivacaoPage() {
+function AtivacaoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -330,5 +330,17 @@ export default function AtivacaoPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function AtivacaoPage() {
+  return (
+    <Suspense fallback={
+      <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#052e16 0%,#14532d 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#4ade80", fontSize: 18, fontFamily: "Segoe UI, sans-serif" }}>Carregando...</div>
+      </main>
+    }>
+      <AtivacaoContent />
+    </Suspense>
   );
 }
