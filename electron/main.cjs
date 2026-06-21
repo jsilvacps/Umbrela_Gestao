@@ -1,6 +1,6 @@
 /**
  * electron/main.cjs
- * Processo principal do Electron — Horti Gestão PDV
+ * Processo principal do Electron — Umbrela Gestão PDV
  *
  * Em produção (app empacotado):
  *   1. Inicia o servidor Next.js standalone em background (porta 3210)
@@ -55,7 +55,7 @@ function findServerJs(standaloneDir) {
 
 // ── Log em arquivo (para debug de problemas no .exe) ────────────────────────
 const fs = require("fs");
-const logPath = path.join(app.getPath("userData"), "horti-server.log");
+const logPath = path.join(app.getPath("userData"), "umbrela-server.log");
 function log(msg) {
   const linha = `[${new Date().toISOString()}] ${msg}\n`;
   try { fs.appendFileSync(logPath, linha); } catch {}
@@ -210,7 +210,7 @@ function abrirJanelaProgresso(versao) {
     width: 480, height: 220,
     resizable: false, minimizable: false, maximizable: false,
     alwaysOnTop: true, frame: true,
-    title: "Atualizando Horti Gestão PDV",
+    title: "Atualizando Umbrela Gestão PDV",
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
   progressWin.setMenuBarVisibility(false);
@@ -394,7 +394,7 @@ async function verificarAtualizacao() {
 
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: "info",
-      title: "Atualização disponível — Horti Gestão PDV",
+      title: "Atualização disponível — Umbrela Gestão PDV",
       message: `Nova versão ${versaoRemota} disponível!`,
       detail: (notas ? `O que há de novo:\n${notas.replace(/\\n/g, "\n")}\n\n` : "")
         + `Versão atual: ${versaoAtual}\n\nDeseja baixar e instalar agora?\nO aplicativo será fechado e o instalador abrirá automaticamente.`,
@@ -444,7 +444,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 600,
     autoHideMenuBar: true,
-    title: "Horti Gestão — PDV",
+    title: "Umbrela Gestão — PDV",
     icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -460,18 +460,93 @@ function createWindow() {
 
   if (app.isPackaged) {
     // Splash de carregamento — navegação para o PDV é feita em whenReady após o servidor subir
-    mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      *{margin:0;padding:0;box-sizing:border-box}
-      body{background:#0c121a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:24px;font-family:'Segoe UI',sans-serif}
-      .logo{color:#1faa4a;font-size:32px;font-weight:900;letter-spacing:5px}
-      .sub{color:#4ade80;font-size:13px;letter-spacing:2px;opacity:.8}
-      .spin{width:36px;height:36px;border:3px solid #1a3a2a;border-top:3px solid #1faa4a;border-radius:50%;animation:s 1s linear infinite}
-      @keyframes s{to{transform:rotate(360deg)}}
-    </style></head><body>
-      <div class="logo">🌿 HORTI GESTÃO</div>
-      <div class="spin"></div>
-      <div class="sub">Iniciando sistema...</div>
-    </body></html>`));
+    mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0a0f14;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100vh;font-family:'Segoe UI',sans-serif;overflow:hidden;
+    user-select:none;
+  }
+
+  /* Fundo com gradiente animado */
+  body::before{
+    content:'';position:fixed;inset:0;
+    background:radial-gradient(ellipse at 50% 50%, #0d2a1a 0%, #0a0f14 70%);
+    animation:pulse-bg 4s ease-in-out infinite;
+  }
+  @keyframes pulse-bg{0%,100%{opacity:1}50%{opacity:.7}}
+
+  .wrapper{position:relative;display:flex;flex-direction:column;align-items:center;gap:28px}
+
+  /* Anel externo giratório */
+  .ring{
+    position:relative;width:110px;height:110px;
+  }
+  .ring::before,.ring::after{
+    content:'';position:absolute;inset:0;border-radius:50%;
+  }
+  .ring::before{
+    border:3px solid transparent;
+    border-top-color:#22c55e;border-right-color:#22c55e;
+    animation:spin 1.2s linear infinite;
+  }
+  .ring::after{
+    border:3px solid transparent;
+    border-bottom-color:#16a34a;border-left-color:#16a34a;
+    animation:spin-rev 2s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes spin-rev{to{transform:rotate(-360deg)}}
+
+  /* Ícone central */
+  .icon{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:44px;animation:bounce 2s ease-in-out infinite;
+  }
+  @keyframes bounce{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
+  /* Nome */
+  .nome{
+    font-size:28px;font-weight:900;letter-spacing:6px;
+    color:#f0fdf4;
+    text-shadow:0 0 30px rgba(34,197,94,.4);
+    animation:fade-in .8s ease forwards;opacity:0;animation-delay:.3s;
+  }
+  .tag{
+    font-size:12px;letter-spacing:3px;color:#4ade80;opacity:.7;
+    margin-top:-18px;
+    animation:fade-in .8s ease forwards;opacity:0;animation-delay:.6s;
+  }
+  @keyframes fade-in{to{opacity:1}}
+
+  /* Barra de progresso */
+  .bar-wrap{
+    width:220px;height:3px;background:#1a2a1a;border-radius:2px;overflow:hidden;
+    animation:fade-in .8s ease forwards;opacity:0;animation-delay:.9s;
+  }
+  .bar{
+    height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#4ade80);
+    border-radius:2px;animation:load 3.5s ease-out forwards;animation-delay:1s;
+  }
+  @keyframes load{0%{width:0%}60%{width:75%}90%{width:90%}100%{width:95%}}
+
+  .status{
+    font-size:12px;color:#4b7a5e;letter-spacing:1px;
+    animation:fade-in .8s ease forwards;opacity:0;animation-delay:1.2s;
+  }
+</style></head><body>
+  <div class="wrapper">
+    <div class="ring">
+      <div class="icon">☂️</div>
+    </div>
+    <div class="nome">UMBRELA</div>
+    <div class="tag">GESTÃO PDV</div>
+    <div class="bar-wrap"><div class="bar"></div></div>
+    <div class="status">Iniciando sistema...</div>
+  </div>
+</body></html>`));
   } else {
     mainWindow.loadURL(DEV_URL);
   }
@@ -518,7 +593,7 @@ function createAdmWindow() {
     minWidth: 900,
     minHeight: 600,
     autoHideMenuBar: true,
-    title: "Horti Gestão — ADM",
+    title: "Umbrela Gestão — ADM",
     icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
