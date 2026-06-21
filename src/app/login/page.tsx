@@ -102,12 +102,7 @@ export default function LoginPage() {
 
   /* ── Detecta se precisa de setup na montagem ── */
   useEffect(() => {
-    const empresaId = typeof window !== "undefined" ? localStorage.getItem("hg_empresa_id") : null;
-    if (!empresaId) {
-      setTela("setup"); // Cliente novo ou localStorage limpo → pede código de ativação
-    } else {
-      setTela("login"); // Já tem empresa configurada → vai direto para usuário/senha
-    }
+    setTela("login");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
