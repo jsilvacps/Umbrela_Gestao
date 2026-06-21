@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { masterSupabase, db, salvarEmpresaId } from "@/lib/supabaseClient";
 
 type Passo = 1 | 2 | 3 | 4;
@@ -19,9 +19,8 @@ function mascararTel(v: string) {
     .replace(/\) (\d{5})(\d)/, ") $1-$2");
 }
 
-function AtivacaoContent() {
+export default function AtivacaoPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [passo, setPasso]   = useState<Passo>(1);
   const [codigo, setCodigo] = useState("");
@@ -48,10 +47,11 @@ function AtivacaoContent() {
 
   // Pré-preenche o código se vier na URL (?codigo=JOAO2025)
   useEffect(() => {
-    const cod = searchParams.get("codigo") || searchParams.get("code") || "";
+    const params = new URLSearchParams(window.location.search);
+    const cod = params.get("codigo") || params.get("code") || "";
     if (cod) setCodigo(cod.toUpperCase());
     setTimeout(() => refCodigo.current?.focus(), 200);
-  }, [searchParams]);
+  }, []);
 
   async function ativarCodigo() {
     const cod = codigo.trim().toUpperCase();
@@ -330,17 +330,5 @@ function AtivacaoContent() {
         )}
       </div>
     </main>
-  );
-}
-
-export default function AtivacaoPage() {
-  return (
-    <Suspense fallback={
-      <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#052e16 0%,#14532d 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#4ade80", fontSize: 18, fontFamily: "Segoe UI, sans-serif" }}>Carregando...</div>
-      </main>
-    }>
-      <AtivacaoContent />
-    </Suspense>
   );
 }
