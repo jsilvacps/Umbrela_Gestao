@@ -561,6 +561,9 @@ export default function MasterPage() {
                       <button onClick={() => navigator.clipboard.writeText(clienteCriado.codigo)} style={btnCinza}>
                         📋 Copiar código
                       </button>
+                      <button onClick={() => navigator.clipboard.writeText(`https://umbrela-gestao.vercel.app/ativacao?codigo=${clienteCriado.codigo}`)} style={btnCinza}>
+                        🔗 Copiar link de ativação
+                      </button>
                       {telefoneCriado && (
                         <button
                           onClick={() => abrirWhatsApp(telefoneCriado, clienteCriado.nome_cliente || "Cliente", clienteCriado.codigo)}
@@ -649,6 +652,7 @@ export default function MasterPage() {
                           <td style={{ padding: "10px 10px" }}>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                               <button onClick={() => navigator.clipboard.writeText(c.codigo)} style={btnMinCinza} title="Copiar código">📋</button>
+                              <button onClick={() => navigator.clipboard.writeText(`https://umbrela-gestao.vercel.app/ativacao?codigo=${c.codigo}`)} style={btnMinCinza} title="Copiar link de ativação">🔗</button>
                               <button
                                 onClick={() => {
                                   const fone = prompt(`WhatsApp de ${c.nome_cliente || c.codigo} (somente números, com DDD):`);
