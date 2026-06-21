@@ -60,7 +60,7 @@ export default function MasterPage() {
   const [liberado, setLiberado] = useState(false);
   const [senhaInput, setSenhaInput] = useState("");
   const [erroSenha, setErroSenha] = useState("");
-  const [aba, setAba] = useState<"clientes" | "licencas" | "suporte" | "features">("clientes");
+  const [aba, setAba] = useState<"clientes" | "licencas" | "suporte" | "features" | "versoes">("clientes");
 
   // ── Feature Flags ────────────────────────────────────────────────────────────
   type EmpresaFeature = { empresa_id: number; nome_fantasia: string; features: Record<string, boolean> };
@@ -97,6 +97,63 @@ export default function MasterPage() {
     setSalvandoFeature(null);
     setMsgFeature(error ? `❌ Erro: ${error}` : `✅ Features salvas para empresa #${empresaId}`);
     setTimeout(() => setMsgFeature(""), 4000);
+  }
+
+  // ── Versões por cliente ──────────────────────────────────────────────────
+  type ClienteVersao = { id: number; empresa_id: number; nome_cliente: string | null; versao_liberada: string | null };
+  const [clientesVersao, setClientesVersao] = useState<ClienteVersao[]>([]);
+  const [versaoGlobal, setVersaoGlobal] = useState("");
+  const [editandoVersao, setEditandoVersao] = useState<Record<number, string>>({});
+  const [salvandoVersao, setSalvandoVersao] = useState<number | null>(null);
+  const [msgVersao, setMsgVersao] = useState("");
+
+  const carregarVersoes = useCallback(async () => {
+    const { data } = await supabase
+      .from("clientes_licenciados")
+      .select("id, empresa_id, nome_cliente, versao_liberada")
+      .order("empresa_id");
+    setClientesVersao((data || []) as ClienteVersao[]);
+    const edit: Record<number, string> = {};
+    for (const c of (data || []) as ClienteVersao[]) {
+      edit[c.empresa_id] = c.versao_liberada || "";
+    }
+    setEditandoVersao(edit);
+    // Busca versão global do version.json
+    try {
+      const res = await fetch("/version.json");
+      const json = await res.json();
+      setVersaoGlobal(json.version || "");
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (liberado && aba === "versoes") carregarVersoes();
+  }, [liberado, aba, carregarVersoes]);
+
+  async function salvarVersaoCliente(empresaId: number, dbId: number) {
+    setSalvandoVersao(empresaId);
+    const v = editandoVersao[empresaId]?.trim() || null;
+    const { error } = await supabase
+      .from("clientes_licenciados")
+      .update({ versao_liberada: v })
+      .eq("id", dbId);
+    setSalvandoVersao(null);
+    setMsgVersao(error ? `❌ Erro: ${error.message}` : `✅ Versão salva para empresa #${empresaId}`);
+    setTimeout(() => setMsgVersao(""), 4000);
+  }
+
+  async function liberarVersaoGlobalParaTodos() {
+    if (!versaoGlobal) return;
+    if (!confirm(`Liberar versão ${versaoGlobal} para TODOS os clientes?`)) return;
+    for (const c of clientesVersao) {
+      await supabase
+        .from("clientes_licenciados")
+        .update({ versao_liberada: versaoGlobal })
+        .eq("id", c.id);
+    }
+    await carregarVersoes();
+    setMsgVersao(`✅ Versão ${versaoGlobal} liberada para todos os clientes`);
+    setTimeout(() => setMsgVersao(""), 5000);
   }
 
   // ── Suporte ───────────────────────────────────────────────────────────────
@@ -394,7 +451,7 @@ export default function MasterPage() {
 
         {/* Abas */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"], ["features", "🎛️ Features"]] as const).map(([id, label]) => (
+          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"], ["features", "🎛️ Features"], ["versoes", "🚀 Versões"]] as const).map(([id, label]) => (
             <button key={id} onClick={() => setAba(id)} style={{
               padding: "9px 20px", borderRadius: 10, border: "1px solid",
               borderColor: aba === id ? "#6366f1" : "#1f2d3d",
@@ -851,6 +908,97 @@ export default function MasterPage() {
             </div>
           </>
         )}
+        {/* ── ABA VERSÕES ──────────────────────────────────────────────────── */}
+        {aba === "versoes" && (
+          <>
+            {/* Cabeçalho */}
+            <div style={{ background: "#161e2b", border: "1px solid #1f2d3d", borderRadius: 16, padding: "20px 24px", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 17, color: "#f0fdf4" }}>🚀 Controle de Atualizações</div>
+                  <div style={{ color: "#64748b", fontSize: 13, marginTop: 4 }}>
+                    Versão global atual: <span style={{ color: "#4ade80", fontWeight: 800 }}>v{versaoGlobal || "..."}</span>
+                    {" · "}Clientes sem versão definida recebem a global automaticamente.
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {msgVersao && <span style={{ fontSize: 13, color: "#a5b4fc" }}>{msgVersao}</span>}
+                  <button onClick={liberarVersaoGlobalParaTodos} style={{ ...btnVerde, background: "#6366f1", fontSize: 13 }}>
+                    ⬆️ Liberar {versaoGlobal} para todos
+                  </button>
+                  <button onClick={carregarVersoes} style={btnCinza}>↻</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabela de clientes */}
+            <div style={{ background: "#161e2b", border: "1px solid #1f2d3d", borderRadius: 16, padding: "22px 24px" }}>
+              {clientesVersao.length === 0 ? (
+                <div style={{ color: "#475569", textAlign: "center", padding: "40px 0" }}>Nenhum cliente encontrado.</div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #1f2d3d" }}>
+                      {["ID", "Cliente", "Versão liberada", "Status", "Ação"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "8px 12px", color: "#64748b", fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientesVersao.map(c => {
+                      const vLib = editandoVersao[c.empresa_id] || "";
+                      const semVersao = !c.versao_liberada;
+                      const atualizado = c.versao_liberada === versaoGlobal;
+                      const desatualizado = c.versao_liberada && c.versao_liberada !== versaoGlobal;
+                      return (
+                        <tr key={c.id} style={{ borderBottom: "1px solid #1a2535" }}>
+                          <td style={{ padding: "12px 12px", color: "#475569", fontFamily: "monospace" }}>{c.empresa_id}</td>
+                          <td style={{ padding: "12px 12px", color: "#cbd5e1", fontWeight: 600 }}>{c.nome_cliente || "—"}</td>
+                          <td style={{ padding: "12px 12px" }}>
+                            <input
+                              value={vLib}
+                              onChange={e => setEditandoVersao(prev => ({ ...prev, [c.empresa_id]: e.target.value }))}
+                              placeholder={`global (${versaoGlobal})`}
+                              style={{ ...inp, width: 130, padding: "6px 10px", fontSize: 13 }}
+                            />
+                          </td>
+                          <td style={{ padding: "12px 12px" }}>
+                            {semVersao && <span style={{ color: "#94a3b8", fontSize: 12 }}>🌐 Recebe global</span>}
+                            {atualizado && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅ Atualizado</span>}
+                            {desatualizado && <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700 }}>⏳ v{c.versao_liberada}</span>}
+                          </td>
+                          <td style={{ padding: "12px 12px" }}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                onClick={() => salvarVersaoCliente(c.empresa_id, c.id)}
+                                disabled={salvandoVersao === c.empresa_id}
+                                style={{ ...btnCinza, fontSize: 12, padding: "5px 12px" }}
+                              >
+                                {salvandoVersao === c.empresa_id ? "..." : "💾 Salvar"}
+                              </button>
+                              {versaoGlobal && vLib !== versaoGlobal && (
+                                <button
+                                  onClick={() => {
+                                    setEditandoVersao(prev => ({ ...prev, [c.empresa_id]: versaoGlobal }));
+                                    setTimeout(() => salvarVersaoCliente(c.empresa_id, c.id), 50);
+                                  }}
+                                  style={{ ...btnCinza, fontSize: 12, padding: "5px 12px", color: "#4ade80", borderColor: "#22c55e44" }}
+                                >
+                                  ⬆️ Liberar {versaoGlobal}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+
         {/* ── ABA FEATURES ─────────────────────────────────────────────────── */}
         {aba === "features" && (() => {
           const grupos = Array.from(new Set(Object.values(TODAS_FEATURES).map(f => f.grupo)));

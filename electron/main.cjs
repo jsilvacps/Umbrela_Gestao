@@ -19,8 +19,8 @@ const http   = require("http");
 const https  = require("https");
 const { spawn } = require("child_process");
 
-// URL pública onde fica o version.json (no Vercel)
-const VERSION_URL = "https://umbrela-gestao.vercel.app/version.json";
+// URL da API de versão (suporta versão por empresa)
+const VERSION_API = "https://umbrela-gestao.vercel.app/api/versao";
 
 const PORT     = 3210;
 const DEV_URL  = "http://localhost:3000/login";   // dev: login detecta se precisa de setup
@@ -345,14 +345,30 @@ function baixarEInstalar(urlDownload, versao) {
   fazer(urlDownload);
 }
 
+// ── Lê empresa_id do localStorage do renderer ────────────────────────────────
+async function getEmpresaId() {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) return null;
+    const eid = await mainWindow.webContents.executeJavaScript(
+      "localStorage.getItem('hg_empresa_id')"
+    );
+    return eid || null;
+  } catch { return null; }
+}
+
 // ── Verifica atualização disponível (usa fetch para seguir redirects) ───────
 async function verificarAtualizacao() {
   if (!app.isPackaged) return;
 
   try {
-    log(`[update] Verificando ${VERSION_URL} (versao atual: ${app.getVersion()})`);
+    const empresaId = await getEmpresaId();
+    const url = empresaId
+      ? `${VERSION_API}?empresa_id=${empresaId}`
+      : VERSION_API;
 
-    const res = await fetch(VERSION_URL, {
+    log(`[update] Verificando ${url} (versao atual: ${app.getVersion()}, empresa: ${empresaId || "desconhecida"})`);
+
+    const res = await fetch(url, {
       signal: AbortSignal.timeout(12000),
       headers: { "Cache-Control": "no-cache" },
     });
