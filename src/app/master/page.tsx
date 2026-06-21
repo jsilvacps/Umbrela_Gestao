@@ -4,6 +4,10 @@ import React, { useEffect, useState, useCallback } from "react";
 import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { gerarChave } from "@/lib/licenca";
+import {
+  TODAS_FEATURES, type FeatureKey,
+  listarEmpresasComFeatures, salvarFeaturesEmpresa,
+} from "@/lib/features";
 
 const SENHA_MASTER = "D@na2014";
 
@@ -56,7 +60,44 @@ export default function MasterPage() {
   const [liberado, setLiberado] = useState(false);
   const [senhaInput, setSenhaInput] = useState("");
   const [erroSenha, setErroSenha] = useState("");
-  const [aba, setAba] = useState<"clientes" | "licencas" | "suporte">("clientes");
+  const [aba, setAba] = useState<"clientes" | "licencas" | "suporte" | "features">("clientes");
+
+  // ── Feature Flags ────────────────────────────────────────────────────────────
+  type EmpresaFeature = { empresa_id: number; nome_fantasia: string; features: Record<string, boolean> };
+  const [empresasFeature, setEmpresasFeature] = useState<EmpresaFeature[]>([]);
+  const [featuresEdit, setFeaturesEdit] = useState<Record<number, Record<string, boolean>>>({});
+  const [salvandoFeature, setSalvandoFeature] = useState<number | null>(null);
+  const [msgFeature, setMsgFeature] = useState("");
+
+  const carregarEmpresasFeature = useCallback(async () => {
+    const { data } = await listarEmpresasComFeatures();
+    setEmpresasFeature(data as EmpresaFeature[]);
+    const edit: Record<number, Record<string, boolean>> = {};
+    for (const emp of data as EmpresaFeature[]) {
+      edit[emp.empresa_id] = { ...(emp.features || {}) };
+    }
+    setFeaturesEdit(edit);
+  }, []);
+
+  useEffect(() => {
+    if (liberado && aba === "features") carregarEmpresasFeature();
+  }, [liberado, aba, carregarEmpresasFeature]);
+
+  function toggleFeature(empresaId: number, key: FeatureKey) {
+    setFeaturesEdit(prev => {
+      const atual = prev[empresaId] ?? {};
+      const valorAtual = key in atual ? atual[key] : true;
+      return { ...prev, [empresaId]: { ...atual, [key]: !valorAtual } };
+    });
+  }
+
+  async function salvarFeatures(empresaId: number) {
+    setSalvandoFeature(empresaId);
+    const { error } = await salvarFeaturesEmpresa(empresaId, featuresEdit[empresaId] ?? {});
+    setSalvandoFeature(null);
+    setMsgFeature(error ? `❌ Erro: ${error}` : `✅ Features salvas para empresa #${empresaId}`);
+    setTimeout(() => setMsgFeature(""), 4000);
+  }
 
   // ── Suporte ───────────────────────────────────────────────────────────────
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
@@ -353,12 +394,12 @@ export default function MasterPage() {
 
         {/* Abas */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"]] as const).map(([id, label]) => (
+          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"], ["features", "🎛️ Features"]] as const).map(([id, label]) => (
             <button key={id} onClick={() => setAba(id)} style={{
               padding: "9px 20px", borderRadius: 10, border: "1px solid",
-              borderColor: aba === id ? "#16a34a" : "#1f2d3d",
-              background: aba === id ? "#052e16" : "#161e2b",
-              color: aba === id ? "#4ade80" : "#94a3b8",
+              borderColor: aba === id ? "#6366f1" : "#1f2d3d",
+              background: aba === id ? "#1e1b4b" : "#161e2b",
+              color: aba === id ? "#a5b4fc" : "#94a3b8",
               fontWeight: 800, fontSize: 14, cursor: "pointer",
             }}>{label}</button>
           ))}
@@ -810,6 +851,85 @@ export default function MasterPage() {
             </div>
           </>
         )}
+        {/* ── ABA FEATURES ─────────────────────────────────────────────────── */}
+        {aba === "features" && (() => {
+          const grupos = Array.from(new Set(Object.values(TODAS_FEATURES).map(f => f.grupo)));
+          return (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ color: "#94a3b8", fontSize: 14 }}>
+                  Ative ou desative funcionalidades por cliente. Padrão: tudo ativo.
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {msgFeature && <span style={{ fontSize: 13, color: "#a5b4fc" }}>{msgFeature}</span>}
+                  <button onClick={carregarEmpresasFeature} style={btnCinza}>↻</button>
+                </div>
+              </div>
+
+              {empresasFeature.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#475569", padding: "40px 0" }}>Nenhuma empresa encontrada.</div>
+              ) : (
+                empresasFeature.map(emp => (
+                  <div key={emp.empresa_id} style={{ background: "#161e2b", border: "1px solid #1f2d3d", borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <div>
+                        <div style={{ fontWeight: 900, fontSize: 17, color: "#f0fdf4" }}>{emp.nome_fantasia || `Empresa #${emp.empresa_id}`}</div>
+                        <div style={{ color: "#475569", fontSize: 12, marginTop: 2 }}>ID: {emp.empresa_id}</div>
+                      </div>
+                      <button
+                        onClick={() => salvarFeatures(emp.empresa_id)}
+                        disabled={salvandoFeature === emp.empresa_id}
+                        style={{ ...btnVerde, background: "#4f46e5", opacity: salvandoFeature === emp.empresa_id ? 0.6 : 1 }}
+                      >
+                        {salvandoFeature === emp.empresa_id ? "Salvando..." : "💾 Salvar"}
+                      </button>
+                    </div>
+
+                    {grupos.map(grupo => (
+                      <div key={grupo} style={{ marginBottom: 18 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>{grupo}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 8 }}>
+                          {(Object.entries(TODAS_FEATURES) as [FeatureKey, { label: string; grupo: string }][])
+                            .filter(([, v]) => v.grupo === grupo)
+                            .map(([key, { label }]) => {
+                              const cur = featuresEdit[emp.empresa_id] ?? {};
+                              const ativo = key in cur ? cur[key] : true;
+                              return (
+                                <div
+                                  key={key}
+                                  onClick={() => toggleFeature(emp.empresa_id, key)}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                                    background: "#0f1822", borderRadius: 8, padding: "8px 12px",
+                                    border: `1px solid ${ativo ? "#4f46e5" : "#1f2d3d"}`,
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  <div style={{
+                                    width: 34, height: 18, borderRadius: 9, flexShrink: 0,
+                                    background: ativo ? "#6366f1" : "#334155",
+                                    position: "relative", transition: "background .15s",
+                                  }}>
+                                    <div style={{
+                                      position: "absolute", top: 2, left: ativo ? 17 : 2,
+                                      width: 14, height: 14, borderRadius: 7, background: "#fff",
+                                      transition: "left .15s",
+                                    }} />
+                                  </div>
+                                  <span style={{ fontSize: 12, color: ativo ? "#c7d2fe" : "#475569" }}>{label}</span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </>
+          );
+        })()}
+
       </div>
     </main>
   );

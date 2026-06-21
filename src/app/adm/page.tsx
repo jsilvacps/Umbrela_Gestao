@@ -6,6 +6,7 @@ import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { supabase, db, isConfigurado } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { gerarChave } from "@/lib/licenca";
+import { carregarFeatures, temFeature, type FeatureKey } from "@/lib/features";
 
 const MASTER_USERNAME = "jeansilva3323@gmail.com";
 
@@ -101,6 +102,8 @@ export default function AdmPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [aba, setAba] = useState("config");
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const feat = (key: FeatureKey) => temFeature(key, features);
   const isDev = (() => {
     if (typeof window === "undefined") return false;
     try {
@@ -252,6 +255,7 @@ export default function AdmPage() {
     if (!isConfigurado()) { router.replace("/login?returnTo=/adm"); return; }
     const ok = typeof window !== "undefined" ? window.sessionStorage.getItem("adm_gerencial_ok") : null;
     if (ok === "1") setLiberado(true);
+    carregarFeatures().then(f => setFeatures(f));
     carregarTudo();
   }, [carregarTudo, router]);
 
@@ -666,31 +670,36 @@ export default function AdmPage() {
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingBottom: 4 }}>
             {[
-              ["config", "⚙️ Empresa"],
-              ["cupom", "🖨️ Cupom"],
-              ["operadores", "👤 Operadores"],
-              ["relatorios", "📊 Relatórios"],
-              ["etiquetas", "🏷️ Etiquetas"],
-              ["senhas", "🔒 Senhas"],
-              ["suporte", "🆘 Suporte"],
-              ...(isDev ? [["licencas", "🔑 Licenças"]] : []),
-            ].map(([key, labelText]) => (
+              ["config",    "⚙️ Empresa",    "adm_config"],
+              ["cupom",     "🖨️ Cupom",       "adm_config"],
+              ["operadores","👤 Operadores",  "adm_operadores"],
+              ["relatorios","📊 Relatórios",  "adm_relatorios"],
+              ["etiquetas", "🏷️ Etiquetas",   "adm_etiquetas"],
+              ["senhas",    "🔒 Senhas",      "adm_config"],
+              ["suporte",   "🆘 Suporte",     "adm_acesso"],
+              ...(isDev ? [["licencas", "🔑 Licenças", "adm_acesso"]] : []),
+            ].filter(([, , flagKey]) => feat(flagKey as FeatureKey))
+             .map(([key, labelText]) => (
               <button key={key} onClick={() => setAba(key)} style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === key ? "#1fb14e" : "#fff", color: aba === key ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}>
                 {labelText}
               </button>
             ))}
-            <button
-              onClick={() => router.push("/produtos")}
-              style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
-            >
-              📦 Produtos
-            </button>
-            <button
-              onClick={() => router.push("/clientes")}
-              style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
-            >
-              👥 Clientes
-            </button>
+            {feat("adm_produtos") && (
+              <button
+                onClick={() => router.push("/produtos")}
+                style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                📦 Produtos
+              </button>
+            )}
+            {feat("adm_clientes") && (
+              <button
+                onClick={() => router.push("/clientes")}
+                style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                👥 Clientes
+              </button>
+            )}
           </div>
         </section>
 

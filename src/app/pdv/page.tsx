@@ -13,6 +13,7 @@ import {
   getDiasTrialRestantes, gerarChave,
   type Plano, type RecursoPro, temRecurso,
 } from "@/lib/licenca";
+import { carregarFeatures, temFeature, type FeatureKey } from "@/lib/features";
 
 /* ── Tipos ── */
 type Produto = {
@@ -72,6 +73,10 @@ function validarCPF(cpf: string): boolean {
 }
 
 export default function PDVPage() {
+  /* ── Feature flags ── */
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const feat = (key: FeatureKey) => temFeature(key, features);
+
   /* ── Licença ── */
   const [plano, setPlano]                     = useState<Plano>("trial");
   // Inicia com 15 (valor SSR-safe). O useEffect abaixo corrige com o valor real do localStorage.
@@ -266,8 +271,8 @@ export default function PDVPage() {
 
   /* ── Trava automática quando caixa ultrapassa limite ── */
   useEffect(() => {
-    if (totalCaixa >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
-    else if (totalCaixa < LIMITE_SANGRIA)                 setTravaCaixa(false);
+    if (feat("limite_caixa") && totalCaixa >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
+    else if (!feat("limite_caixa") || totalCaixa < LIMITE_SANGRIA)               setTravaCaixa(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalCaixa, modalAbrirCaixa]);
 
@@ -294,6 +299,9 @@ export default function PDVPage() {
   }, [operador?.username]);
 
   const carregarLogo = useCallback(async () => {
+    // Carrega features junto com empresa
+    carregarFeatures().then(f => setFeatures(f));
+
     const { data } = await db("empresa")
       .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape")
       .order("created_at", { ascending: false })
@@ -502,13 +510,13 @@ export default function PDVPage() {
   teclasHandlerRef.current = (e: KeyboardEvent) => {
     if (e.key === "F2") { e.preventDefault(); refCodigo.current?.focus(); refCodigo.current?.select(); return; }
     if (e.key === "F3") { e.preventDefault(); abrirFinalizar(); return; }
-    if (e.key === "F4") { e.preventDefault(); abrirBuscarCupons(); return; }
-    if (e.key === "F5") { e.preventDefault(); abrirReceberFiado(); return; }
-    if (e.key === "F6") { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
-    if (e.key === "F7") { e.preventDefault(); abrirSangria(); return; }
-    if (e.key === "F8") { e.preventDefault(); abrirRelatorios(); return; }
-    if (e.key === "F9") { e.preventDefault(); abrirFechamento(); return; }
-    if (e.key === "F10") { e.preventDefault(); setMostrarModalCPF(true); return; }
+    if (e.key === "F4" && feat("buscar_cupons")) { e.preventDefault(); abrirBuscarCupons(); return; }
+    if (e.key === "F5" && feat("receber_fiado")) { e.preventDefault(); abrirReceberFiado(); return; }
+    if (e.key === "F6" && feat("cancelar_cupom")) { e.preventDefault(); pedirSenhaCancelarCupom(); return; }
+    if (e.key === "F7" && feat("sangria")) { e.preventDefault(); abrirSangria(); return; }
+    if (e.key === "F8" && feat("relatorios_pdv")) { e.preventDefault(); abrirRelatorios(); return; }
+    if (e.key === "F9" && feat("fechamento_caixa")) { e.preventDefault(); abrirFechamento(); return; }
+    if (e.key === "F10" && feat("identificar_cpf")) { e.preventDefault(); setMostrarModalCPF(true); return; }
     if (e.key === "F12") { e.preventDefault(); setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); return; }
     if (mostrarModalCPF) {
       if (e.key === "Enter") { e.preventDefault(); confirmarCPF(); }
@@ -551,7 +559,7 @@ export default function PDVPage() {
       if (k === "D") { e.preventDefault(); selecionarPagamento("dinheiro"); }
       else if (k === "P") { e.preventDefault(); selecionarPagamento("pix"); }
       else if (k === "C") { e.preventDefault(); selecionarPagamento("cartao"); }
-      else if (k === "F" && temRecurso(plano, "fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
+      else if (k === "F" && temRecurso(plano, "fiado") && feat("fiado")) { e.preventDefault(); selecionarPagamento("fiado"); }
       else if (e.key === "Enter") { e.preventDefault(); confirmarVenda(); }
       else if (e.key === "Escape") { e.preventDefault(); setModalFinalizar(false); }
     }
@@ -2314,17 +2322,17 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             <div style={{ display: "grid", gap: 5, flex: 1, minHeight: 0, overflowY: "hidden" }}>
               <BotaoAtalho tecla="F2"    texto="Buscar produto"  onClick={() => { refCodigo.current?.focus(); refCodigo.current?.select(); }} />
               <BotaoAtalho tecla="F3"    texto="Finalizar venda" cor="#14532d" onClick={abrirFinalizar} />
-              <BotaoAtalho tecla="F4"    texto="Buscar cupons"   cor="#1e3a5f" onClick={abrirBuscarCupons} />
-              <BotaoAtalho tecla="F6"    texto="Cancelar cupom"  cor="#7f1d1d" onClick={pedirSenhaCancelarCupom} />
-              <BotaoAtalho tecla="F7"    texto="Sangria"         cor={totalCaixa >= 300 ? "#7c3500" : "#0f3d4a"}
+              {feat("buscar_cupons") && <BotaoAtalho tecla="F4"    texto="Buscar cupons"   cor="#1e3a5f" onClick={abrirBuscarCupons} />}
+              {feat("cancelar_cupom") && <BotaoAtalho tecla="F6"    texto="Cancelar cupom"  cor="#7f1d1d" onClick={pedirSenhaCancelarCupom} />}
+              {feat("sangria") && <BotaoAtalho tecla="F7"    texto="Sangria"         cor={totalCaixa >= 300 ? "#7c3500" : "#0f3d4a"}
                 onClick={abrirSangria}
                 badge={totalCaixa >= 300 ? moedaBR(totalCaixa) : undefined}
-              />
-              <BotaoAtalho tecla="F5"    texto="Receber Fiado"   cor="#4a1d96" onClick={abrirReceberFiado} />
-              <BotaoAtalho tecla="F8"    texto="Relatórios"      cor="#1e3a5f"
-                onClick={() => pedirSenha("Relatórios do Caixa", "Informe a senha ADM para acessar os relatórios.", async () => { abrirRelatorios(); })} />
-              <BotaoAtalho tecla="F9"    texto="Fechar Caixa"   cor="#4c1d95" onClick={abrirFechamento} />
-              <BotaoAtalho tecla="F10"   texto="Identificar CPF" onClick={() => setMostrarModalCPF(true)} />
+              />}
+              {feat("receber_fiado") && <BotaoAtalho tecla="F5"    texto="Receber Fiado"   cor="#4a1d96" onClick={abrirReceberFiado} />}
+              {feat("relatorios_pdv") && <BotaoAtalho tecla="F8"    texto="Relatórios"      cor="#1e3a5f"
+                onClick={() => pedirSenha("Relatórios do Caixa", "Informe a senha ADM para acessar os relatórios.", async () => { abrirRelatorios(); })} />}
+              {feat("fechamento_caixa") && <BotaoAtalho tecla="F9"    texto="Fechar Caixa"   cor="#4c1d95" onClick={abrirFechamento} />}
+              {feat("identificar_cpf") && <BotaoAtalho tecla="F10"   texto="Identificar CPF" onClick={() => setMostrarModalCPF(true)} />}
               <BotaoAtalho tecla="F12"   texto="Licença / Ativar"
                 cor={plano === "free" ? "#7f1d1d" : plano === "trial" ? "#78350f" : "#14532d"}
                 onClick={() => { setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); }}
@@ -2589,7 +2597,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 { tipo: "dinheiro", label: "💵 Dinheiro", cor: "#15803d", bg: "#f0fdf4", tecla: "D" },
                 { tipo: "pix",      label: "📱 PIX",      cor: "#0369a1", bg: "#f0f9ff", tecla: "P" },
                 { tipo: "cartao",   label: "💳 Cartão",   cor: "#1d4ed8", bg: "#eff6ff", tecla: "C" },
-                ...(temRecurso(plano, "fiado") ? [{ tipo: "fiado" as const, label: "📒 Fiado", cor: "#92400e", bg: "#fffbeb", tecla: "F" }] : []),
+                ...(temRecurso(plano, "fiado") && feat("fiado") ? [{ tipo: "fiado" as const, label: "📒 Fiado", cor: "#92400e", bg: "#fffbeb", tecla: "F" }] : []),
               ] as const).map(({ tipo, label, cor, bg, tecla }) => (
                 <button key={tipo} type="button"
                   onClick={() => selecionarPagamento(tipo)}
