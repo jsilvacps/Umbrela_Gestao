@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-function versaoGlobal() {
-  try {
-    const raw = readFileSync(join(process.cwd(), "public/version.json"), "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return { version: "0.0.0", notas: "", download: "" };
-  }
-}
 
 function urlDownload(v: string) {
   return `https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v${v}/UmbrelaGestao-PDV-Setup-${v}.exe`;
@@ -37,6 +26,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Sem empresa ou sem versão específica → retorna a versão global
-  return NextResponse.json(versaoGlobal());
+  // Fallback: busca a versão global do version.json público
+  try {
+    const res = await fetch("https://umbrela-gestao.vercel.app/version.json", {
+      next: { revalidate: 60 },
+    });
+    const json = await res.json();
+    return NextResponse.json(json);
+  } catch {
+    return NextResponse.json({ version: "0.0.0", notas: "", download: "" });
+  }
 }
