@@ -302,11 +302,11 @@ function baixarEInstalar(urlDownload, versao) {
           }
 
           // 2) Cria um .bat que:
-          //    - Aguarda o Horti Gestão PDV.exe fechar (não fica mais na lista de processos)
+          //    - Aguarda o Umbrela Gestão PDV.exe fechar (não fica mais na lista de processos)
           //    - Depois executa o instalador silenciosamente
           //    - Se auto-apaga
           const os2 = require("os");
-          const batPath = path.join(os2.tmpdir(), "horti-update.bat");
+          const batPath = path.join(os2.tmpdir(), "umbrela-update.bat");
           const bat = [
             "@echo off",
             "timeout /T 3 /NOBREAK >NUL",
@@ -587,7 +587,7 @@ function createWindow() {
 
   // Configura janelas abertas via window.open (ex.: botão ADM no PDV)
   mainWindow.webContents.on("did-create-window", (win) => {
-    win.setTitle("Horti Gestão — ADM");
+    win.setTitle("Umbrela Gestão — ADM");
     win.setMenuBarVisibility(false);
     win.setSize(1280, 800);
     win.center();
@@ -624,7 +624,7 @@ function createAdmWindow() {
 
 // ── Ciclo de vida do app ─────────────────────────────────────────────────────
 
-// Registra protocolo hortigestao:// para que o portal ADM possa abrir o app
+// Registra protocolo umbrelagestao:// para que o portal ADM possa abrir o app
 app.setAsDefaultProtocolClient("umbrelagestao");
 
 // Garante uma única instância do app — evita múltiplos servidores na mesma porta
