@@ -1,5 +1,5 @@
 {
-  "version": "1.1.43",
-  "notas": "- Correção: produtos isolados por empresa (sem mistura entre clientes)\n- Correção: sync F11 completo - produtos, features e vendas offline\n- Correção: clientes fiado aparecendo corretamente\n- Modal de diagnóstico para vendas pendentes (clique no badge vermelho)",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.43/UmbrelaGestao-PDV-Setup-1.1.43.exe"
+  "version": "1.1.44",
+  "notas": "- Isolamento real entre empresas via Supabase Auth (RLS)\n- Senha master abre seleção de empresa antes de entrar no ADM\n- Botão para criar acesso auth por cliente no painel master\n- Novos clientes recebem auth automático na ativação",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.44/UmbrelaGestao-PDV-Setup-1.1.44.exe"
 }
