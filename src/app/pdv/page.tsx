@@ -7,6 +7,7 @@ import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import {
   syncProdutosLocal, getProdutosLocal, debitarEstoqueLocal,
   savePendingVenda, countPendingVendas, syncPendingVendas,
+  getPendingVendas, descartarPendingVenda,
 } from "@/lib/syncService";
 import {
   inicializarLicenca, validarLicencaOnline, salvarChave, salvarLicencaCache,
@@ -94,6 +95,8 @@ export default function PDVPage() {
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [sincronizando, setSincronizando] = useState(false);
+  const [modalPendentes, setModalPendentes] = useState(false);
+  const [listaVendasPendentes, setListaVendasPendentes] = useState<Awaited<ReturnType<typeof getPendingVendas>>>([]);
 
   /* ── Estado do operador e empresa ── */
   const [operador, setOperador] = useState<Operador | null>(null);
@@ -2286,10 +2289,18 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 </span>
               </div>
               {pendingCount > 0 && (
-                <span style={{
-                  background: "#ef4444", color: "#fff", borderRadius: 999,
-                  padding: "1px 7px", fontSize: 10, fontWeight: 900,
-                }}>
+                <span
+                  onClick={async () => {
+                    const lista = await getPendingVendas();
+                    setListaVendasPendentes(lista);
+                    setModalPendentes(true);
+                  }}
+                  style={{
+                    background: "#ef4444", color: "#fff", borderRadius: 999,
+                    padding: "1px 7px", fontSize: 10, fontWeight: 900, cursor: "pointer",
+                  }}
+                  title="Clique para ver detalhes"
+                >
                   {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
                 </span>
               )}
@@ -2367,6 +2378,42 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
           </aside>
         </div>
       </div>
+
+      {/* ══════════ MODAL VENDAS PENDENTES ══════════ */}
+      {modalPendentes && (
+        <div style={overlay}>
+          <div style={{ ...modalBox, width: "min(96vw, 560px)", maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontWeight: 900, fontSize: 17 }}>⚠️ Vendas pendentes ({listaVendasPendentes.length})</span>
+              <button onClick={() => setModalPendentes(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+              Essas vendas estão na fila local e não conseguiram subir para o servidor. Verifique o console (F12) para ver o erro. Se quiser descartar uma venda da fila, clique em Descartar.
+            </p>
+            {listaVendasPendentes.map((v) => (
+              <div key={v.localId} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>ID local: {v.localId}</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>Total: R$ {Number(v.vendaPayload?.total ?? 0).toFixed(2)}</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>Itens: {v.itens?.length ?? 0}</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>Data: {String(v.vendaPayload?.data_venda ?? "—")}</div>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Descartar esta venda da fila? Ela NÃO será enviada ao servidor.")) return;
+                    await descartarPendingVenda(v.localId);
+                    const nova = await getPendingVendas();
+                    setListaVendasPendentes(nova);
+                    setPendingCount(nova.length);
+                    if (nova.length === 0) setModalPendentes(false);
+                  }}
+                  style={{ marginTop: 8, background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 12 }}
+                >
+                  Descartar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ══════════ MODAL LICENÇA ══════════ */}
       {modalLicenca && (

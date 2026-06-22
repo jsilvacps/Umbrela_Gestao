@@ -60,6 +60,18 @@ export async function countPendingVendas(): Promise<number> {
   return localDB.pendingVendas.where("synced").equals(0).count();
 }
 
+/** Retorna detalhes das vendas pendentes para diagnóstico. */
+export async function getPendingVendas() {
+  if (!localDB) return [];
+  return localDB.pendingVendas.where("synced").equals(0).toArray();
+}
+
+/** Remove forçadamente uma venda da fila local pelo localId. */
+export async function descartarPendingVenda(localId: string) {
+  if (!localDB) return;
+  await localDB.pendingVendas.delete(localId);
+}
+
 /**
  * Envia todas as vendas pendentes para o Supabase.
  * Retorna quantas foram sincronizadas com sucesso.
@@ -77,7 +89,10 @@ export async function syncPendingVendas(): Promise<number> {
         .insert([v.vendaPayload])
         .select()
         .single();
-      if (error || !vendaData?.id) continue;
+      if (error || !vendaData?.id) {
+        console.error("[sync] erro ao gravar venda:", error, v.vendaPayload);
+        continue;
+      }
 
       // 2. Grava itens da venda
       if (v.itens.length > 0) {
