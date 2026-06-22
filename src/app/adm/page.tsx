@@ -114,6 +114,8 @@ export default function AdmPage() {
   const [senha, setSenha] = useState("");
   const [liberado, setLiberado] = useState(false);
   const [erro, setErro] = useState("");
+  const [modalSelecionarEmpresa, setModalSelecionarEmpresa] = useState(false);
+  const [empresasDisponiveis, setEmpresasDisponiveis] = useState<{empresa_id: number, nome_cliente: string, codigo: string}[]>([]);
   const [msg, setMsg] = useState("");
   const [logoNomeArquivo, setLogoNomeArquivo] = useState("");
 
@@ -368,12 +370,35 @@ export default function AdmPage() {
     e.preventDefault();
     setErro("");
     const senhaAtual = senhasOp.adm_password || SENHA_PADRAO;
-    if (senha === senhaAtual || senha === SENHA_MASTER) {
+
+    if (senha === SENHA_MASTER) {
+      // Senha master: abre seleção de empresa
+      const { data } = await supabase
+        .from("clientes_licenciados")
+        .select("empresa_id, nome_cliente, codigo")
+        .eq("ativo", true)
+        .order("nome_cliente");
+      setEmpresasDisponiveis((data || []) as {empresa_id: number, nome_cliente: string, codigo: string}[]);
+      setModalSelecionarEmpresa(true);
+      return;
+    }
+
+    if (senha === senhaAtual) {
       setLiberado(true);
       if (typeof window !== "undefined") window.sessionStorage.setItem("adm_gerencial_ok", "1");
       return;
     }
     setErro("Senha gerencial inválida.");
+  }
+
+  async function entrarComoEmpresa(empresaId: number) {
+    const { salvarEmpresaId } = await import("@/lib/supabaseClient");
+    salvarEmpresaId(empresaId);
+    setModalSelecionarEmpresa(false);
+    setLiberado(true);
+    if (typeof window !== "undefined") window.sessionStorage.setItem("adm_gerencial_ok", "1");
+    // Recarrega tudo com o novo empresa_id
+    window.location.reload();
   }
 
   function sair() {
@@ -644,6 +669,40 @@ export default function AdmPage() {
             Dúvidas? Contate o administrador do sistema.
           </div>
         </div>
+
+        {/* Modal seleção de empresa (senha master) */}
+        {modalSelecionarEmpresa && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "grid", placeItems: "center", zIndex: 9999 }}>
+            <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "min(96vw,480px)", maxHeight: "80vh", overflowY: "auto" }}>
+              <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>🔐 Acesso Master</div>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Selecione a empresa que deseja acessar:</div>
+              {empresasDisponiveis.length === 0 && (
+                <div style={{ color: "#94a3b8", textAlign: "center", padding: 20 }}>Nenhuma empresa ativa encontrada.</div>
+              )}
+              {empresasDisponiveis.map((emp) => (
+                <button
+                  key={emp.empresa_id}
+                  onClick={() => entrarComoEmpresa(emp.empresa_id)}
+                  style={{
+                    display: "block", width: "100%", textAlign: "left",
+                    padding: "14px 18px", marginBottom: 10, borderRadius: 12,
+                    border: "1px solid #e2e8f0", background: "#f8fafc",
+                    cursor: "pointer", fontWeight: 700, fontSize: 15,
+                  }}
+                >
+                  <div>{emp.nome_cliente || `Empresa ${emp.empresa_id}`}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 400 }}>Código: {emp.codigo} · ID: {emp.empresa_id}</div>
+                </button>
+              ))}
+              <button
+                onClick={() => setModalSelecionarEmpresa(false)}
+                style={{ width: "100%", marginTop: 8, padding: "10px", borderRadius: 10, border: "none", background: "#f1f5f9", cursor: "pointer", color: "#64748b" }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
