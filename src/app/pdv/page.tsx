@@ -1589,13 +1589,17 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       numero: novoCliNumero.trim() || null,
       limite_credito: novoCliLimite ? Number(novoCliLimite.replace(",", ".")) : 0,
     };
-    const { data, error } = await db("clientes").insert([payload]).select().single() as any;
+    const { error } = await db("clientes").insert([payload]) as any;
     setSalvandoNovoCli(false);
     if (error) { setErroFiado("Erro ao cadastrar: " + error.message); setModalNovoCliente(false); return; }
-    if (data) {
-      setClienteFiado({ id: data.id, nome: data.nome, limite_credito: data.limite_credito || 0 });
+    // Busca o cliente recém-cadastrado pelo nome
+    const { data: novo } = await db("clientes").select("id, nome, limite_credito").eq("nome", payload.nome).maybeSingle() as any;
+    if (novo) {
+      setClienteFiado({ id: novo.id, nome: novo.nome, limite_credito: novo.limite_credito || 0 });
       setErroFiado("");
     }
+    // Recarrega lista de clientes
+    buscarClienteFiadoPorNome("");
     setModalNovoCliente(false);
     setNovoCliNome(""); setNovoCliTelefone(""); setNovoCliCpf("");
     setNovoCliCep(""); setNovoCliEndereco(""); setNovoCliNumero(""); setNovoCliLimite("");
