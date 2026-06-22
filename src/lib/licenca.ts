@@ -222,8 +222,24 @@ export async function inicializarLicenca(): Promise<LicencaStatus> {
     }
   }
 
-  // Sem chave em lugar nenhum → trial ou free
+  // Sem chave em lugar nenhum → verifica se empresa está ativa em clientes_licenciados
   if (!chave) {
+    try {
+      const eid = typeof window !== "undefined" ? localStorage.getItem("hg_empresa_id") : null;
+      if (eid) {
+        const { data: lic } = await supabase
+          .from("clientes_licenciados")
+          .select("ativo, codigo")
+          .eq("empresa_id", Number(eid))
+          .maybeSingle();
+        if (lic?.ativo) {
+          const status: LicencaStatus = { plano: "pro", valida: true, cliente: lic.codigo };
+          salvarLicencaCache(status);
+          return status;
+        }
+      }
+    } catch { /* silencioso */ }
+
     const dias = getDiasTrialRestantes();
     const status: LicencaStatus = dias > 0
       ? { plano: "trial", valida: true, diasRestantes: dias }
