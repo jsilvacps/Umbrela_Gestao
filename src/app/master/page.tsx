@@ -321,6 +321,28 @@ export default function MasterPage() {
     carregarClientes();
   }
 
+  async function criarAuthCliente(empresaId: number, nomeCliente: string) {
+    const senha = `emp${empresaId}-${Math.random().toString(36).slice(2, 10)}-umbrela`;
+    const email = `empresa${empresaId}@umbrela.internal`;
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: senha,
+      options: { data: { empresa_id: empresaId } },
+    });
+    if (error) {
+      // Se usuário já existe, apenas atualiza a senha no banco
+      if (!error.message.includes("already registered")) {
+        alert(`Erro ao criar auth: ${error.message}`);
+        return;
+      }
+    }
+    await supabase.from("clientes_licenciados")
+      .update({ auth_password: senha })
+      .eq("empresa_id", empresaId);
+    alert(`✅ Auth criado para ${nomeCliente || `empresa ${empresaId}`}!\nEmail: ${email}`);
+    carregarClientes();
+  }
+
   // ── Licenças (antigo sistema) ──────────────────────────────────────────────
   const [licencas, setLicencas] = useState<Licenca[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -664,6 +686,7 @@ export default function MasterPage() {
                               <button onClick={() => toggleCliente(c.id, c.ativo)} style={c.ativo ? btnMinVermelho : btnMinVerde} title={c.ativo ? "Desativar" : "Ativar"}>
                                 {c.ativo ? "🚫" : "✅"}
                               </button>
+                              <button onClick={() => criarAuthCliente(c.empresa_id, c.nome_cliente ?? "")} style={btnMinCinza} title="Criar/recriar acesso auth (isolamento RLS)">🔐</button>
                               <button onClick={() => excluirCliente(c.id, c.codigo)} style={btnMinVermelho} title="Excluir">🗑️</button>
                             </div>
                           </td>
