@@ -477,7 +477,6 @@ export default function PDVPage() {
         const c = await countPendingVendas();
         if (!ativo) return;
         setPendingCount(c);
-        // Resync produtos
         await carregarProdutos();
       } finally {
         if (ativo) setSincronizando(false);
@@ -486,6 +485,24 @@ export default function PDVPage() {
     return () => { ativo = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
+
+  async function sincronizarAgora() {
+    if (sincronizando || !isOnline) return;
+    setSincronizando(true);
+    try {
+      const n = await syncPendingVendas();
+      await carregarProdutos();
+      const c = await countPendingVendas();
+      setPendingCount(c);
+      setMensagem(n > 0
+        ? `✅ Sincronizado! ${n} venda(s) enviada(s) + produtos atualizados.`
+        : "✅ Produtos atualizados com sucesso!"
+      );
+      setTimeout(() => setMensagem(""), 4000);
+    } finally {
+      setSincronizando(false);
+    }
+  }
 
   /* ── Bloqueia fechar/atualizar com venda em aberto ── */
   const carrinhoRef = useRef(carrinho);
@@ -517,6 +534,7 @@ export default function PDVPage() {
     if (e.key === "F8" && feat("relatorios_pdv")) { e.preventDefault(); abrirRelatorios(); return; }
     if (e.key === "F9" && feat("fechamento_caixa")) { e.preventDefault(); abrirFechamento(); return; }
     if (e.key === "F10" && feat("identificar_cpf")) { e.preventDefault(); setMostrarModalCPF(true); return; }
+    if (e.key === "F11") { e.preventDefault(); sincronizarAgora(); return; }
     if (e.key === "F12") { e.preventDefault(); setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); return; }
     if (mostrarModalCPF) {
       if (e.key === "Enter") { e.preventDefault(); confirmarCPF(); }
@@ -2333,6 +2351,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 onClick={() => pedirSenha("Relatórios do Caixa", "Informe a senha ADM para acessar os relatórios.", async () => { abrirRelatorios(); })} />}
               {feat("fechamento_caixa") && <BotaoAtalho tecla="F9"    texto="Fechar Caixa"   cor="#4c1d95" onClick={abrirFechamento} />}
               {feat("identificar_cpf") && <BotaoAtalho tecla="F10"   texto="Identificar CPF" onClick={() => setMostrarModalCPF(true)} />}
+              <BotaoAtalho tecla="F11"   texto={sincronizando ? "Sincronizando..." : "Sincronizar"}  cor="#0f3d2a" onClick={sincronizarAgora} />
               <BotaoAtalho tecla="F12"   texto="Licença / Ativar"
                 cor={plano === "free" ? "#7f1d1d" : plano === "trial" ? "#78350f" : "#14532d"}
                 onClick={() => { setModalLicenca(true); setTimeout(() => refChaveInput.current?.focus(), 80); }}
