@@ -1,5 +1,5 @@
 {
-  "version": "1.1.41",
-  "notas": "- Splash screen animada ao abrir o app\n- Nome atualizado para Umbrela Gestão em todas as janelas",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.41/UmbrelaGestao-PDV-Setup-1.1.41.exe"
+  "version": "1.1.42",
+  "notas": "- Botão F11 para sincronizar produtos e vendas manualmente no PDV\n- Página /ativacao para novos clientes\n- Controle de versão por cliente no painel master\n- Flags de funcionalidades por empresa",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.42/UmbrelaGestao-PDV-Setup-1.1.42.exe"
 }
