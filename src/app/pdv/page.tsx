@@ -219,11 +219,11 @@ export default function PDVPage() {
   const difGav      = gavetaNum - esperadoGav;
 
   /* ── Fiado ── */
-  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite_credito?: number } | null>(null);
+  const [clienteFiado, setClienteFiado]         = useState<{ id: string; nome: string; limite?: number } | null>(null);
   const [buscandoFiado, setBuscandoFiado]       = useState(false);
   const [erroFiado, setErroFiado]               = useState("");
   const [buscaFiado, setBuscaFiado]             = useState("");
-  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite_credito?: number }[]>([]);
+  const [resultadosFiado, setResultadosFiado]   = useState<{ id: string; nome: string; limite?: number }[]>([]);
 
   /* ── Recebimento de fiado ── */
   const [modalReceberFiado, setModalReceberFiado]     = useState(false);
@@ -1480,12 +1480,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     setErroFiado("");
     setClienteFiado(null);
     const { data } = await db("clientes")
-      .select("id, nome, limite_credito")
+      .select("id, nome, limite")
       .eq("cpf", cpfLimpo)
       .maybeSingle();
     setBuscandoFiado(false);
     if (!data) { setErroFiado("Cliente não encontrado. Cadastre-o antes de usar fiado."); return; }
-    setClienteFiado(data as { id: string; nome: string; limite_credito: number });
+    setClienteFiado(data as { id: string; nome: string; limite: number });
   }
 
   // Carrega todos os clientes ao abrir o modal de seleção
@@ -1501,7 +1501,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
   /* ── Busca cliente fiado por nome (vazio = todos) ── */
   async function buscarClienteFiadoPorNome(termo: string) {
     setBuscandoFiado(true);
-    const q = db("clientes").select("id, nome, limite_credito") as any;
+    const q = db("clientes").select("id, nome, limite") as any;
     const { data, error } = termo.trim()
       ? await q.ilike("nome", `%${termo.trim()}%`).limit(50)
       : await q.order("nome", { ascending: true }).limit(50);
@@ -1587,15 +1587,15 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       cep: novoCliCep.replace(/\D/g, "") || null,
       endereco: novoCliEndereco.trim() || null,
       numero: novoCliNumero.trim() || null,
-      limite_credito: novoCliLimite ? Number(novoCliLimite.replace(",", ".")) : 0,
+      limite: novoCliLimite ? Number(novoCliLimite.replace(",", ".")) : 0,
     };
     const { error } = await db("clientes").insert([payload]) as any;
     setSalvandoNovoCli(false);
     if (error) { setErroFiado("Erro ao cadastrar: " + error.message); setModalNovoCliente(false); return; }
     // Busca o cliente recém-cadastrado pelo nome
-    const { data: novo } = await db("clientes").select("id, nome, limite_credito").eq("nome", payload.nome).maybeSingle() as any;
+    const { data: novo } = await db("clientes").select("id, nome, limite").eq("nome", payload.nome).maybeSingle() as any;
     if (novo) {
-      setClienteFiado({ id: novo.id, nome: novo.nome, limite_credito: novo.limite_credito || 0 });
+      setClienteFiado({ id: novo.id, nome: novo.nome, limite: novo.limite || 0 });
       setErroFiado("");
     }
     // Recarrega lista de clientes
@@ -2172,7 +2172,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                         <div>
                           <div style={{ fontWeight: 800, fontSize: 14 }}>{c.nome}</div>
                           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                            Limite: <b>{moedaBR(c.limite_credito || 0)}</b>
+                            Limite: <b>{moedaBR(c.limite || 0)}</b>
                           </div>
                         </div>
                         <button type="button"
@@ -2734,7 +2734,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                       </button>
                     </div>
                     <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 13 }}>
-                      <span style={{ color: "#475569" }}>Limite: <b>{moedaBR(clienteFiado.limite_credito || 0)}</b></span>
+                      <span style={{ color: "#475569" }}>Limite: <b>{moedaBR(clienteFiado.limite || 0)}</b></span>
                     </div>
                   </div>
                 ) : (
