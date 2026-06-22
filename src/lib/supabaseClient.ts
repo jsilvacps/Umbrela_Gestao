@@ -1,13 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Single Supabase for all clients (multi-tenant via empresa_id)
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL  ?? "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-);
+const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? "";
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-// Alias kept for activation-code lookup in login/page.tsx
+// Cliente principal — usa sessão auth quando disponível, anon caso contrário
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
+
+// masterSupabase: alias sem filtro empresa_id (ativação, login global)
 export const masterSupabase = supabase;
+
+// ── empresa_id helpers ───────────────────────────────────────────────────────
 
 export function getEmpresaId(): number {
   if (typeof window === "undefined") return 0;
@@ -26,19 +30,48 @@ export function isConfigurado(): boolean {
   return getEmpresaId() > 0;
 }
 
-// Returns supabase directly (kept for backwards compat in login.tsx)
-export function getSupabase() {
-  return supabase;
+// ── Auth helpers (v1.1.44 — Supabase Auth por empresa) ──────────────────────
+
+/** Email de auth gerado deterministicamente por empresa */
+export function empresaAuthEmail(empresaId: number): string {
+  return `empresa${empresaId}@umbrela.internal`;
 }
+
+/** Faz login no Supabase Auth com as credenciais da empresa */
+export async function signInEmpresa(empresaId: number, authPassword: string): Promise<boolean> {
+  const { error } = await supabase.auth.signInWithPassword({
+    email:    empresaAuthEmail(empresaId),
+    password: authPassword,
+  });
+  return !error;
+}
+
+/** Faz logout do Supabase Auth */
+export async function signOutEmpresa(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+/** Cria conta Supabase Auth para uma nova empresa (chamado na ativação) */
+export async function criarAuthEmpresa(empresaId: number, authPassword: string): Promise<boolean> {
+  const { error } = await supabase.auth.signUp({
+    email:    empresaAuthEmail(empresaId),
+    password: authPassword,
+    options: {
+      data: { empresa_id: empresaId },
+    },
+  });
+  return !error;
+}
+
+// Kept for backwards compat
+export function getSupabase() { return supabase; }
+export function salvarCredenciais(_url: string, _key: string): void { /* no-op */ }
+
+// ── db() proxy: injeta empresa_id em todas as queries ───────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
-/**
- * Proxy que auto-injeta empresa_id em todas as queries para tabelas de tenant.
- * Uso: db("produtos").select("*").order("nome") — funciona igual ao supabase.from()
- * mas filtrando automaticamente pelo cliente correto.
- */
 export function db(table: string) {
   const eid = getEmpresaId();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,9 +96,4 @@ export function db(table: string) {
     delete: () =>
       base().delete().eq("empresa_id", eid),
   };
-}
-
-// Kept for code that still calls salvarCredenciais (login.tsx setup)
-export function salvarCredenciais(_url: string, _key: string): void {
-  // no-op in multi-tenant mode — credentials are in .env
 }

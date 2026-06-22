@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { masterSupabase, db } from "@/lib/supabaseClient";
-import { salvarEmpresaId, isConfigurado } from "@/lib/supabaseClient";
+import { masterSupabase, db, salvarEmpresaId, isConfigurado, signInEmpresa } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ── Tipos ── */
@@ -131,12 +130,26 @@ export default function LoginPage() {
         setEntrando(false);
         return;
       }
-      // Salva empresa_id localmente (auto-recupera mesmo que o localStorage tenha sido limpo)
-      if ((data as { empresa_id?: number }).empresa_id) {
-        salvarEmpresaId((data as { empresa_id: number }).empresa_id);
+      // Salva empresa_id localmente
+      const empresaId = (data as { empresa_id?: number }).empresa_id;
+      if (empresaId) {
+        salvarEmpresaId(empresaId);
+
+        // Faz login no Supabase Auth para ativar o JWT com empresa_id
+        // (silencioso — não bloqueia o login se falhar, pois o isolamento por código já existe)
+        try {
+          const { data: lic } = await masterSupabase
+            .from("clientes_licenciados")
+            .select("auth_password")
+            .eq("empresa_id", empresaId)
+            .maybeSingle();
+          if (lic?.auth_password) {
+            await signInEmpresa(empresaId, lic.auth_password);
+          }
+        } catch { /* silencioso */ }
       }
+
       window.sessionStorage.setItem("operador_logado", JSON.stringify(data));
-      // Redireciona para a página de origem (ex: /adm) ou para o PDV
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/pdv";
       router.push(returnTo);

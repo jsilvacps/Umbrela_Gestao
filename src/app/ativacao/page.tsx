@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { masterSupabase, db, salvarEmpresaId } from "@/lib/supabaseClient";
+import { masterSupabase, db, salvarEmpresaId, getEmpresaId, criarAuthEmpresa } from "@/lib/supabaseClient";
 
 type Passo = 1 | 2 | 3 | 4;
 
@@ -150,9 +150,19 @@ export default function AtivacaoPage() {
 
       const cod = codigo.trim().toUpperCase();
       if (cod) {
+        const eid = getEmpresaId();
+
+        // Cria conta Supabase Auth para isolamento RLS e gera senha aleatória
+        const authPassword = crypto.randomUUID();
+        await criarAuthEmpresa(eid, authPassword);
+
         await masterSupabase
           .from("clientes_licenciados")
-          .update({ ativo: true, cadastro_em: new Date().toISOString() })
+          .update({
+            ativo:        true,
+            cadastro_em:  new Date().toISOString(),
+            auth_password: authPassword,
+          })
           .eq("codigo", cod);
       }
 
