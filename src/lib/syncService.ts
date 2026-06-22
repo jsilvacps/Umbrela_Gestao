@@ -8,17 +8,16 @@
  * - countPendingVendas → conta vendas ainda não sincronizadas
  */
 
-import { supabase } from "./supabaseClient";
+import { supabase, db } from "./supabaseClient";
 import { localDB, type PendingVenda } from "./localDB";
 
 // ── Produtos ────────────────────────────────────────────────────────────────
 
-/** Baixa todos os produtos do Supabase para o IndexedDB. Retorna true se ok. */
+/** Baixa produtos do Supabase filtrados por empresa_id e salva no IndexedDB. */
 export async function syncProdutosLocal(): Promise<boolean> {
   if (!localDB) return false;
   try {
-    const { data, error } = await supabase
-      .from("produtos")
+    const { data, error } = await db("produtos")
       .select("id, nome, codigo, ean, preco, preco_cartao, unidade, estoque");
     if (error || !data) return false;
     await localDB.produtos.clear();

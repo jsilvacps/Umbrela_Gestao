@@ -493,13 +493,21 @@ export default function PDVPage() {
     if (sincronizando || !isOnline) return;
     setSincronizando(true);
     try {
+      // 1. Envia vendas offline pendentes
       const n = await syncPendingVendas();
-      await carregarProdutos();
       const c = await countPendingVendas();
       setPendingCount(c);
+
+      // 2. Recarrega produtos (clear + bulkPut filtrado por empresa_id)
+      await carregarProdutos();
+
+      // 3. Recarrega feature flags do banco
+      const f = await carregarFeatures();
+      setFeatures(f);
+
       setMensagem(n > 0
-        ? `✅ Sincronizado! ${n} venda(s) enviada(s) + produtos atualizados.`
-        : "✅ Produtos atualizados com sucesso!"
+        ? `✅ Sincronizado! ${n} venda(s) enviada(s) + dados atualizados.`
+        : "✅ Dados sincronizados com sucesso!"
       );
       setTimeout(() => setMensagem(""), 4000);
     } finally {
