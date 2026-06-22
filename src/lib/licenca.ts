@@ -16,7 +16,7 @@
  *  6. Offline → usa cache (valido por 30 dias)
  */
 
-import { supabase } from "./supabaseClient";
+import { supabase, db } from "./supabaseClient";
 
 export type Plano = "trial" | "free" | "pro";
 
@@ -137,18 +137,18 @@ export function precisaRevalidar(): boolean {
 
 async function salvarChaveNoBanco(chave: string) {
   try {
-    const { data: emp } = await supabase.from("empresa").select("empresa_id").limit(1).maybeSingle();
+    const { data: emp } = await db("empresa").select("empresa_id").limit(1).maybeSingle();
     if (emp?.empresa_id) {
-      await supabase.from("empresa").update({ chave_licenca: chave }).eq("empresa_id", emp.empresa_id);
+      await db("empresa").update({ chave_licenca: chave }).eq("empresa_id", emp.empresa_id);
     } else {
-      await supabase.from("empresa").insert([{ chave_licenca: chave }]);
+      await db("empresa").insert([{ chave_licenca: chave }]);
     }
   } catch { /* silencioso */ }
 }
 
 async function buscarChaveDoBanco(): Promise<string | null> {
   try {
-    const { data } = await supabase.from("empresa").select("chave_licenca").limit(1).maybeSingle();
+    const { data } = await db("empresa").select("chave_licenca").limit(1).maybeSingle();
     return (data as any)?.chave_licenca || null;
   } catch { return null; }
 }
