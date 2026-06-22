@@ -83,8 +83,7 @@ export async function syncPendingVendas(): Promise<number> {
   for (const v of pending) {
     try {
       // 1. Grava venda principal
-      const { data: vendaData, error } = await supabase
-        .from("vendas")
+      const { data: vendaData, error } = await db("vendas")
         .insert([v.vendaPayload])
         .select()
         .single();
@@ -95,35 +94,31 @@ export async function syncPendingVendas(): Promise<number> {
 
       // 2. Grava itens da venda
       if (v.itens.length > 0) {
-        await supabase.from("itens_venda").insert(
+        await db("itens_venda").insert(
           v.itens.map((i) => ({ ...i, venda_id: vendaData.id }))
         );
       }
 
       // 3. Debita estoque no Supabase
       for (const upd of v.estoqueDeltas) {
-        const { data: prod } = await supabase
-          .from("produtos")
+        const { data: prod } = await db("produtos")
           .select("estoque")
           .eq("id", upd.id)
           .maybeSingle();
         const atual = Number((prod as { estoque?: number } | null)?.estoque ?? 0);
-        await supabase
-          .from("produtos")
+        await db("produtos")
           .update({ estoque: Math.max(0, atual - upd.delta) })
           .eq("id", upd.id);
       }
 
       // 4. Atualiza fiado
       if (v.fiadoUpdate) {
-        const { data: cli } = await supabase
-          .from("clientes")
+        const { data: cli } = await db("clientes")
           .select("saldo_fiado")
           .eq("id", v.fiadoUpdate.clienteId)
           .maybeSingle();
         const saldo = Number((cli as { saldo_fiado?: number } | null)?.saldo_fiado ?? 0);
-        await supabase
-          .from("clientes")
+        await db("clientes")
           .update({ saldo_fiado: saldo + v.fiadoUpdate.delta })
           .eq("id", v.fiadoUpdate.clienteId);
       }

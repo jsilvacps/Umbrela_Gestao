@@ -304,8 +304,7 @@ export default function AdmPage() {
   // ── Handlers de licenças ──────────────────────────────────────────────────
 
   const carregarLicencas = useCallback(async () => {
-    const { data } = await supabase
-      .from("licencas")
+    const { data } = await db("licencas")
       .select("id, chave, plano, cliente, ativo, ativado_em, validade, criado_em, notas")
       .order("criado_em", { ascending: false });
     setLicencas((data || []) as Licenca[]);
@@ -330,7 +329,7 @@ export default function AdmPage() {
         ativo:   true,
       });
     }
-    const { error } = await supabase.from("licencas").insert(novas);
+    const { error } = await db("licencas").insert(novas);
     if (error) {
       setMsg("Erro ao gerar chaves: " + error.message);
       return;
@@ -345,14 +344,14 @@ export default function AdmPage() {
 
   async function revogarLicenca(id: string) {
     if (!confirm("Revogar esta chave? O cliente perderá o acesso.")) return;
-    const { error } = await supabase.from("licencas").update({ ativo: false }).eq("id", id);
+    const { error } = await db("licencas").update({ ativo: false }).eq("id", id);
     if (error) { setMsg("Erro ao revogar: " + error.message); return; }
     setMsg("Chave revogada.");
     carregarLicencas();
   }
 
   async function reativarLicenca(id: string) {
-    const { error } = await supabase.from("licencas").update({ ativo: true }).eq("id", id);
+    const { error } = await db("licencas").update({ ativo: true }).eq("id", id);
     if (error) { setMsg("Erro ao reativar: " + error.message); return; }
     setMsg("Chave reativada.");
     carregarLicencas();
@@ -360,7 +359,7 @@ export default function AdmPage() {
 
   async function excluirLicenca(id: string) {
     if (!confirm("Excluir permanentemente esta chave?")) return;
-    const { error } = await supabase.from("licencas").delete().eq("id", id);
+    const { error } = await db("licencas").delete().eq("id", id);
     if (error) { setMsg("Erro ao excluir: " + error.message); return; }
     carregarLicencas();
   }
