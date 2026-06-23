@@ -479,12 +479,14 @@ export default function AdmPage() {
   const carregarDashboard = useCallback(async () => {
     setDashCarregando(true);
     const hoje = new Date();
-    const anoMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
-    const { data } = await db("vendas")
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+    const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1).toISOString().slice(0, 10);
+    const { data, error } = await db("vendas")
       .select("total, tipo_pagamento, created_at")
-      .gte("created_at", `${anoMes}-01T00:00:00`)
-      .lte("created_at", `${anoMes}-31T23:59:59`)
+      .gte("created_at", inicioMes)
+      .lt("created_at", proximoMes)
       .order("created_at", { ascending: false });
+    if (error) console.error("Dashboard erro:", error);
     setDashVendas((data || []) as DashVenda[]);
     setDashCarregando(false);
   }, []);
