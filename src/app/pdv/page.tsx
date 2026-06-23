@@ -274,8 +274,9 @@ export default function PDVPage() {
 
   /* ── Trava automática quando caixa ultrapassa limite ── */
   useEffect(() => {
-    if (feat("limite_caixa") && totalCaixa >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
-    else if (!feat("limite_caixa") || totalCaixa < LIMITE_SANGRIA)               setTravaCaixa(false);
+    const caixaEfetivo = feat("ignorar_fundo_caixa") ? totalCaixa - valorAberturaNum : totalCaixa;
+    if (feat("limite_caixa") && caixaEfetivo >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
+    else if (!feat("limite_caixa") || caixaEfetivo < LIMITE_SANGRIA)                setTravaCaixa(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalCaixa, modalAbrirCaixa]);
 
@@ -2365,9 +2366,9 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
               <BotaoAtalho tecla="F3"    texto="Finalizar venda" cor="#14532d" onClick={abrirFinalizar} />
               {feat("buscar_cupons") && <BotaoAtalho tecla="F4"    texto="Buscar cupons"   cor="#1e3a5f" onClick={abrirBuscarCupons} />}
               {feat("cancelar_cupom") && <BotaoAtalho tecla="F6"    texto="Cancelar cupom"  cor="#7f1d1d" onClick={pedirSenhaCancelarCupom} />}
-              {feat("sangria") && <BotaoAtalho tecla="F7"    texto="Sangria"         cor={totalCaixa >= 300 ? "#7c3500" : "#0f3d4a"}
+              {feat("sangria") && <BotaoAtalho tecla="F7"    texto="Sangria"         cor={(feat("ignorar_fundo_caixa") ? totalCaixa - valorAberturaNum : totalCaixa) >= 300 ? "#7c3500" : "#0f3d4a"}
                 onClick={abrirSangria}
-                badge={totalCaixa >= 300 ? moedaBR(totalCaixa) : undefined}
+                badge={(feat("ignorar_fundo_caixa") ? totalCaixa - valorAberturaNum : totalCaixa) >= 300 ? moedaBR(totalCaixa) : undefined}
               />}
               {feat("receber_fiado") && <BotaoAtalho tecla="F5"    texto="Receber Fiado"   cor="#4a1d96" onClick={abrirReceberFiado} />}
               {feat("relatorios_pdv") && <BotaoAtalho tecla="F8"    texto="Relatórios"      cor="#1e3a5f"

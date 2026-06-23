@@ -23,6 +23,7 @@ export const TODAS_FEATURES = {
   buscar_cupons:      { label: "Buscar Cupons (F4)",     grupo: "PDV" },
   identificar_cpf:    { label: "Identificar CPF (F10)", grupo: "PDV" },
   limite_caixa:       { label: "Alerta Limite Caixa",   grupo: "PDV" },
+  ignorar_fundo_caixa: { label: "Ignorar Fundo no Limite", grupo: "PDV" },
   // ADM
   adm_acesso:         { label: "Acesso ao Painel ADM",  grupo: "ADM" },
   adm_produtos:       { label: "Cadastro de Produtos",  grupo: "ADM" },
