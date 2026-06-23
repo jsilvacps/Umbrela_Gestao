@@ -5,6 +5,14 @@ import HeaderUmbrela from "@/components/HeaderUmbrela";
 import { db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
+const TZ = "America/Sao_Paulo";
+function formatarDataHora(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", { timeZone: TZ });
+}
+function formatarSoData(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: TZ });
+}
+
 type Venda = {
   id: string;
   total: number | null;
@@ -155,7 +163,7 @@ export default function VendasPage() {
       const cliente   = clientes.find((c) => c.id === venda.cliente_id);
       const nomeCliente = cliente?.nome || "Consumidor";
       const dataOk = dataFiltro
-        ? new Date(venda.created_at).toLocaleDateString("pt-BR") === dataFiltro.split("-").reverse().join("/")
+        ? formatarSoData(venda.created_at) === dataFiltro.split("-").reverse().join("/")
         : true;
       const pagamentoOk = pagamentoFiltro === "Todas"
         ? true
@@ -297,12 +305,13 @@ export default function VendasPage() {
                   </div>
                   {vendasFiltradas.length === 0 ? (
                     <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
-                  ) : vendasFiltradas.map((venda) => {
+                  ) : vendasFiltradas.map((venda, idx) => {
                     const cliente = clientes.find((c) => c.id === venda.cliente_id);
+                    const numCupom = vendasFiltradas.length - idx;
                     return (
                       <div key={venda.id} style={trow}>
-                        <div style={{ fontFamily: "monospace", fontSize: 13 }}>{String(venda.id).slice(0, 8)}</div>
-                        <div>{new Date(venda.created_at).toLocaleString("pt-BR")}</div>
+                        <div style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700 }}>#{String(numCupom).padStart(4, "0")}</div>
+                        <div>{formatarDataHora(venda.created_at)}</div>
                         <div style={{ fontWeight: 700 }}>{cliente?.nome || "Consumidor"}</div>
                         <div>{venda.operador_nome || "-"}</div>
                         <div>
@@ -365,12 +374,13 @@ export default function VendasPage() {
                 <tbody>
                   {vendasFiltradas.length === 0 ? (
                     <tr><td colSpan={6} style={{ textAlign: "center", padding: "12pt" }}>Nenhuma venda no período.</td></tr>
-                  ) : vendasFiltradas.map((venda) => {
+                  ) : vendasFiltradas.map((venda, idx) => {
                     const cliente = clientes.find((c) => c.id === venda.cliente_id);
+                    const numCupom = vendasFiltradas.length - idx;
                     return (
                       <tr key={venda.id}>
-                        <td style={{ fontFamily: "monospace", fontSize: "8pt" }}>{String(venda.id).slice(0, 8)}</td>
-                        <td>{new Date(venda.created_at).toLocaleString("pt-BR")}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: "8pt", fontWeight: 700 }}>#{String(numCupom).padStart(4, "0")}</td>
+                        <td>{formatarDataHora(venda.created_at)}</td>
                         <td><strong>{cliente?.nome || "Consumidor"}</strong></td>
                         <td>{venda.operador_nome || "-"}</td>
                         <td>{venda.tipo_pagamento || "-"}</td>
