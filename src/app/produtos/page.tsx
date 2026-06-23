@@ -5,6 +5,7 @@ import HeaderUmbrela from "@/components/HeaderUmbrela";
 import BarcodeScannerModal from "@/components/BarcodeScannerModal";
 import { supabase, db } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { temFeature } from "@/lib/features";
 
 type Produto = {
   id: string;
@@ -97,6 +98,14 @@ export default function ProdutosPage() {
   const [msgEAN, setMsgEAN] = useState<{tipo: "ok"|"aviso"|"erro"; texto: string} | null>(null);
   const [modalEanDuplicado, setModalEanDuplicado] = useState<{id: string; nome: string} | null>(null);
 
+  // NF-e import
+  type NFeItem = { codigo: string; nome: string; qtd: number; custo: number; ean: string };
+  const [modalNFe, setModalNFe] = useState(false);
+  const [nfeItens, setNfeItens] = useState<NFeItem[]>([]);
+  const [nfeFornecedor, setNfeFornecedor] = useState("");
+  const [importandoNFe, setImportandoNFe] = useState(false);
+  const [resultadoNFe, setResultadoNFe] = useState<{ ok: number; erros: string[] } | null>(null);
+
   const [codigoInterno, setCodigoInterno] = useState("");
   const [codigoEAN, setCodigoEAN] = useState("");
   const [nomeProduto, setNomeProduto] = useState("");
@@ -108,6 +117,55 @@ export default function ProdutosPage() {
   const [margemCartao, setMargemCartao] = useState("0,00");
   const [precoCartao, setPrecoCartao] = useState("0,00");
   const [estoqueForm, setEstoqueForm] = useState("0");
+
+  /* ── Importar NF-e (XML) ── */
+  function lerXmlNFe(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const texto = ev.target?.result as string;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(texto, "text/xml");
+        const ns = "http://www.portalfiscal.inf.br/nfe";
+
+        // Fornecedor
+        const emitNome = doc.getElementsByTagNameNS(ns, "xNome")[0]?.textContent ?? "";
+        setNfeFornecedor(emitNome);
+
+        // Itens
+        const dets = doc.getElementsByTagNameNS(ns, "det");
+        const itens: NFeItem[] = [];
+        for (let i = 0; i < dets.length; i++) {
+          const det = dets[i];
+          const nome = det.getElementsByTagNameNS(ns, "xProd")[0]?.textContent ?? "";
+          const codigo = det.getElementsByTagNameNS(ns, "cProd")[0]?.textContent ?? "";
+          const ean = det.getElementsByTagNameNS(ns, "cEAN")[0]?.textContent ?? "";
+          const qtdStr = det.getElementsByTagNameNS(ns, "qCom")[0]?.textContent ?? "0";
+          const vUnStr = det.getElementsByTagNameNS(ns, "vUnCom")[0]?.textContent ?? "0";
+          const qtd = parseFloat(qtdStr) || 0;
+          const custo = parseFloat(vUnStr) || 0;
+          if (nome) itens.push({ codigo, nome, qtd, custo, ean: ean === "SEM GTIN" ? "" : ean });
+        }
+
+        if (itens.length === 0) {
+          setMensagem("❌ Nenhum item encontrado no XML. Verifique se é uma NF-e válida.");
+          return;
+        }
+
+        setNfeItens(itens);
+        setResultadoNFe(null);
+        setModalNFe(true);
+      } catch {
+        setMensagem("❌ Erro ao ler XML. Verifique se o arquivo é uma NF-e válida.");
+      }
+    };
+    reader.readAsText(arquivo, "UTF-8");
+  }
+
+  // confirmarImportacaoNFe é definido abaixo (após carregarDados) via useCallback
 
   /* ── Barcode scanner ── */
   async function aoEscanear(codigo: string) {
@@ -199,6 +257,43 @@ export default function ProdutosPage() {
     setProdutos(lista as Produto[]);
     setCategorias((categoriasData || []) as CategoriaProduto[]);
   }, []);
+
+  const confirmarImportacaoNFe = useCallback(async () => {
+    setImportandoNFe(true);
+    const erros: string[] = [];
+    let ok = 0;
+
+    for (const item of nfeItens) {
+      try {
+        const { data: existente } = await db("produtos")
+          .select("id, estoque")
+          .eq("codigo", item.codigo)
+          .maybeSingle();
+
+        if (existente) {
+          const novoEstoque = Number((existente as {estoque: number}).estoque || 0) + item.qtd;
+          await db("produtos").update({ estoque: novoEstoque, custo: item.custo }).eq("id", (existente as {id: string}).id);
+        } else {
+          await db("produtos").insert([{
+            nome: item.nome,
+            codigo: item.codigo || null,
+            ean: item.ean || null,
+            custo: item.custo,
+            preco: 0,
+            preco_cartao: 0,
+            estoque: item.qtd,
+          }]);
+        }
+        ok++;
+      } catch {
+        erros.push(`${item.nome}: erro ao salvar`);
+      }
+    }
+
+    setResultadoNFe({ ok, erros });
+    setImportandoNFe(false);
+    if (ok > 0) carregarDados();
+  }, [nfeItens, carregarDados]);
 
   useEffect(() => {
     carregarDados();
@@ -664,6 +759,17 @@ export default function ProdutosPage() {
                 <button type="button" onClick={baixarModelo} style={modeloBtn}>
                   ⬇️ Baixar modelo
                 </button>
+                {temFeature("importar_nfe") && (
+                  <label style={{ ...importBtn, background: "#1a5276", cursor: "pointer" }}>
+                    📄 Importar NF-e (XML)
+                    <input
+                      type="file"
+                      accept=".xml"
+                      onChange={lerXmlNFe}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                )}
               </div>
               {importResult && (
                 <div style={{ marginTop: 12 }}>
@@ -1026,6 +1132,71 @@ export default function ProdutosPage() {
                 style={{ height: 42, border: "none", borderRadius: 10, background: "#16a34a", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
                 Sim, editar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Importar NF-e */}
+      {modalNFe && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 28, width: "100%", maxWidth: 600, maxHeight: "80vh", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: "#0f172a" }}>📄 Importar NF-e</div>
+            {nfeFornecedor && (
+              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 14px", fontSize: 14, color: "#0369a1" }}>
+                <strong>Fornecedor:</strong> {nfeFornecedor}
+              </div>
+            )}
+            <div style={{ fontSize: 13, color: "#475569" }}>
+              <strong>{nfeItens.length} iten(s) encontrado(s).</strong> Produtos novos serão cadastrados; produtos existentes (mesmo código interno) terão o estoque somado.
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, border: "1px solid #e2e8f0", borderRadius: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", position: "sticky", top: 0 }}>
+                    <th style={{ padding: "8px 10px", textAlign: "left", color: "#64748b", fontWeight: 600 }}>Produto</th>
+                    <th style={{ padding: "8px 10px", textAlign: "right", color: "#64748b", fontWeight: 600 }}>Qtd</th>
+                    <th style={{ padding: "8px 10px", textAlign: "right", color: "#64748b", fontWeight: 600 }}>Custo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nfeItens.map((item, i) => (
+                    <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "7px 10px" }}>
+                        <div style={{ fontWeight: 600, color: "#1e293b" }}>{item.nome}</div>
+                        {item.codigo && <div style={{ fontSize: 11, color: "#94a3b8" }}>Cód: {item.codigo}{item.ean ? ` | EAN: ${item.ean}` : ""}</div>}
+                      </td>
+                      <td style={{ padding: "7px 10px", textAlign: "right", color: "#374151" }}>{item.qtd.toFixed(item.qtd % 1 === 0 ? 0 : 3)}</td>
+                      <td style={{ padding: "7px 10px", textAlign: "right", color: "#374151" }}>R$ {item.custo.toFixed(2).replace(".", ",")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {resultadoNFe && (
+              <div style={{ background: resultadoNFe.erros.length > 0 ? "#fffbeb" : "#f0fdf4", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
+                <div style={{ color: "#16a34a", fontWeight: 700 }}>✅ {resultadoNFe.ok} produto(s) importado(s) com sucesso!</div>
+                {resultadoNFe.erros.map((e, i) => <div key={i} style={{ color: "#b45309", marginTop: 4 }}>⚠️ {e}</div>)}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setModalNFe(false); setNfeItens([]); setResultadoNFe(null); }}
+                style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontWeight: 600 }}
+              >
+                {resultadoNFe ? "Fechar" : "Cancelar"}
+              </button>
+              {!resultadoNFe && (
+                <button
+                  onClick={confirmarImportacaoNFe}
+                  disabled={importandoNFe}
+                  style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: importandoNFe ? "#94a3b8" : "#16a34a", color: "#fff", cursor: importandoNFe ? "not-allowed" : "pointer", fontWeight: 700 }}
+                >
+                  {importandoNFe ? "⏳ Importando..." : "✅ Confirmar Importação"}
+                </button>
+              )}
             </div>
           </div>
         </div>

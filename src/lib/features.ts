@@ -12,26 +12,28 @@ import { supabase } from "./supabaseClient";
 // ── Todas as features disponíveis ────────────────────────────────────────────
 export const TODAS_FEATURES = {
   // PDV
-  fiado:              { label: "Venda Fiado",            grupo: "PDV" },
-  receber_fiado:      { label: "Receber Fiado (F5)",     grupo: "PDV" },
-  sangria:            { label: "Sangria (F7)",           grupo: "PDV" },
-  fechamento_caixa:   { label: "Fechamento de Caixa",   grupo: "PDV" },
-  relatorios_pdv:     { label: "Relatórios PDV (F8)",   grupo: "PDV" },
-  cancelar_item:      { label: "Cancelar Item",          grupo: "PDV" },
-  cancelar_cupom:     { label: "Cancelar Cupom (F6)",   grupo: "PDV" },
-  desconto:           { label: "Desconto na Venda",      grupo: "PDV" },
-  buscar_cupons:      { label: "Buscar Cupons (F4)",     grupo: "PDV" },
-  identificar_cpf:    { label: "Identificar CPF (F10)", grupo: "PDV" },
-  limite_caixa:       { label: "Alerta Limite Caixa",   grupo: "PDV" },
-  ignorar_fundo_caixa: { label: "Ignorar Fundo no Limite", grupo: "PDV" },
+  fiado:              { label: "Venda Fiado",            grupo: "PDV", defaultOff: false },
+  receber_fiado:      { label: "Receber Fiado (F5)",     grupo: "PDV", defaultOff: false },
+  sangria:            { label: "Sangria (F7)",           grupo: "PDV", defaultOff: false },
+  fechamento_caixa:   { label: "Fechamento de Caixa",   grupo: "PDV", defaultOff: false },
+  relatorios_pdv:     { label: "Relatórios PDV (F8)",   grupo: "PDV", defaultOff: false },
+  cancelar_item:      { label: "Cancelar Item",          grupo: "PDV", defaultOff: false },
+  cancelar_cupom:     { label: "Cancelar Cupom (F6)",   grupo: "PDV", defaultOff: false },
+  desconto:           { label: "Desconto na Venda",      grupo: "PDV", defaultOff: false },
+  buscar_cupons:      { label: "Buscar Cupons (F4)",     grupo: "PDV", defaultOff: false },
+  identificar_cpf:    { label: "Identificar CPF (F10)", grupo: "PDV", defaultOff: false },
+  limite_caixa:       { label: "Alerta Limite Caixa",   grupo: "PDV", defaultOff: false },
+  ignorar_fundo_caixa: { label: "Ignorar Fundo no Limite", grupo: "PDV", defaultOff: false },
   // ADM
-  adm_acesso:         { label: "Acesso ao Painel ADM",  grupo: "ADM" },
-  adm_produtos:       { label: "Cadastro de Produtos",  grupo: "ADM" },
-  adm_clientes:       { label: "Cadastro de Clientes",  grupo: "ADM" },
-  adm_operadores:     { label: "Gestão de Operadores",  grupo: "ADM" },
-  adm_relatorios:     { label: "Relatórios ADM",        grupo: "ADM" },
-  adm_etiquetas:      { label: "Etiquetas de Produtos", grupo: "ADM" },
-  adm_config:         { label: "Configurações",         grupo: "ADM" },
+  adm_acesso:         { label: "Acesso ao Painel ADM",  grupo: "ADM", defaultOff: false },
+  adm_produtos:       { label: "Cadastro de Produtos",  grupo: "ADM", defaultOff: false },
+  adm_clientes:       { label: "Cadastro de Clientes",  grupo: "ADM", defaultOff: false },
+  adm_operadores:     { label: "Gestão de Operadores",  grupo: "ADM", defaultOff: false },
+  adm_relatorios:     { label: "Relatórios ADM",        grupo: "ADM", defaultOff: false },
+  adm_etiquetas:      { label: "Etiquetas de Produtos", grupo: "ADM", defaultOff: false },
+  adm_config:         { label: "Configurações",         grupo: "ADM", defaultOff: false },
+  // Módulos opcionais (desabilitados por padrão)
+  importar_nfe:       { label: "Importar NF-e (XML)",   grupo: "Módulos", defaultOff: true },
 } as const;
 
 export type FeatureKey = keyof typeof TODAS_FEATURES;
@@ -72,7 +74,8 @@ export async function carregarFeatures(): Promise<Record<string, boolean>> {
 export function temFeature(key: FeatureKey, features?: Record<string, boolean>): boolean {
   const f = features ?? lerFeaturesLocal();
   if (key in f) return f[key] === true;
-  return true; // padrão: tudo ativo (para não quebrar clientes existentes)
+  // Respeita defaultOff: features marcadas como defaultOff=true ficam desabilitadas por padrão
+  return !(TODAS_FEATURES[key] as { defaultOff?: boolean }).defaultOff;
 }
 
 // ── Salva features de uma empresa específica (uso no master) ─────────────────
