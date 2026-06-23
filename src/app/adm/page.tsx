@@ -98,6 +98,216 @@ function moeda(v: number | null | undefined) {
   return `R$ ${Number(v || 0).toFixed(2).replace(".", ",")}`;
 }
 
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+type DashVendaExt = { total: number; tipo_pagamento: string; created_at: string };
+
+const PGTO_CORES: Record<string, string> = {
+  dinheiro: "#16a34a",
+  cartao:   "#2563eb",
+  pix:      "#7c3aed",
+  fiado:    "#ea580c",
+  outros:   "#64748b",
+};
+const PGTO_LABEL: Record<string, string> = {
+  dinheiro: "Dinheiro",
+  cartao:   "Cartão",
+  pix:      "PIX",
+  fiado:    "Fiado",
+  outros:   "Outros",
+};
+
+function normalizarPgto(tipo: string): string {
+  const t = (tipo || "").toLowerCase().trim();
+  if (t.includes("dinheiro")) return "dinheiro";
+  if (t.includes("cart")) return "cartao";
+  if (t.includes("pix")) return "pix";
+  if (t.includes("fiado")) return "fiado";
+  return "outros";
+}
+
+function PizzaChart({ dados, tamanho = 180 }: { dados: { label: string; valor: number; cor: string }[]; tamanho?: number }) {
+  const total = dados.reduce((s, d) => s + d.valor, 0);
+  if (total === 0) return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: 20 }}>Sem vendas</div>;
+
+  const cx = tamanho / 2, cy = tamanho / 2, r = tamanho / 2 - 8;
+  let angulo = -Math.PI / 2;
+  const fatias = dados.filter(d => d.valor > 0).map(d => {
+    const pct = d.valor / total;
+    const inicio = angulo;
+    angulo += pct * 2 * Math.PI;
+    return { ...d, pct, inicio, fim: angulo };
+  });
+
+  return (
+    <svg width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`}>
+      {fatias.map((f, i) => {
+        const x1 = cx + r * Math.cos(f.inicio), y1 = cy + r * Math.sin(f.inicio);
+        const x2 = cx + r * Math.cos(f.fim),   y2 = cy + r * Math.sin(f.fim);
+        const grande = f.pct > 0.5 ? 1 : 0;
+        return (
+          <path
+            key={i}
+            d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${grande} 1 ${x2} ${y2} Z`}
+            fill={f.cor}
+            stroke="#fff"
+            strokeWidth={2}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function Legenda({ dados }: { dados: { label: string; valor: number; cor: string }[] }) {
+  const total = dados.reduce((s, d) => s + d.valor, 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
+      {dados.filter(d => d.valor > 0).map((d, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 12, height: 12, borderRadius: 3, background: d.cor, flexShrink: 0 }} />
+          <div style={{ fontSize: 13, color: "#334155" }}>
+            <span style={{ fontWeight: 600 }}>{d.label}</span>
+            <span style={{ color: "#64748b", marginLeft: 4 }}>R$ {d.valor.toFixed(2).replace(".", ",")} {total > 0 ? `(${((d.valor/total)*100).toFixed(0)}%)` : ""}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GraficoBarras({ hoje, ontem }: { hoje: number; ontem: number }) {
+  const maxVal = Math.max(hoje, ontem, 1);
+  const altMax = 120;
+  const altHoje  = (hoje  / maxVal) * altMax;
+  const altOntem = (ontem / maxVal) * altMax;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 24, justifyContent: "center", padding: "0 12px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>R$ {ontem.toFixed(2).replace(".", ",")}</div>
+        <div style={{ width: 56, height: altOntem, background: "#94a3b8", borderRadius: "6px 6px 0 0", minHeight: 4 }} />
+        <div style={{ fontSize: 12, color: "#64748b" }}>Ontem</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#16a34a" }}>R$ {hoje.toFixed(2).replace(".", ",")}</div>
+        <div style={{ width: 56, height: altHoje, background: "#16a34a", borderRadius: "6px 6px 0 0", minHeight: 4 }} />
+        <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>Hoje</div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaExt[]; carregando: boolean; onAtualizar: () => void }) {
+  const hoje = new Date();
+  const dHoje  = hoje.toISOString().slice(0, 10);
+  const ontem  = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const dOntem = ontem.toISOString().slice(0, 10);
+
+  function totaisPorPgto(lista: DashVendaExt[]) {
+    const acc: Record<string, number> = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
+    for (const v of lista) acc[normalizarPgto(v.tipo_pagamento)] = (acc[normalizarPgto(v.tipo_pagamento)] || 0) + Number(v.total || 0);
+    return acc;
+  }
+
+  const vendasHoje  = vendas.filter(v => v.created_at.startsWith(dHoje));
+  const vendasOntem = vendas.filter(v => v.created_at.startsWith(dOntem));
+
+  const totHoje  = totaisPorPgto(vendasHoje);
+  const totOntem = totaisPorPgto(vendasOntem);
+  const totMes   = totaisPorPgto(vendas);
+
+  const somaHoje  = Object.values(totHoje).reduce((a, b) => a + b, 0);
+  const somaOntem = Object.values(totOntem).reduce((a, b) => a + b, 0);
+  const somaMes   = Object.values(totMes).reduce((a, b) => a + b, 0);
+
+  function dadosPizza(tots: Record<string, number>) {
+    return Object.entries(PGTO_LABEL).map(([key, label]) => ({ label, valor: tots[key] || 0, cor: PGTO_CORES[key] }));
+  }
+
+  const cardDash: React.CSSProperties = {
+    background: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  };
+
+  if (carregando) return (
+    <section style={{ padding: 24, textAlign: "center", color: "#64748b" }}>⏳ Carregando dados...</section>
+  );
+
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 20, padding: "4px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ fontWeight: 800, fontSize: 20, color: "#0f172a" }}>📈 Dashboard</div>
+        <button onClick={onAtualizar} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
+          🔄 Atualizar
+        </button>
+      </div>
+
+      {/* Cards de resumo */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
+        {[
+          { label: "Hoje", valor: somaHoje, cor: "#16a34a" },
+          { label: "Ontem", valor: somaOntem, cor: "#64748b" },
+          { label: "Mês", valor: somaMes, cor: "#2563eb" },
+        ].map((c) => (
+          <div key={c.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: `4px solid ${c.cor}` }}>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.cor }}>R$ {c.valor.toFixed(2).replace(".", ",")}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 3 gráficos */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+
+        {/* Gráfico 1: Pizza vendas de hoje por forma de pagamento */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Vendas de Hoje</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Por forma de pagamento</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+            <PizzaChart dados={dadosPizza(totHoje)} />
+            <Legenda dados={dadosPizza(totHoje)} />
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13, color: "#475569" }}>
+            Total: <strong>R$ {somaHoje.toFixed(2).replace(".", ",")}</strong> · {vendasHoje.length} venda(s)
+          </div>
+        </div>
+
+        {/* Gráfico 2: Barras hoje vs ontem */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Hoje vs Ontem</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Comparação de total de vendas</div>
+          <GraficoBarras hoje={somaHoje} ontem={somaOntem} />
+          {somaOntem > 0 && (
+            <div style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: somaHoje >= somaOntem ? "#16a34a" : "#ea580c" }}>
+              {somaHoje >= somaOntem
+                ? `▲ +R$ ${(somaHoje - somaOntem).toFixed(2).replace(".", ",")} acima de ontem`
+                : `▼ -R$ ${(somaOntem - somaHoje).toFixed(2).replace(".", ",")} abaixo de ontem`}
+            </div>
+          )}
+        </div>
+
+        {/* Gráfico 3: Pizza acumulado do mês */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Acumulado do Mês</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Por forma de pagamento</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+            <PizzaChart dados={dadosPizza(totMes)} />
+            <Legenda dados={dadosPizza(totMes)} />
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13, color: "#475569" }}>
+            Total: <strong>R$ {somaMes.toFixed(2).replace(".", ",")}</strong> · {vendas.length} venda(s)
+          </div>
+        </div>
+
+      </div>
+    </section>
+  );
+}
+
 export default function AdmPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -261,6 +471,24 @@ export default function AdmPage() {
     carregarTudo();
   }, [carregarTudo, router]);
 
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+  type DashVenda = { total: number; tipo_pagamento: string; created_at: string };
+  const [dashVendas, setDashVendas] = useState<DashVenda[]>([]);
+  const [dashCarregando, setDashCarregando] = useState(false);
+
+  const carregarDashboard = useCallback(async () => {
+    setDashCarregando(true);
+    const hoje = new Date();
+    const anoMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+    const { data } = await db("vendas")
+      .select("total, tipo_pagamento, created_at")
+      .gte("created_at", `${anoMes}-01T00:00:00`)
+      .lte("created_at", `${anoMes}-31T23:59:59`)
+      .order("created_at", { ascending: false });
+    setDashVendas((data || []) as DashVenda[]);
+    setDashCarregando(false);
+  }, []);
+
   // Lazy: carrega dados pesados só quando a aba é aberta pela primeira vez
   const [abasCarregadas, setAbasCarregadas] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -273,7 +501,10 @@ export default function AdmPage() {
       setAbasCarregadas((s) => new Set(s).add("etiquetas"));
       carregarProdutos();
     }
-  }, [aba, liberado, abasCarregadas, carregarRelatorios, carregarProdutos]);
+    if (aba === "dashboard") {
+      carregarDashboard();
+    }
+  }, [aba, liberado, abasCarregadas, carregarRelatorios, carregarProdutos, carregarDashboard]);
 
   async function adicionarCategoria(e: React.FormEvent) {
     e.preventDefault();
@@ -728,6 +959,7 @@ export default function AdmPage() {
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingBottom: 4 }}>
             {[
+              ["dashboard",  "📈 Dashboard",   "adm_relatorios"],
               ["config",    "⚙️ Empresa",    "adm_config"],
               ["cupom",     "🖨️ Cupom",       "adm_config"],
               ["operadores","👤 Operadores",  "adm_operadores"],
@@ -1661,6 +1893,10 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
             </button>
           </div>
         </div>
+      )}
+
+      {aba === "dashboard" && (
+        <DashboardAba vendas={dashVendas} carregando={dashCarregando} onAtualizar={carregarDashboard} />
       )}
 
       {/* Rodapé com versão */}
