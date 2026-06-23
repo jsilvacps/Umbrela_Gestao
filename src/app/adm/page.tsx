@@ -311,7 +311,7 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
 export default function AdmPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [aba, setAba] = useState("config");
+  const [aba, setAba] = useState("dashboard");
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const feat = (key: FeatureKey) => temFeature(key, features);
   const isDev = (() => {
