@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, supabase } from "@/lib/supabaseClient";
+import { db, supabase, getEmpresaId, signOutEmpresa } from "@/lib/supabaseClient";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import {
   syncProdutosLocal, getProdutosLocal, debitarEstoqueLocal,
@@ -446,6 +446,19 @@ export default function PDVPage() {
       const atualizados = await getProdutosLocal();
       if (atualizados.length > 0) setTodosProdutos(atualizados as Produto[]);
     }
+  }, []);
+
+  /* ── Verificação de JWT vs empresa_id local ── */
+  useEffect(() => {
+    // Se o JWT tiver empresa_id diferente do localStorage, limpa para não contaminar RLS
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      const jwtEmpresaId = session.user?.user_metadata?.empresa_id;
+      const localEmpresaId = getEmpresaId();
+      if (jwtEmpresaId && Number(jwtEmpresaId) !== localEmpresaId) {
+        signOutEmpresa();
+      }
+    });
   }, []);
 
   /* ── Verificação de licença ── */

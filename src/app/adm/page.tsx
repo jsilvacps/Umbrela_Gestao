@@ -625,7 +625,9 @@ export default function AdmPage() {
   }
 
   async function entrarComoEmpresa(empresaId: number) {
-    const { salvarEmpresaId } = await import("@/lib/supabaseClient");
+    const { salvarEmpresaId, signOutEmpresa } = await import("@/lib/supabaseClient");
+    // Limpa JWT da sessão anterior para não contaminar RLS com empresa_id errado
+    await signOutEmpresa();
     salvarEmpresaId(empresaId);
     setModalSelecionarEmpresa(false);
     setLiberado(true);
