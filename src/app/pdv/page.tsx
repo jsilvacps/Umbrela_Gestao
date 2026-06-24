@@ -148,6 +148,10 @@ export default function PDVPage() {
   const [motivoInput, setMotivoInput] = useState("");
   const refMotivo = useRef<HTMLInputElement>(null);
 
+  /* ── NFC-e ── */
+  const [nfceResultado, setNfceResultado] = useState<{ ok: boolean; danfe?: string; chave?: string; erro?: string } | null>(null);
+  const [emitindoNfce, setEmitindoNfce]   = useState(false);
+
   /* ── Finalizar venda ── */
   const [modalFinalizar, setModalFinalizar] = useState(false);
   const [tipoPagamento, setTipoPagamento]   = useState<"dinheiro" | "pix" | "cartao" | "fiado">("dinheiro");
@@ -307,10 +311,13 @@ export default function PDVPage() {
     carregarFeatures().then(f => setFeatures(f));
 
     const { data } = await db("empresa")
-      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape")
+      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape, nfce_config")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if ((data as {nfce_config?: unknown})?.nfce_config) {
+      localStorage.setItem("hg_nfce_config", JSON.stringify((data as {nfce_config: unknown}).nfce_config));
+    }
     if (data?.logo_url) setLogoSrc(data.logo_url as string);
     if (data) setCupomCfg({
       largura:   Number(data.cupom_largura)  || 80,
@@ -1679,6 +1686,37 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
           }
           // Fiado: registrado via vendas, sem coluna saldo_fiado
           gravouOnline = true;
+
+          // ── Emite NFC-e se feature ativa e venda gravada online ───────────
+          if (feat("emitir_nfce") && vendaData?.id) {
+            setEmitindoNfce(true);
+            try {
+              const nfceCfg = JSON.parse(localStorage.getItem("hg_nfce_config") || "{}");
+              if (nfceCfg.token) {
+                const res = await fetch("/api/nfce/emitir", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    empresa_id: getEmpresaId(),
+                    venda_id: vendaData.id,
+                    total: totalFinal,
+                    tipo_pagamento: labelPagamento,
+                    cpf_cliente: cpf.replace(/\D/g, "") || undefined,
+                    itens: carrinho.map(i => ({
+                      produto_nome: i.produto.nome,
+                      quantidade: i.quantidade,
+                      preco: i.precoUnitario,
+                      codigo: i.produto.codigo || undefined,
+                    })),
+                    nfce_config: nfceCfg,
+                  }),
+                });
+                const json = await res.json();
+                setNfceResultado({ ok: json.ok, danfe: json.danfe, chave: json.chave, erro: json.erro });
+              }
+            } catch { /* NFC-e não bloqueia a venda */ }
+            setEmitindoNfce(false);
+          }
         }
       } catch {
         // Sem internet ou erro de rede → vai para fila offline
@@ -2846,15 +2884,66 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
               </>
             )}
 
+            {emitindoNfce && (
+              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#0369a1", fontWeight: 600, marginBottom: 10 }}>
+                🧾 Emitindo NFC-e...
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button type="button" onClick={() => setModalFinalizar(false)} style={btnCancelarModal}>Voltar (ESC)</button>
               <button type="button" onClick={confirmarVenda}
-                disabled={finalizando || (tipoPagamento === "fiado" && !clienteFiado)}
+                disabled={finalizando || emitindoNfce || (tipoPagamento === "fiado" && !clienteFiado)}
                 style={{ ...btnConfirmarModal, background: "#15803d", fontSize: 15,
                   opacity: (tipoPagamento === "fiado" && !clienteFiado) ? 0.5 : 1 }}>
-                {finalizando ? "Gravando..." : "✔ Confirmar venda"}
+                {finalizando ? "Gravando..." : feat("emitir_nfce") ? "✔ Confirmar + Emitir NFC-e" : "✔ Confirmar venda"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MODAL RESULTADO NFC-e ══════════ */}
+      {nfceResultado && (
+        <div style={overlay}>
+          <div style={{ ...modalBox, width: "min(96vw, 440px)", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>{nfceResultado.ok ? "✅" : "⚠️"}</div>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#0f172a", marginBottom: 8 }}>
+              {nfceResultado.ok ? "NFC-e Autorizada!" : "NFC-e não emitida"}
+            </div>
+            {nfceResultado.ok ? (
+              <>
+                <div style={{ fontSize: 13, color: "#475569", marginBottom: 16 }}>
+                  Venda gravada e nota fiscal autorizada com sucesso.
+                </div>
+                {nfceResultado.chave && (
+                  <div style={{ fontSize: 10, fontFamily: "monospace", background: "#f8fafc", borderRadius: 6, padding: "6px 10px", marginBottom: 14, color: "#475569", wordBreak: "break-all" }}>
+                    {nfceResultado.chave}
+                  </div>
+                )}
+                {nfceResultado.danfe && (
+                  <a
+                    href={nfceResultado.danfe}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: "block", padding: "12px", borderRadius: 10, background: "#1a7b39", color: "#fff", fontWeight: 800, fontSize: 15, textDecoration: "none", marginBottom: 10 }}
+                  >
+                    🖨️ Imprimir DANFE NFC-e
+                  </a>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: 13, color: "#ef4444", background: "#fef2f2", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                A venda foi gravada normalmente, mas a nota não foi emitida.<br />
+                <strong>{nfceResultado.erro}</strong>
+              </div>
+            )}
+            <button
+              onClick={() => setNfceResultado(null)}
+              style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: "#f1f5f9", color: "#374151", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}
