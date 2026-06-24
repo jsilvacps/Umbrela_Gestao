@@ -34,6 +34,7 @@ export const TODAS_FEATURES = {
   adm_config:         { label: "Configurações",         grupo: "ADM", defaultOff: false },
   // Módulos opcionais (desabilitados por padrão)
   importar_nfe:       { label: "Importar NF-e (XML)",   grupo: "Módulos", defaultOff: true },
+  emitir_nfce:        { label: "Emissão NFC-e",          grupo: "Módulos", defaultOff: true },
 } as const;
 
 export type FeatureKey = keyof typeof TODAS_FEATURES;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderUmbrela from "@/components/HeaderUmbrela";
-import { supabase, db, isConfigurado } from "@/lib/supabaseClient";
+import { supabase, db, isConfigurado, getEmpresaId } from "@/lib/supabaseClient";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { gerarChave } from "@/lib/licenca";
 import { carregarFeatures, temFeature, type FeatureKey } from "@/lib/features";
@@ -356,6 +356,78 @@ export default function AdmPage() {
   const [novaCategoria, setNovaCategoria] = useState("");
   const [qtdEtiquetas, setQtdEtiquetas] = useState(1);
   const [larguraEtiqueta, setLarguraEtiqueta] = useState<58 | 80>(58);
+
+  // ── NFC-e ────────────────────────────────────────────────────────────────────
+  type NfceConfig = {
+    provider: "focusnfe" | "nfeio";
+    token: string;
+    ambiente: "homologacao" | "producao";
+    ie: string;
+    crt: "1" | "2" | "3";
+    cnpj: string;
+    razao_social: string;
+    municipio: string;
+    uf: string;
+    cep: string;
+    logradouro: string;
+    numero: string;
+    bairro: string;
+    telefone: string;
+  };
+  const nfceDefault: NfceConfig = { provider: "focusnfe", token: "", ambiente: "homologacao", ie: "", crt: "1", cnpj: "", razao_social: "", municipio: "", uf: "SP", cep: "", logradouro: "", numero: "", bairro: "", telefone: "" };
+  const [nfceConfig, setNfceConfig] = useState<NfceConfig>(nfceDefault);
+  const [nfceSalvando, setNfceSalvando] = useState(false);
+  const [nfceMsg, setNfceMsg] = useState("");
+  const [nfceNotas, setNfceNotas] = useState<{id: string; numero?: string; status: string; total: number; created_at: string; chave_acesso?: string}[]>([]);
+
+  const carregarNfceConfig = useCallback(async () => {
+    const { data } = await db("empresa").select("nfce_config, cnpj, nome_fantasia").limit(1).maybeSingle();
+    if (data?.nfce_config) {
+      setNfceConfig({ ...nfceDefault, ...(data.nfce_config as object) });
+    } else if (data) {
+      // Pré-preenche CNPJ e razão social da empresa
+      setNfceConfig(prev => ({
+        ...prev,
+        cnpj: (data as {cnpj?: string}).cnpj || "",
+        razao_social: (data as {nome_fantasia?: string}).nome_fantasia || "",
+      }));
+    }
+    const { data: notas } = await db("nfce_notas").select("id, numero, status, total, created_at, chave_acesso").order("created_at", { ascending: false }).limit(50);
+    setNfceNotas((notas || []) as typeof nfceNotas);
+  }, []);
+
+  async function salvarNfceConfig(e: React.FormEvent) {
+    e.preventDefault();
+    setNfceSalvando(true);
+    setNfceMsg("");
+    const { error } = await db("empresa").update({ nfce_config: nfceConfig } as Record<string, unknown>).eq("empresa_id", getEmpresaId());
+    setNfceSalvando(false);
+    setNfceMsg(error ? `❌ Erro: ${error.message}` : "✅ Configuração salva com sucesso!");
+    setTimeout(() => setNfceMsg(""), 4000);
+  }
+
+  async function testarConexaoNfce() {
+    setNfceMsg("⏳ Testando conexão...");
+    try {
+      const base = nfceConfig.provider === "focusnfe"
+        ? `https://${nfceConfig.ambiente === "producao" ? "api" : "homologacao"}.focusnfe.com.br`
+        : `https://api.nfe.io`;
+      const res = await fetch(`/api/nfce/testar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: nfceConfig.provider, token: nfceConfig.token, ambiente: nfceConfig.ambiente, base }),
+      });
+      const json = await res.json();
+      setNfceMsg(json.ok ? "✅ Conexão OK! Token válido." : `❌ Falha: ${json.erro}`);
+    } catch {
+      setNfceMsg("❌ Erro ao testar conexão.");
+    }
+    setTimeout(() => setNfceMsg(""), 6000);
+  }
+
+  useEffect(() => {
+    if (aba === "nfce" && liberado) carregarNfceConfig();
+  }, [aba, liberado, carregarNfceConfig]);
 
   // ── Abrir PDV ───────────────────────────────────────────────────────────────
   const [modalDownloadPDV, setModalDownloadPDV] = useState(false);
@@ -992,6 +1064,14 @@ export default function AdmPage() {
                 style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: "#fff", color: "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
               >
                 👥 Clientes
+              </button>
+            )}
+            {feat("emitir_nfce") && (
+              <button
+                onClick={() => setAba("nfce")}
+                style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === "nfce" ? "#1fb14e" : "#fff", color: aba === "nfce" ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                🧾 NFC-e
               </button>
             )}
           </div>
@@ -1901,6 +1981,130 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
       {aba === "dashboard" && (
         <DashboardAba vendas={dashVendas} carregando={dashCarregando} onAtualizar={carregarDashboard} />
+      )}
+
+      {/* ── Aba NFC-e ── */}
+      {aba === "nfce" && (
+        <section style={card}>
+          <div style={title}>🧾 Configuração NFC-e</div>
+          <div style={subtitle}>Configure sua conta de emissão de NFC-e. Cada nota emitida é cobrada diretamente pelo provedor escolhido.</div>
+
+          {nfceMsg && <div style={{ padding: "10px 14px", borderRadius: 8, background: nfceMsg.startsWith("✅") ? "#f0fdf4" : nfceMsg.startsWith("⏳") ? "#f0f9ff" : "#fef2f2", color: nfceMsg.startsWith("✅") ? "#166534" : nfceMsg.startsWith("⏳") ? "#0369a1" : "#991b1b", fontWeight: 600, fontSize: 14 }}>{nfceMsg}</div>}
+
+          <form onSubmit={salvarNfceConfig} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Provedor e ambiente */}
+            <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>🔌 Provedor de API</div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <Field label="Provedor">
+                  <select style={input} value={nfceConfig.provider} onChange={e => setNfceConfig(p => ({ ...p, provider: e.target.value as "focusnfe" | "nfeio" }))}>
+                    <option value="focusnfe">Focus NFe (R$ 0,10/nota)</option>
+                    <option value="nfeio">NFe.io (R$ 0,08/nota)</option>
+                  </select>
+                </Field>
+                <Field label="Ambiente">
+                  <select style={input} value={nfceConfig.ambiente} onChange={e => setNfceConfig(p => ({ ...p, ambiente: e.target.value as "homologacao" | "producao" }))}>
+                    <option value="homologacao">Homologação (testes)</option>
+                    <option value="producao">Produção (real)</option>
+                  </select>
+                </Field>
+              </div>
+              <Field label="Token / API Key">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input style={{ ...input, flex: 1, fontFamily: "monospace" }} value={nfceConfig.token} onChange={e => setNfceConfig(p => ({ ...p, token: e.target.value }))} placeholder="Cole aqui o token fornecido pelo provedor" />
+                  <button type="button" onClick={testarConexaoNfce} style={{ padding: "0 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
+                    🔍 Testar
+                  </button>
+                </div>
+              </Field>
+              <div style={{ fontSize: 12, color: "#64748b", background: "#fff", borderRadius: 8, padding: "8px 12px", border: "1px solid #e2e8f0" }}>
+                {nfceConfig.provider === "focusnfe"
+                  ? "📌 Crie sua conta em focusnfe.com.br → Acesse o painel → Configurações → Token de acesso"
+                  : "📌 Crie sua conta em nfe.io → Painel → Empresa → Chave de API"}
+              </div>
+            </div>
+
+            {/* Dados do emitente */}
+            <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>🏢 Dados do Emitente</div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <Field label="CNPJ">
+                  <input style={input} value={nfceConfig.cnpj} onChange={e => setNfceConfig(p => ({ ...p, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+                </Field>
+                <Field label="Razão Social">
+                  <input style={input} value={nfceConfig.razao_social} onChange={e => setNfceConfig(p => ({ ...p, razao_social: e.target.value }))} placeholder="Nome da empresa no CNPJ" />
+                </Field>
+                <Field label="Inscrição Estadual (IE)">
+                  <input style={input} value={nfceConfig.ie} onChange={e => setNfceConfig(p => ({ ...p, ie: e.target.value }))} placeholder="Somente números" />
+                </Field>
+                <Field label="Regime Tributário (CRT)">
+                  <select style={input} value={nfceConfig.crt} onChange={e => setNfceConfig(p => ({ ...p, crt: e.target.value as "1"|"2"|"3" }))}>
+                    <option value="1">1 — Simples Nacional</option>
+                    <option value="2">2 — Simples Nacional (excesso de sublimite)</option>
+                    <option value="3">3 — Regime Normal</option>
+                  </select>
+                </Field>
+                <Field label="Telefone">
+                  <input style={input} value={nfceConfig.telefone} onChange={e => setNfceConfig(p => ({ ...p, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+                </Field>
+                <Field label="UF">
+                  <select style={input} value={nfceConfig.uf} onChange={e => setNfceConfig(p => ({ ...p, uf: e.target.value }))}>
+                    {["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"].map(uf => <option key={uf}>{uf}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </div>
+
+            {/* Endereço */}
+            <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>📍 Endereço</div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
+                <Field label="CEP">
+                  <input style={input} value={nfceConfig.cep} onChange={e => setNfceConfig(p => ({ ...p, cep: e.target.value }))} placeholder="00000-000" />
+                </Field>
+                <Field label="Logradouro">
+                  <input style={input} value={nfceConfig.logradouro} onChange={e => setNfceConfig(p => ({ ...p, logradouro: e.target.value }))} placeholder="Rua, Av..." />
+                </Field>
+                <Field label="Número">
+                  <input style={input} value={nfceConfig.numero} onChange={e => setNfceConfig(p => ({ ...p, numero: e.target.value }))} placeholder="S/N" />
+                </Field>
+                <Field label="Bairro">
+                  <input style={input} value={nfceConfig.bairro} onChange={e => setNfceConfig(p => ({ ...p, bairro: e.target.value }))} placeholder="Bairro" />
+                </Field>
+                <Field label="Município">
+                  <input style={input} value={nfceConfig.municipio} onChange={e => setNfceConfig(p => ({ ...p, municipio: e.target.value }))} placeholder="Nome da cidade" />
+                </Field>
+              </div>
+            </div>
+
+            <button type="submit" disabled={nfceSalvando} style={saveButton}>
+              {nfceSalvando ? "Salvando..." : "💾 Salvar Configuração"}
+            </button>
+          </form>
+
+          {/* Histórico de notas */}
+          {nfceNotas.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", marginBottom: 12 }}>📋 Últimas notas emitidas</div>
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                {nfceNotas.map((nota) => (
+                  <div key={nota.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center", padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: "#1e293b" }}>{nota.numero ? `NFC-e #${nota.numero}` : nota.id.slice(0, 8)}</div>
+                      {nota.chave_acesso && <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{nota.chave_acesso.slice(0, 20)}...</div>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{new Date(nota.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: nota.status === "autorizado" ? "#dcfce7" : nota.status === "cancelado" ? "#fee2e2" : "#fef9c3", color: nota.status === "autorizado" ? "#166534" : nota.status === "cancelado" ? "#991b1b" : "#92400e" }}>
+                      {nota.status}
+                    </span>
+                    <div style={{ fontWeight: 800, color: "#1a7b39" }}>R$ {Number(nota.total).toFixed(2).replace(".", ",")}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {/* Rodapé com versão */}
