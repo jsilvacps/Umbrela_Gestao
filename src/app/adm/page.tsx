@@ -45,6 +45,7 @@ type Produto = {
   nome: string;
   preco: number | null;
   preco_cartao: number | null;
+  categoria?: string | null;
 };
 
 type Venda = {
@@ -531,7 +532,7 @@ export default function AdmPage() {
 
   // Carrega produtos só quando a aba etiquetas for aberta (lazy)
   const carregarProdutos = useCallback(async () => {
-    const { data } = await db("produtos").select("id, nome, preco, preco_cartao").order("nome", { ascending: true }).limit(1000);
+    const { data } = await db("produtos").select("id, nome, preco, preco_cartao, categoria").order("nome", { ascending: true }).limit(1000);
     setProdutos((data || []) as Produto[]);
   }, []);
 
@@ -956,6 +957,95 @@ export default function AdmPage() {
     if (!termo) return null;
     return produtos.find((p) => p.nome.toLowerCase().includes(termo)) || null;
   }, [produtos, produtoBusca]);
+
+  // ── Etiquetas v2 ─────────────────────────────────────────────────────────
+  const [etqCategoria, setEtqCategoria] = useState("Todas");
+  const [etqBusca, setEtqBusca]         = useState("");
+  type ItemFila = { produto: Produto; qtd: number };
+  const [filaEtiquetas, setFilaEtiquetas] = useState<ItemFila[]>([]);
+
+  const produtosFiltrados = useMemo(() => {
+    let lista = etqCategoria === "Todas" ? produtos : produtos.filter(p => (p.categoria || "Sem categoria") === etqCategoria);
+    const termo = etqBusca.trim().toLowerCase();
+    if (!termo) return lista;
+    const exatos    = lista.filter(p => p.nome.toLowerCase() === termo);
+    const comecam   = lista.filter(p => p.nome.toLowerCase().startsWith(termo) && p.nome.toLowerCase() !== termo);
+    const contem    = lista.filter(p => p.nome.toLowerCase().includes(termo) && !p.nome.toLowerCase().startsWith(termo));
+    return [...exatos, ...comecam, ...contem];
+  }, [produtos, etqCategoria, etqBusca]);
+
+  const categoriasFila = useMemo(() => {
+    const cats = Array.from(new Set(produtos.map(p => p.categoria || "Sem categoria"))).sort();
+    return ["Todas", ...cats];
+  }, [produtos]);
+
+  function adicionarNaFila(produto: Produto) {
+    setFilaEtiquetas(prev => {
+      const existe = prev.find(i => i.produto.id === produto.id);
+      if (existe) return prev.map(i => i.produto.id === produto.id ? { ...i, qtd: i.qtd + 1 } : i);
+      return [...prev, { produto, qtd: 1 }];
+    });
+  }
+
+  function removerDaFila(id: string) {
+    setFilaEtiquetas(prev => prev.filter(i => i.produto.id !== id));
+  }
+
+  function ajustarQtd(id: string, delta: number) {
+    setFilaEtiquetas(prev => prev
+      .map(i => i.produto.id === id ? { ...i, qtd: Math.max(1, i.qtd + delta) } : i)
+    );
+  }
+
+  function imprimirFilaEtiquetas() {
+    const mm = larguraEtiqueta;
+    const interno = mm - 6;
+    const fNome = mm === 58 ? 13 : 16;
+    const fDin  = mm === 58 ? 20 : 26;
+    const fCard = mm === 58 ? 13 : 16;
+    const fLabel = mm === 58 ? 7 : 8;
+    const fEmp   = mm === 58 ? 7 : 9;
+    const nomeEmp = empresa.nome_fantasia || "";
+
+    const blocos = filaEtiquetas.flatMap(({ produto, qtd }) =>
+      Array.from({ length: qtd }, () => `<div class="etiq">
+  ${nomeEmp ? `<div class="emp">${nomeEmp}</div>` : ""}
+  <div class="nome">${produto.nome}</div>
+  <div class="din-box">
+    <div class="din-label">DINHEIRO / PIX</div>
+    <div class="din-valor">${moeda(produto.preco)}</div>
+  </div>
+  ${produto.preco_cartao ? `<div class="card-box"><div class="card-label">CARTÃO</div><div class="card-valor">${moeda(produto.preco_cartao)}</div></div>` : ""}
+</div><div style="page-break-after:always"></div>`)
+    );
+    if (blocos.length === 0) return;
+    // Remove page-break da última
+    blocos[blocos.length - 1] = blocos[blocos.length - 1].replace('<div style="page-break-after:always"></div>', "");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@page { size: ${mm}mm auto; margin: 3mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.etiq { width: 100%; padding-bottom: 3mm; }
+.emp { font-size: ${fEmp}pt; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2pt; }
+.nome { font-size: ${fNome}pt; font-weight: 900; color: #111; line-height: 1.15; margin-bottom: 5pt; word-break: break-word; }
+.din-box { background: #1fb14e; border-radius: 4pt; padding: 5pt 7pt; margin-bottom: 3pt; }
+.din-label { font-size: ${fLabel}pt; font-weight: 700; color: #fff; margin-bottom: 1pt; }
+.din-valor { font-size: ${fDin}pt; font-weight: 900; color: #fff; line-height: 1; }
+.card-box { background: #f3f4f6; border-radius: 3pt; padding: 4pt 7pt; }
+.card-label { font-size: ${fLabel}pt; font-weight: 700; color: #666; margin-bottom: 1pt; }
+.card-valor { font-size: ${fCard}pt; font-weight: 900; color: #333; }
+</style></head><body>${blocos.join("")}</body></html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(() => { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 300);
+  }
 
   if (!liberado) {
     return (
@@ -1559,149 +1649,117 @@ export default function AdmPage() {
 
         {aba === "etiquetas" && (
           <section style={card}>
-            <div style={title}>Etiquetas</div>
-            <div style={subtitle}>Busque o produto e imprima a etiqueta de preço.</div>
-
-            {/* Controles superiores */}
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 200px 160px", gap: 16, alignItems: "end", marginBottom: 4 }}>
-              <Field label="Nome do produto">
-                <input style={input} value={produtoBusca} onChange={(e) => setProdutoBusca(e.target.value)} placeholder="Digite o nome do produto" />
-              </Field>
-              <Field label="Quantidade de etiquetas">
-                <input
-                  style={input}
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={qtdEtiquetas}
-                  onChange={(e) => setQtdEtiquetas(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-                />
-              </Field>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
-                <div style={fieldLabelStyle}>Largura do papel</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {[58, 80].map((w) => (
-                    <button
-                      key={w}
-                      type="button"
-                      onClick={() => setLarguraEtiqueta(w as 58 | 80)}
-                      style={{
-                        flex: 1, height: 46, border: "2px solid",
-                        borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: "pointer",
-                        borderColor: larguraEtiqueta === w ? "#1fb14e" : "#dde3ea",
-                        background:  larguraEtiqueta === w ? "#edfdf0" : "#fff",
-                        color:       larguraEtiqueta === w ? "#14803b" : "#66758a",
-                      }}
-                    >
-                      {w}mm
-                    </button>
-                  ))}
-                </div>
+                <div style={title}>🏷️ Etiquetas de Preço</div>
+                <div style={subtitle}>Selecione os produtos e imprima todas as etiquetas de uma vez.</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={fieldLabelStyle}>Papel:</div>
+                {([58, 80] as const).map((w) => (
+                  <button key={w} type="button" onClick={() => setLarguraEtiqueta(w)}
+                    style={{ height: 36, padding: "0 14px", border: "2px solid", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer",
+                      borderColor: larguraEtiqueta === w ? "#1fb14e" : "#dde3ea",
+                      background:  larguraEtiqueta === w ? "#edfdf0" : "#fff",
+                      color:       larguraEtiqueta === w ? "#14803b" : "#66758a" }}>
+                    {w}mm
+                  </button>
+                ))}
               </div>
             </div>
 
-            {produtoEtiqueta && (() => {
-              const mm      = larguraEtiqueta;
-              const interno = mm - 6;
-              const fNome   = mm === 58 ? 13 : 16;
-              const fDin    = mm === 58 ? 20 : 26;
-              const fCard   = mm === 58 ? 13 : 16;
-              const fLabel  = mm === 58 ?  7 :  8;
-              const fEmp    = mm === 58 ?  7 :  9;
+            {/* Filtros */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {categoriasFila.map(cat => (
+                  <button key={cat} type="button" onClick={() => { setEtqCategoria(cat); setEtqBusca(""); }}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "2px solid", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      borderColor: etqCategoria === cat ? "#1fb14e" : "#dde3ea",
+                      background:  etqCategoria === cat ? "#edfdf0" : "#fff",
+                      color:       etqCategoria === cat ? "#14803b" : "#66758a" }}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-              function imprimirEtiqueta() {
-                const nome      = produtoEtiqueta!.nome;
-                const precoDin  = moeda(produtoEtiqueta!.preco);
-                const precoCard = produtoEtiqueta!.preco_cartao ? moeda(produtoEtiqueta!.preco_cartao) : null;
-                const nomeEmp   = empresa.nome_fantasia || "";
+            <input
+              style={{ ...input, fontSize: 15 }}
+              value={etqBusca}
+              onChange={e => setEtqBusca(e.target.value)}
+              placeholder="🔍 Buscar produto pelo nome..."
+              autoFocus
+            />
 
-                const etiqueta = `<div class="etiq">
-  ${nomeEmp ? `<div class="emp">${nomeEmp}</div>` : ""}
-  <div class="nome">${nome}</div>
-  <div class="din-box">
-    <div class="din-label">DINHEIRO / PIX</div>
-    <div class="din-valor">${precoDin}</div>
-  </div>
-  ${precoCard ? `<div class="card-box"><div class="card-label">CARTÃO</div><div class="card-valor">${precoCard}</div></div>` : ""}
-</div>`;
-
-                const blocos = Array.from({ length: qtdEtiquetas }, (_, i) =>
-                  i < qtdEtiquetas - 1
-                    ? etiqueta + `<div style="page-break-after:always"></div>`
-                    : etiqueta
-                ).join("");
-
-                const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-@page { size: ${mm}mm auto; margin: 3mm; }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.etiq { width: 100%; padding-bottom: 3mm; }
-.emp { font-size: ${fEmp}pt; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2pt; }
-.nome { font-size: ${fNome}pt; font-weight: 900; color: #111; line-height: 1.15; margin-bottom: 5pt; word-break: break-word; }
-.din-box { background: #1fb14e; border-radius: 4pt; padding: 5pt 7pt; margin-bottom: 3pt; }
-.din-label { font-size: ${fLabel}pt; font-weight: 700; color: #fff; margin-bottom: 1pt; }
-.din-valor { font-size: ${fDin}pt; font-weight: 900; color: #fff; line-height: 1; }
-.card-box { background: #f3f4f6; border-radius: 3pt; padding: 4pt 7pt; }
-.card-label { font-size: ${fLabel}pt; font-weight: 700; color: #666; margin-bottom: 1pt; }
-.card-valor { font-size: ${fCard}pt; font-weight: 900; color: #333; }
-</style>
-</head><body>${blocos}</body></html>`;
-
-                // Impressão via iframe oculto — abre o diálogo do sistema diretamente
-                const iframe = document.createElement("iframe");
-                iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
-                document.body.appendChild(iframe);
-                const doc = iframe.contentDocument || iframe.contentWindow?.document;
-                if (!doc) return;
-                doc.open();
-                doc.write(html);
-                doc.close();
-                setTimeout(() => {
-                  iframe.contentWindow?.focus();
-                  iframe.contentWindow?.print();
-                  setTimeout(() => document.body.removeChild(iframe), 2000);
-                }, 300);
-              }
-
-              return (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ marginBottom: 10, color: "#66758a", fontSize: 13 }}>
-                    Prévia · {mm}mm · {qtdEtiquetas} etiqueta(s)
-                  </div>
-
-                  {/* Prévia visual */}
-                  <div style={{ ...etiquetaBox, maxWidth: mm === 58 ? 200 : 260 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                      {empresa.nome_fantasia || "ESTABELECIMENTO"}
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: "#111827", lineHeight: 1.1, marginBottom: 10 }}>
-                      {produtoEtiqueta.nome}
-                    </div>
-                    <div style={{ background: "#1fb14e", borderRadius: 10, padding: "8px 12px", marginBottom: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", opacity: 0.85, marginBottom: 2 }}>DINHEIRO / PIX</div>
-                      <div style={{ fontSize: mm === 58 ? 24 : 28, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{moeda(produtoEtiqueta.preco)}</div>
-                    </div>
-                    {produtoEtiqueta.preco_cartao ? (
-                      <div style={{ background: "#f3f4f6", borderRadius: 8, padding: "6px 12px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", marginBottom: 2 }}>CARTÃO</div>
-                        <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>{moeda(produtoEtiqueta.preco_cartao)}</div>
+            {/* Mosaico de produtos */}
+            {produtosFiltrados.length === 0 ? (
+              <div style={{ color: "#94a3b8", textAlign: "center", padding: 32 }}>Nenhum produto encontrado.</div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
+                {produtosFiltrados.map(produto => {
+                  const naFila = filaEtiquetas.find(i => i.produto.id === produto.id);
+                  return (
+                    <div key={produto.id}
+                      onClick={() => adicionarNaFila(produto)}
+                      style={{ background: naFila ? "#edfdf0" : "#fff", border: `2px solid ${naFila ? "#1fb14e" : "#e2e8f0"}`, borderRadius: 14, padding: "12px 14px", cursor: "pointer", position: "relative", transition: "all .15s" }}>
+                      {naFila && (
+                        <div style={{ position: "absolute", top: 8, right: 8, background: "#1fb14e", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 800, padding: "2px 8px" }}>
+                          ×{naFila.qtd}
+                        </div>
+                      )}
+                      {produto.categoria && (
+                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{produto.categoria}</div>
+                      )}
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.2, marginBottom: 8, minHeight: 34 }}>{produto.nome}</div>
+                      <div style={{ background: "#1fb14e", borderRadius: 8, padding: "6px 10px", marginBottom: produto.preco_cartao ? 4 : 0 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0.8 }}>DINHEIRO / PIX</div>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{moeda(produto.preco)}</div>
                       </div>
-                    ) : null}
-                  </div>
+                      {produto.preco_cartao ? (
+                        <div style={{ background: "#f1f5f9", borderRadius: 6, padding: "4px 10px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b" }}>CARTÃO</div>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: "#374151" }}>{moeda(produto.preco_cartao)}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-                  <button style={{ ...saveButton, marginTop: 16 }} onClick={imprimirEtiqueta}>
-                    🖨️ Imprimir {qtdEtiquetas > 1 ? `${qtdEtiquetas} etiquetas` : "etiqueta"}
+            {/* Fila de impressão */}
+            {filaEtiquetas.length > 0 && (
+              <div style={{ background: "#f8fafc", border: "2px solid #1fb14e", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>
+                  🖨️ Fila de impressão — {filaEtiquetas.reduce((s, i) => s + i.qtd, 0)} etiqueta(s)
+                </div>
+                {filaEtiquetas.map(({ produto, qtd }) => (
+                  <div key={produto.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: 10, padding: "8px 12px", border: "1px solid #e2e8f0" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{produto.nome}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{moeda(produto.preco)}</div>
+                    </div>
+                    <button type="button" onClick={() => ajustarQtd(produto.id, -1)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", fontWeight: 900, fontSize: 16, cursor: "pointer" }}>−</button>
+                    <span style={{ fontWeight: 800, fontSize: 16, minWidth: 24, textAlign: "center" }}>{qtd}</span>
+                    <button type="button" onClick={() => ajustarQtd(produto.id, 1)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", fontWeight: 900, fontSize: 16, cursor: "pointer" }}>+</button>
+                    <button type="button" onClick={() => removerDaFila(produto.id)} style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "#fee2e2", color: "#dc2626", fontWeight: 900, fontSize: 16, cursor: "pointer" }}>×</button>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" onClick={() => setFilaEtiquetas([])} style={{ flex: 1, padding: 12, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 700, cursor: "pointer" }}>
+                    Limpar fila
+                  </button>
+                  <button type="button" onClick={imprimirFilaEtiquetas} style={{ ...saveButton, flex: 2, margin: 0 }}>
+                    🖨️ Imprimir {filaEtiquetas.reduce((s, i) => s + i.qtd, 0)} etiqueta(s)
                   </button>
                 </div>
-              );
-            })()}
-
-            {!produtoEtiqueta && produtoBusca.trim() && (
-              <div style={{ marginTop: 18, color: "#ef4444", fontWeight: 700 }}>Nenhum produto encontrado para &quot;{produtoBusca}&quot;.</div>
+              </div>
             )}
-            {!produtoBusca.trim() && (
-              <div style={{ marginTop: 18, color: "#66758a" }}>Digite o nome do produto para ver a prévia da etiqueta.</div>
+
+            {filaEtiquetas.length === 0 && (
+              <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "8px 0" }}>
+                Clique nos produtos para adicioná-los à fila de impressão.
+              </div>
             )}
           </section>
         )}
