@@ -1218,14 +1218,12 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 🧾 NFC-e
               </button>
             )}
-            {feat("maquininha_mp") && (
-              <button
-                onClick={() => setAba("maquininha")}
-                style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === "maquininha" ? "#1fb14e" : "#fff", color: aba === "maquininha" ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
-              >
-                💳 Maquininha
-              </button>
-            )}
+            <button
+              onClick={() => setAba("maquininha")}
+              style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === "maquininha" ? "#1fb14e" : "#fff", color: aba === "maquininha" ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+            >
+              💳 Maquininha
+            </button>
           </div>
         </section>
 
