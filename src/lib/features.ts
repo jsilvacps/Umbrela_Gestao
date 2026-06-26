@@ -7,7 +7,7 @@
  * Carregado em: localStorage (hg_features) para acesso rápido
  */
 
-import { supabase } from "./supabaseClient";
+import { supabase, getEmpresaId } from "./supabaseClient";
 
 // ── Todas as features disponíveis ────────────────────────────────────────────
 export const TODAS_FEATURES = {
@@ -58,9 +58,11 @@ export function lerFeaturesLocal(): Record<string, boolean> {
 // ── Carrega features do banco e salva localmente ─────────────────────────────
 export async function carregarFeatures(): Promise<Record<string, boolean>> {
   try {
+    const empresaId = getEmpresaId();
     const { data } = await supabase
       .from("empresa")
       .select("features")
+      .eq("empresa_id", empresaId)
       .limit(1)
       .maybeSingle();
     const features = (data as any)?.features || {};
