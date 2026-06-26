@@ -37,8 +37,8 @@ win:
       arch:
         - x64
   icon: electron/icon.ico
-  signingHashAlgorithms: []
-  sign: null
+  signtoolOptions:
+    sign: null
 
 nsis:
   oneClick: true                        # instalação silenciosa com 1 clique

@@ -1,5 +1,5 @@
 {
-  "version": "1.1.44",
-  "notas": "- Isolamento real entre empresas via Supabase Auth (RLS)\n- Senha master abre seleção de empresa antes de entrar no ADM\n- Botão para criar acesso auth por cliente no painel master\n- Novos clientes recebem auth automático na ativação",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.44/UmbrelaGestao-PDV-Setup-1.1.44.exe"
+  "version": "1.1.45",
+  "notas": "- Dashboard no ADM com gráficos de vendas do dia, hoje vs ontem e acumulado do mês\n- Etiquetas v2: filtro por categoria, busca inteligente e impressão em lote\n- Importar NF-e (XML) para atualizar estoque pelo XML do fornecedor\n- Módulo NFC-e: configuração no ADM e emissão automática no PDV\n- Relatório: horário no fuso de Brasília e número de cupom sequencial\n- Correção bug fiado multi-empresa (JWT contaminando RLS)",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.45/UmbrelaGestao-PDV-Setup-1.1.45.exe"
 }
