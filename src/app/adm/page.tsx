@@ -1016,18 +1016,24 @@ export default function AdmPage() {
     <div class="din-valor">${moeda(produto.preco)}</div>
   </div>
   ${produto.preco_cartao ? `<div class="card-box"><div class="card-label">CARTÃO</div><div class="card-valor">${moeda(produto.preco_cartao)}</div></div>` : ""}
-</div><div style="page-break-after:always"></div>`)
+</div>`)
     );
     if (blocos.length === 0) return;
-    // Remove page-break da última
-    blocos[blocos.length - 1] = blocos[blocos.length - 1].replace('<div style="page-break-after:always"></div>', "");
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
 @page { size: ${mm}mm auto; margin: 3mm; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.etiq { width: 100%; padding-bottom: 3mm; }
+.etiq {
+  width: 100%;
+  padding-bottom: 2mm;
+  page-break-after: always;
+  break-after: page;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.etiq:last-child { page-break-after: auto; break-after: auto; }
 .emp { font-size: ${fEmp}pt; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2pt; }
 .nome { font-size: ${fNome}pt; font-weight: 900; color: #111; line-height: 1.15; margin-bottom: 5pt; word-break: break-word; }
 .din-box { background: #1fb14e; border-radius: 4pt; padding: 5pt 7pt; margin-bottom: 3pt; }
