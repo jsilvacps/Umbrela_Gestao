@@ -430,6 +430,54 @@ export default function AdmPage() {
     if (aba === "nfce" && liberado) carregarNfceConfig();
   }, [aba, liberado, carregarNfceConfig]);
 
+  // ── Maquininha Mercado Pago ──────────────────────────────────────────────────
+  type MpConfig = { token: string; device_id: string };
+  const [mpConfig, setMpConfig]         = useState<MpConfig>({ token: "", device_id: "" });
+  const [mpDispositivos, setMpDispositivos] = useState<{ id: string; operating_mode?: string }[]>([]);
+  const [mpMsg, setMpMsg]               = useState("");
+  const [mpSalvando, setMpSalvando]     = useState(false);
+  const [mpBuscando, setMpBuscando]     = useState(false);
+
+  const carregarMpConfig = useCallback(async () => {
+    const { data } = await db("empresa").select("mp_config").limit(1).maybeSingle();
+    if (data?.mp_config) setMpConfig({ token: "", device_id: "", ...(data.mp_config as object) });
+  }, []);
+
+  useEffect(() => {
+    if (aba === "maquininha" && liberado) carregarMpConfig();
+  }, [aba, liberado, carregarMpConfig]);
+
+  async function buscarDispositivosMP() {
+    if (!mpConfig.token) { setMpMsg("❌ Informe o Access Token primeiro."); return; }
+    setMpBuscando(true);
+    try {
+      const res = await fetch("/api/maquininha/mp/dispositivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: mpConfig.token }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setMpDispositivos(json.devices || []);
+        setMpMsg(json.devices.length ? `✅ ${json.devices.length} dispositivo(s) encontrado(s).` : "⚠️ Nenhuma maquininha vinculada a esta conta.");
+      } else {
+        setMpMsg(`❌ ${json.erro}`);
+      }
+    } catch { setMpMsg("❌ Erro ao buscar dispositivos."); }
+    setMpBuscando(false);
+    setTimeout(() => setMpMsg(""), 6000);
+  }
+
+  async function salvarMpConfig(e: React.FormEvent) {
+    e.preventDefault();
+    setMpSalvando(true);
+    const { error } = await db("empresa").update({ mp_config: mpConfig } as Record<string, unknown>).eq("empresa_id", getEmpresaId());
+    setMpSalvando(false);
+    setMpMsg(error ? `❌ Erro: ${error.message}` : "✅ Configuração salva!");
+    if (!error) localStorage.setItem("hg_mp_config", JSON.stringify(mpConfig));
+    setTimeout(() => setMpMsg(""), 4000);
+  }
+
   // ── Abrir PDV ───────────────────────────────────────────────────────────────
   const [modalDownloadPDV, setModalDownloadPDV] = useState(false);
   const [urlDownloadPDV, setUrlDownloadPDV] = useState("https://github.com/jsilvacps/umbrela-gestao/releases/latest");
@@ -1168,6 +1216,14 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === "nfce" ? "#1fb14e" : "#fff", color: aba === "nfce" ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
               >
                 🧾 NFC-e
+              </button>
+            )}
+            {feat("maquininha_mp") && (
+              <button
+                onClick={() => setAba("maquininha")}
+                style={{ ...tabBtn, padding: isMobile ? "8px 12px" : "12px 18px", fontSize: isMobile ? 13 : 15, background: aba === "maquininha" ? "#1fb14e" : "#fff", color: aba === "maquininha" ? "#fff" : "#223042", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                💳 Maquininha
               </button>
             )}
           </div>
@@ -2168,6 +2224,71 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {aba === "maquininha" && (
+        <section style={card}>
+          <div style={title}>💳 Maquininha Mercado Pago</div>
+          <div style={subtitle}>Configure o Access Token da sua conta Mercado Pago para enviar cobranças automaticamente para a maquininha Point.</div>
+
+          {mpMsg && (
+            <div style={{ padding: "10px 14px", borderRadius: 8, fontWeight: 600, fontSize: 14,
+              background: mpMsg.startsWith("✅") ? "#f0fdf4" : mpMsg.startsWith("⚠️") ? "#fffbeb" : "#fef2f2",
+              color:      mpMsg.startsWith("✅") ? "#166534" : mpMsg.startsWith("⚠️") ? "#92400e" : "#991b1b" }}>
+              {mpMsg}
+            </div>
+          )}
+
+          <form onSubmit={salvarMpConfig} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Field label="Access Token (Mercado Pago Developers)">
+              <input
+                style={input}
+                type="password"
+                value={mpConfig.token}
+                onChange={e => setMpConfig(p => ({ ...p, token: e.target.value }))}
+                placeholder="APP_USR-..."
+              />
+            </Field>
+
+            <div>
+              <button type="button" onClick={buscarDispositivosMP}
+                style={{ ...saveButton, margin: 0, background: "#0070f3" }}
+                disabled={mpBuscando}>
+                {mpBuscando ? "Buscando..." : "🔍 Buscar maquininhas vinculadas"}
+              </button>
+            </div>
+
+            {mpDispositivos.length > 0 && (
+              <Field label="Selecionar maquininha">
+                <select style={input} value={mpConfig.device_id}
+                  onChange={e => setMpConfig(p => ({ ...p, device_id: e.target.value }))}>
+                  <option value="">-- Selecione --</option>
+                  {mpDispositivos.map(d => (
+                    <option key={d.id} value={d.id}>{d.id}{d.operating_mode ? ` (${d.operating_mode})` : ""}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            {mpConfig.device_id && (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#166534", fontWeight: 600 }}>
+                ✅ Maquininha selecionada: {mpConfig.device_id}
+              </div>
+            )}
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, fontSize: 13, color: "#475569" }}>
+              <strong>Como obter o Access Token:</strong><br/>
+              1. Acesse <strong>mercadopago.com.br/developers</strong><br/>
+              2. Crie um aplicativo ou use um existente<br/>
+              3. Copie o <strong>Access Token de Produção</strong><br/>
+              4. Cole aqui e clique em &quot;Buscar maquininhas&quot;
+            </div>
+
+            <button type="submit" style={saveButton} disabled={mpSalvando || !mpConfig.device_id}>
+              {mpSalvando ? "Salvando..." : "💾 Salvar configuração"}
+            </button>
+          </form>
         </section>
       )}
 

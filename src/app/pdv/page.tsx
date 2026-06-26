@@ -152,6 +152,61 @@ export default function PDVPage() {
   const [nfceResultado, setNfceResultado] = useState<{ ok: boolean; danfe?: string; chave?: string; erro?: string } | null>(null);
   const [emitindoNfce, setEmitindoNfce]   = useState(false);
 
+  // ── Maquininha MP ──────────────────────────────────────────────────────────
+  const [mpAguardando, setMpAguardando]   = useState(false);
+  const [mpErro, setMpErro]               = useState("");
+  const [mpPaymentIntentId, setMpPaymentIntentId] = useState<string | null>(null);
+
+  async function enviarParaMaquininha(total: number): Promise<boolean> {
+    const cfg = JSON.parse(localStorage.getItem("hg_mp_config") || "{}");
+    if (!cfg.token || !cfg.device_id) return true; // sem config, pula
+    setMpAguardando(true);
+    setMpErro("");
+    try {
+      const res = await fetch("/api/maquininha/mp/cobrar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: cfg.token, device_id: cfg.device_id, total, descricao: "Venda" }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setMpErro(json.erro || "Erro ao enviar para maquininha."); setMpAguardando(false); return false; }
+
+      setMpPaymentIntentId(json.payment_intent_id);
+      // Polling até aprovado (máx 2 min)
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        const sr = await fetch("/api/maquininha/mp/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: cfg.token, payment_intent_id: json.payment_intent_id }),
+        });
+        const sj = await sr.json();
+        if (sj.state === "PROCESSED") { setMpAguardando(false); setMpPaymentIntentId(null); return true; }
+        if (sj.state === "CANCELED" || sj.state === "ERROR") {
+          setMpErro(sj.state === "CANCELED" ? "Pagamento cancelado na maquininha." : "Erro no pagamento.");
+          setMpAguardando(false); setMpPaymentIntentId(null); return false;
+        }
+      }
+      setMpErro("Tempo esgotado aguardando pagamento na maquininha.");
+      setMpAguardando(false); return false;
+    } catch (e) {
+      setMpErro(String(e)); setMpAguardando(false); return false;
+    }
+  }
+
+  async function cancelarMaquininha() {
+    const cfg = JSON.parse(localStorage.getItem("hg_mp_config") || "{}");
+    if (!cfg.token || !cfg.device_id) return;
+    await fetch("/api/maquininha/mp/cancelar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: cfg.token, device_id: cfg.device_id }),
+    });
+    setMpAguardando(false);
+    setMpPaymentIntentId(null);
+    setMpErro("");
+  }
+
   /* ── Finalizar venda ── */
   const [modalFinalizar, setModalFinalizar] = useState(false);
   const [tipoPagamento, setTipoPagamento]   = useState<"dinheiro" | "pix" | "cartao" | "fiado">("dinheiro");
@@ -311,12 +366,15 @@ export default function PDVPage() {
     carregarFeatures().then(f => setFeatures(f));
 
     const { data } = await db("empresa")
-      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape, nfce_config")
+      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape, nfce_config, mp_config")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if ((data as {nfce_config?: unknown})?.nfce_config) {
       localStorage.setItem("hg_nfce_config", JSON.stringify((data as {nfce_config: unknown}).nfce_config));
+    }
+    if ((data as {mp_config?: unknown})?.mp_config) {
+      localStorage.setItem("hg_mp_config", JSON.stringify((data as {mp_config: unknown}).mp_config));
     }
     if (data?.logo_url) setLogoSrc(data.logo_url as string);
     if (data) setCupomCfg({
@@ -1635,6 +1693,16 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       if (!clienteFiado) { setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
     }
 
+    // Maquininha MP — envia cobrança antes de salvar venda
+    const ehCartao = tipoPagamento === "cartao";
+    if (feat("maquininha_mp") && ehCartao) {
+      const mpCfg = JSON.parse(localStorage.getItem("hg_mp_config") || "{}");
+      if (mpCfg.token && mpCfg.device_id) {
+        const aprovado = await enviarParaMaquininha(totalFinal);
+        if (!aprovado) return; // Pagamento não aprovado — não salva venda
+      }
+    }
+
     setFinalizando(true);
     try {
       const ehDinheiro = tipoPagamento === "dinheiro";
@@ -2890,10 +2958,28 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
               </div>
             )}
 
+            {mpAguardando && (
+              <div style={{ background: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: "16px 14px", marginBottom: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 28, marginBottom: 6 }}>💳</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#92400e", marginBottom: 4 }}>Aguardando pagamento na maquininha...</div>
+                <div style={{ fontSize: 13, color: "#78350f", marginBottom: 12 }}>Peça ao cliente para aproximar ou inserir o cartão na Point Smart.</div>
+                <button type="button" onClick={cancelarMaquininha}
+                  style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+                  Cancelar cobrança
+                </button>
+              </div>
+            )}
+
+            {mpErro && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b", fontWeight: 600, marginBottom: 10 }}>
+                ❌ {mpErro}
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button type="button" onClick={() => setModalFinalizar(false)} style={btnCancelarModal}>Voltar (ESC)</button>
               <button type="button" onClick={confirmarVenda}
-                disabled={finalizando || emitindoNfce || (tipoPagamento === "fiado" && !clienteFiado)}
+                disabled={finalizando || emitindoNfce || mpAguardando || (tipoPagamento === "fiado" && !clienteFiado)}
                 style={{ ...btnConfirmarModal, background: "#15803d", fontSize: 15,
                   opacity: (tipoPagamento === "fiado" && !clienteFiado) ? 0.5 : 1 }}>
                 {finalizando ? "Gravando..." : feat("emitir_nfce") ? "✔ Confirmar + Emitir NFC-e" : "✔ Confirmar venda"}
