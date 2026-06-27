@@ -1249,8 +1249,12 @@ export default function PDVPage() {
   const totalItens = useMemo(() => carrinho.length, [carrinho]);
 
   const totalGeral = useMemo(
-    () => carrinho.reduce((acc, i) => acc + i.quantidade * i.precoUnitario, 0),
-    [carrinho]
+    () => carrinho.reduce((acc, i) => {
+      const precoCartao = i.produto.preco_cartao;
+      const preco = (tipoPagamento === "cartao" && precoCartao) ? precoCartao : i.precoUnitario;
+      return acc + i.quantidade * preco;
+    }, 0),
+    [carrinho, tipoPagamento]
   );
 
   const nomeOperador = operador?.nome || operador?.username || "—";
