@@ -777,7 +777,8 @@ export default function PDVPage() {
   /* ── Confirma e lança no carrinho ── */
   function confirmarLancamento(produto: Produto) {
     const qtd   = parseFloat(quantidade.replace(",", ".")) || 1;
-    const preco = parseFloat((precoUnitario || "0").replace(",", ".")) || (produto.preco_cartao ?? produto.preco ?? 0);
+    const precoBase = feat("preco_cartao_auto") ? (produto.preco_cartao ?? produto.preco ?? 0) : (produto.preco ?? 0);
+    const preco = parseFloat((precoUnitario || "0").replace(",", ".")) || precoBase;
 
     setCarrinho((prev) => {
       const existente = prev.find((i) => i.produto.id === produto.id && i.precoUnitario === preco);
@@ -1250,14 +1251,14 @@ export default function PDVPage() {
 
   const totalGeral = useMemo(
     () => carrinho.reduce((acc, i) => {
-      // precoUnitario já é preco_cartao (preço base)
-      // se dinheiro ou pix, usa preco (com desconto)
-      const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
-      const precoDinheiro = i.produto.preco;
-      const preco = (ehDinheiroOuPix && precoDinheiro) ? precoDinheiro : i.precoUnitario;
+      let preco = i.precoUnitario;
+      if (feat("preco_cartao_auto")) {
+        const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
+        if (ehDinheiroOuPix && i.produto.preco) preco = i.produto.preco;
+      }
       return acc + i.quantidade * preco;
     }, 0),
-    [carrinho, tipoPagamento]
+    [carrinho, tipoPagamento, features]
   );
 
   const nomeOperador = operador?.nome || operador?.username || "—";
