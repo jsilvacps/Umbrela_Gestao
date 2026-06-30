@@ -1713,7 +1713,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
     // Maquininha — envia cobrança antes de salvar venda
     const ehCartao = tipoPagamento === "cartao";
-    if (feat("maquininha_mp") && ehCartao) {
+    if ((feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
       const cfg = getMaqConfig();
       if (cfg) {
         const aprovado = await enviarParaMaquininha(totalFinal);

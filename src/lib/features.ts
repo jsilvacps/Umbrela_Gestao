@@ -36,6 +36,7 @@ export const TODAS_FEATURES = {
   importar_nfe:       { label: "Importar NF-e (XML)",   grupo: "Módulos", defaultOff: true },
   emitir_nfce:        { label: "Emissão NFC-e",          grupo: "Módulos", defaultOff: true },
   maquininha_mp:      { label: "Maquininha Mercado Pago",    grupo: "Módulos", defaultOff: true },
+  maquininha_stone:   { label: "Maquininha Stone Smart",     grupo: "Módulos", defaultOff: true },
   preco_cartao_auto:  { label: "Preço diferenciado Cartão", grupo: "PDV",     defaultOff: true },
 } as const;
 
