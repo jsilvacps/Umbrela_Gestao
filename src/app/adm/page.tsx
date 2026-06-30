@@ -430,52 +430,62 @@ export default function AdmPage() {
     if (aba === "nfce" && liberado) carregarNfceConfig();
   }, [aba, liberado, carregarNfceConfig]);
 
-  // ── Maquininha Mercado Pago ──────────────────────────────────────────────────
-  type MpConfig = { token: string; device_id: string };
-  const [mpConfig, setMpConfig]         = useState<MpConfig>({ token: "", device_id: "" });
-  const [mpDispositivos, setMpDispositivos] = useState<{ id: string; operating_mode?: string }[]>([]);
-  const [mpMsg, setMpMsg]               = useState("");
-  const [mpSalvando, setMpSalvando]     = useState(false);
-  const [mpBuscando, setMpBuscando]     = useState(false);
+  // ── Maquininha (multi-provedor) ──────────────────────────────────────────────
+  type MaquininhaConfig = {
+    provider: "mercadopago" | "stone";
+    mp_token: string;
+    mp_device_id: string;
+    stone_token: string;
+    stone_terminal_id: string;
+  };
+  const maquininhaDefault: MaquininhaConfig = { provider: "mercadopago", mp_token: "", mp_device_id: "", stone_token: "", stone_terminal_id: "" };
+  const [maqConfig, setMaqConfig]       = useState<MaquininhaConfig>(maquininhaDefault);
+  const [maqDispositivos, setMaqDispositivos] = useState<{ id: string; label?: string }[]>([]);
+  const [maqMsg, setMaqMsg]             = useState("");
+  const [maqSalvando, setMaqSalvando]   = useState(false);
+  const [maqBuscando, setMaqBuscando]   = useState(false);
 
-  const carregarMpConfig = useCallback(async () => {
-    const { data } = await db("empresa").select("mp_config").limit(1).maybeSingle();
-    if (data?.mp_config) setMpConfig({ token: "", device_id: "", ...(data.mp_config as object) });
+  const carregarMaqConfig = useCallback(async () => {
+    const { data } = await db("empresa").select("maquininha_config, mp_config").limit(1).maybeSingle();
+    if (data?.maquininha_config) {
+      setMaqConfig({ ...maquininhaDefault, ...(data.maquininha_config as object) });
+    } else if (data?.mp_config) {
+      // Migração de mp_config legado
+      const mp = data.mp_config as { token?: string; device_id?: string };
+      setMaqConfig({ ...maquininhaDefault, provider: "mercadopago", mp_token: mp.token || "", mp_device_id: mp.device_id || "" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (aba === "maquininha" && liberado) carregarMpConfig();
-  }, [aba, liberado, carregarMpConfig]);
+    if (aba === "maquininha" && liberado) carregarMaqConfig();
+  }, [aba, liberado, carregarMaqConfig]);
 
-  async function buscarDispositivosMP() {
-    if (!mpConfig.token) { setMpMsg("❌ Informe o Access Token primeiro."); return; }
-    setMpBuscando(true);
+  async function buscarDispositivos() {
+    const token = maqConfig.provider === "mercadopago" ? maqConfig.mp_token : maqConfig.stone_token;
+    if (!token) { setMaqMsg("❌ Informe o token primeiro."); return; }
+    setMaqBuscando(true);
     try {
-      const res = await fetch("/api/maquininha/mp/dispositivos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: mpConfig.token }),
-      });
+      const rota = maqConfig.provider === "mercadopago" ? "/api/maquininha/mp/dispositivos" : "/api/maquininha/stone/dispositivos";
+      const res  = await fetch(rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
       const json = await res.json();
       if (json.ok) {
-        setMpDispositivos(json.devices || []);
-        setMpMsg(json.devices.length ? `✅ ${json.devices.length} dispositivo(s) encontrado(s).` : "⚠️ Nenhuma maquininha vinculada a esta conta.");
-      } else {
-        setMpMsg(`❌ ${json.erro}`);
-      }
-    } catch { setMpMsg("❌ Erro ao buscar dispositivos."); }
-    setMpBuscando(false);
-    setTimeout(() => setMpMsg(""), 6000);
+        setMaqDispositivos(json.devices || []);
+        setMaqMsg(json.devices.length ? `✅ ${json.devices.length} terminal(is) encontrado(s).` : "⚠️ Nenhum terminal vinculado.");
+      } else { setMaqMsg(`❌ ${json.erro}`); }
+    } catch { setMaqMsg("❌ Erro ao buscar terminais."); }
+    setMaqBuscando(false);
+    setTimeout(() => setMaqMsg(""), 6000);
   }
 
-  async function salvarMpConfig(e: React.FormEvent) {
+  async function salvarMaqConfig(e: React.FormEvent) {
     e.preventDefault();
-    setMpSalvando(true);
-    const { error } = await db("empresa").update({ mp_config: mpConfig } as Record<string, unknown>).eq("empresa_id", getEmpresaId());
-    setMpSalvando(false);
-    setMpMsg(error ? `❌ Erro: ${error.message}` : "✅ Configuração salva!");
-    if (!error) localStorage.setItem("hg_mp_config", JSON.stringify(mpConfig));
-    setTimeout(() => setMpMsg(""), 4000);
+    setMaqSalvando(true);
+    const { error } = await db("empresa").update({ maquininha_config: maqConfig } as Record<string, unknown>).eq("empresa_id", getEmpresaId());
+    setMaqSalvando(false);
+    setMaqMsg(error ? `❌ Erro: ${error.message}` : "✅ Configuração salva!");
+    if (!error) localStorage.setItem("hg_maquininha_config", JSON.stringify(maqConfig));
+    setTimeout(() => setMaqMsg(""), 4000);
   }
 
   // ── Abrir PDV ───────────────────────────────────────────────────────────────
@@ -2227,64 +2237,95 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
       {aba === "maquininha" && (
         <section style={card}>
-          <div style={title}>💳 Maquininha Mercado Pago</div>
-          <div style={subtitle}>Configure o Access Token da sua conta Mercado Pago para enviar cobranças automaticamente para a maquininha Point.</div>
+          <div style={title}>💳 Maquininha</div>
+          <div style={subtitle}>Configure a integração com a maquininha para enviar cobranças automaticamente ao finalizar com cartão.</div>
 
-          {mpMsg && (
+          {maqMsg && (
             <div style={{ padding: "10px 14px", borderRadius: 8, fontWeight: 600, fontSize: 14,
-              background: mpMsg.startsWith("✅") ? "#f0fdf4" : mpMsg.startsWith("⚠️") ? "#fffbeb" : "#fef2f2",
-              color:      mpMsg.startsWith("✅") ? "#166534" : mpMsg.startsWith("⚠️") ? "#92400e" : "#991b1b" }}>
-              {mpMsg}
+              background: maqMsg.startsWith("✅") ? "#f0fdf4" : maqMsg.startsWith("⚠️") ? "#fffbeb" : "#fef2f2",
+              color:      maqMsg.startsWith("✅") ? "#166534" : maqMsg.startsWith("⚠️") ? "#92400e" : "#991b1b" }}>
+              {maqMsg}
             </div>
           )}
 
-          <form onSubmit={salvarMpConfig} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <Field label="Access Token (Mercado Pago Developers)">
-              <input
-                style={input}
-                type="password"
-                value={mpConfig.token}
-                onChange={e => setMpConfig(p => ({ ...p, token: e.target.value }))}
-                placeholder="APP_USR-..."
-              />
-            </Field>
-
-            <div>
-              <button type="button" onClick={buscarDispositivosMP}
-                style={{ ...saveButton, margin: 0, background: "#0070f3" }}
-                disabled={mpBuscando}>
-                {mpBuscando ? "Buscando..." : "🔍 Buscar maquininhas vinculadas"}
+          {/* Seletor de provedor */}
+          <div style={{ display: "flex", gap: 10 }}>
+            {(["mercadopago", "stone"] as const).map(p => (
+              <button key={p} type="button"
+                onClick={() => { setMaqConfig(c => ({ ...c, provider: p })); setMaqDispositivos([]); }}
+                style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "2px solid", fontWeight: 800, fontSize: 14, cursor: "pointer",
+                  borderColor: maqConfig.provider === p ? "#1fb14e" : "#e2e8f0",
+                  background:  maqConfig.provider === p ? "#edfdf0" : "#fff",
+                  color:       maqConfig.provider === p ? "#14803b" : "#64748b" }}>
+                {p === "mercadopago" ? "🟡 Mercado Pago" : "🟢 Stone"}
               </button>
-            </div>
+            ))}
+          </div>
 
-            {mpDispositivos.length > 0 && (
-              <Field label="Selecionar maquininha">
-                <select style={input} value={mpConfig.device_id}
-                  onChange={e => setMpConfig(p => ({ ...p, device_id: e.target.value }))}>
-                  <option value="">-- Selecione --</option>
-                  {mpDispositivos.map(d => (
-                    <option key={d.id} value={d.id}>{d.id}{d.operating_mode ? ` (${d.operating_mode})` : ""}</option>
-                  ))}
-                </select>
+          <form onSubmit={salvarMaqConfig} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* ── Mercado Pago ── */}
+            {maqConfig.provider === "mercadopago" && (<>
+              <Field label="Access Token (Mercado Pago Developers)">
+                <input style={input} type="password" value={maqConfig.mp_token}
+                  onChange={e => setMaqConfig(p => ({ ...p, mp_token: e.target.value }))}
+                  placeholder="APP_USR-..." />
               </Field>
-            )}
-
-            {mpConfig.device_id && (
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#166534", fontWeight: 600 }}>
-                ✅ Maquininha selecionada: {mpConfig.device_id}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, fontSize: 13, color: "#475569" }}>
+                1. Acesse <strong>mercadopago.com.br/developers</strong><br/>
+                2. Crie um aplicativo → copie o <strong>Access Token de Produção</strong>
               </div>
-            )}
+              {maqDispositivos.length > 0 && (
+                <Field label="Selecionar terminal">
+                  <select style={input} value={maqConfig.mp_device_id}
+                    onChange={e => setMaqConfig(p => ({ ...p, mp_device_id: e.target.value }))}>
+                    <option value="">-- Selecione --</option>
+                    {maqDispositivos.map(d => <option key={d.id} value={d.id}>{d.label || d.id}</option>)}
+                  </select>
+                </Field>
+              )}
+              {maqConfig.mp_device_id && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#166534", fontWeight: 600 }}>
+                  ✅ Terminal: {maqConfig.mp_device_id}
+                </div>
+              )}
+            </>)}
 
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, fontSize: 13, color: "#475569" }}>
-              <strong>Como obter o Access Token:</strong><br/>
-              1. Acesse <strong>mercadopago.com.br/developers</strong><br/>
-              2. Crie um aplicativo ou use um existente<br/>
-              3. Copie o <strong>Access Token de Produção</strong><br/>
-              4. Cole aqui e clique em &quot;Buscar maquininhas&quot;
-            </div>
+            {/* ── Stone ── */}
+            {maqConfig.provider === "stone" && (<>
+              <Field label="Secret Key (Pagar.me / Stone)">
+                <input style={input} type="password" value={maqConfig.stone_token}
+                  onChange={e => setMaqConfig(p => ({ ...p, stone_token: e.target.value }))}
+                  placeholder="sk_live_..." />
+              </Field>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, fontSize: 13, color: "#475569" }}>
+                1. Acesse <strong>dashboard.pagar.me</strong> (conta Stone)<br/>
+                2. Configurações → Chaves de API → copie a <strong>Secret Key</strong>
+              </div>
+              {maqDispositivos.length > 0 && (
+                <Field label="Selecionar terminal Stone Smart">
+                  <select style={input} value={maqConfig.stone_terminal_id}
+                    onChange={e => setMaqConfig(p => ({ ...p, stone_terminal_id: e.target.value }))}>
+                    <option value="">-- Selecione --</option>
+                    {maqDispositivos.map(d => <option key={d.id} value={d.id}>{d.label || d.id}</option>)}
+                  </select>
+                </Field>
+              )}
+              {maqConfig.stone_terminal_id && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#166534", fontWeight: 600 }}>
+                  ✅ Terminal: {maqConfig.stone_terminal_id}
+                </div>
+              )}
+            </>)}
 
-            <button type="submit" style={saveButton} disabled={mpSalvando || !mpConfig.device_id}>
-              {mpSalvando ? "Salvando..." : "💾 Salvar configuração"}
+            <button type="button" onClick={buscarDispositivos}
+              style={{ ...saveButton, margin: 0, background: "#0070f3" }} disabled={maqBuscando}>
+              {maqBuscando ? "Buscando..." : "🔍 Buscar terminais vinculados"}
+            </button>
+
+            <button type="submit" style={saveButton}
+              disabled={maqSalvando || (maqConfig.provider === "mercadopago" ? !maqConfig.mp_device_id : !maqConfig.stone_terminal_id)}>
+              {maqSalvando ? "Salvando..." : "💾 Salvar configuração"}
             </button>
           </form>
         </section>

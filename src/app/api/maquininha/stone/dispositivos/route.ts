@@ -5,17 +5,17 @@ export async function POST(req: NextRequest) {
     const { token } = await req.json();
     if (!token) return NextResponse.json({ ok: false, erro: "Token não informado." });
 
-    const res = await fetch("https://api.mercadopago.com/point/integration-api/devices", {
-      headers: { Authorization: `Bearer ${token}` },
+    const credentials = Buffer.from(`${token}:`).toString("base64");
+    const res = await fetch("https://api.pagar.me/core/v5/terminals", {
+      headers: { Authorization: `Basic ${credentials}`, "Content-Type": "application/json" },
     });
 
     const json = await res.json();
     if (!res.ok) return NextResponse.json({ ok: false, erro: json.message || `HTTP ${res.status}` });
 
-    const devices = (json.devices || []).map((d: { id: string; operating_mode?: string }) => ({
-      id: d.id,
-      label: d.operating_mode ? `${d.id} (${d.operating_mode})` : d.id,
-    }));
+    const devices = ((json.data as { id: string; serial_number?: string; status?: string }[]) || [])
+      .filter(d => d.status !== "inactive")
+      .map(d => ({ id: d.id, label: d.serial_number ? `${d.id} (SN: ${d.serial_number})` : d.id }));
 
     return NextResponse.json({ ok: true, devices });
   } catch (err) {
