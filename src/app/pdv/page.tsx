@@ -339,11 +339,12 @@ export default function PDVPage() {
 
   /* ── Trava automática quando caixa ultrapassa limite ── */
   useEffect(() => {
+    if (!feat("limite_caixa")) { setTravaCaixa(false); return; }
     const caixaEfetivo = feat("ignorar_fundo_caixa") ? totalCaixa - valorAberturaNum : totalCaixa;
-    if (feat("limite_caixa") && caixaEfetivo >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
-    else if (!feat("limite_caixa") || caixaEfetivo < LIMITE_SANGRIA)                setTravaCaixa(false);
+    if (caixaEfetivo >= LIMITE_SANGRIA && !modalAbrirCaixa) setTravaCaixa(true);
+    else setTravaCaixa(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalCaixa, modalAbrirCaixa]);
+  }, [totalCaixa, modalAbrirCaixa, features]);
 
   /* ── Carrega operador e logo na montagem ── */
   useEffect(() => {
