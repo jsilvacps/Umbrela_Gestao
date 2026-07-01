@@ -143,13 +143,19 @@ export default function LoginPage() {
         // Faz login no Supabase Auth para ativar o JWT com empresa_id
         // (silencioso — não bloqueia o login se falhar, pois o isolamento por código já existe)
         try {
-          const { data: lic } = await masterSupabase
-            .from("clientes_licenciados")
-            .select("auth_password")
-            .eq("empresa_id", empresaId)
-            .maybeSingle();
-          if (lic?.auth_password) {
-            await signInEmpresa(empresaId, lic.auth_password);
+          const { data: lic } = await Promise.race([
+            masterSupabase
+              .from("clientes_licenciados")
+              .select("auth_password")
+              .eq("empresa_id", empresaId)
+              .maybeSingle(),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+          ]);
+          if ((lic as { auth_password?: string } | null)?.auth_password) {
+            await Promise.race([
+              signInEmpresa(empresaId, (lic as { auth_password: string }).auth_password),
+              new Promise<void>(res => setTimeout(res, 5000)),
+            ]);
           }
         } catch { /* silencioso */ }
       }
