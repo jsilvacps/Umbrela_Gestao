@@ -197,11 +197,16 @@ function GraficoBarras({ hoje, ontem }: { hoje: number; ontem: number }) {
   );
 }
 
+function dataSP(iso: string) {
+  // Converte um created_at (UTC) para a data local em SP (YYYY-MM-DD)
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
 function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaExt[]; carregando: boolean; onAtualizar: () => void }) {
-  const hoje = new Date();
-  const dHoje  = hoje.toISOString().slice(0, 10);
-  const ontem  = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
-  const dOntem = ontem.toISOString().slice(0, 10);
+  const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const dHoje  = agoraSP.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const ontemSP = new Date(agoraSP); ontemSP.setDate(ontemSP.getDate() - 1);
+  const dOntem = ontemSP.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
   function totaisPorPgto(lista: DashVendaExt[]) {
     const acc: Record<string, number> = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
@@ -209,8 +214,8 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
     return acc;
   }
 
-  const vendasHoje  = vendas.filter(v => v.created_at.startsWith(dHoje));
-  const vendasOntem = vendas.filter(v => v.created_at.startsWith(dOntem));
+  const vendasHoje  = vendas.filter(v => dataSP(v.created_at) === dHoje);
+  const vendasOntem = vendas.filter(v => dataSP(v.created_at) === dOntem);
 
   const totHoje  = totaisPorPgto(vendasHoje);
   const totOntem = totaisPorPgto(vendasOntem);
@@ -609,13 +614,19 @@ export default function AdmPage() {
 
   const carregarDashboard = useCallback(async () => {
     setDashCarregando(true);
-    const hoje = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
-    const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1).toISOString().slice(0, 10);
+    // Usa fuso de SP para calcular início/fim do mês e converte para UTC para filtrar no Supabase
+    const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const anoMes  = `${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, "0")}`;
+    // Início do mês em SP = meia-noite SP = 03:00 UTC (SP é UTC-3)
+    const inicioMesUTC  = new Date(`${anoMes}-01T03:00:00.000Z`).toISOString();
+    // Início do próximo mês em SP
+    const proximoMesSP  = new Date(agoraSP.getFullYear(), agoraSP.getMonth() + 1, 1);
+    const anoMesProx    = `${proximoMesSP.getFullYear()}-${String(proximoMesSP.getMonth() + 1).padStart(2, "0")}`;
+    const proximoMesUTC = new Date(`${anoMesProx}-01T03:00:00.000Z`).toISOString();
     const { data, error } = await db("vendas")
       .select("total, tipo_pagamento, created_at")
-      .gte("created_at", inicioMes)
-      .lt("created_at", proximoMes)
+      .gte("created_at", inicioMesUTC)
+      .lt("created_at", proximoMesUTC)
       .order("created_at", { ascending: false });
     if (error) console.error("Dashboard erro:", error);
     setDashVendas((data || []) as DashVenda[]);
