@@ -373,7 +373,7 @@ export default function PDVPage() {
     carregarFeatures().then(f => setFeatures(f));
 
     const { data } = await db("empresa")
-      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape, nfce_config, mp_config, maquininha_config")
+      .select("logo_url, nome_fantasia, cnpj, telefone, endereco, cupom_largura, cupom_cabecalho, cupom_rodape, nfce_config, mp_config")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
