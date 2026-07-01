@@ -86,7 +86,8 @@ export default function MasterPage() {
   function toggleFeature(empresaId: number, key: FeatureKey) {
     setFeaturesEdit(prev => {
       const atual = prev[empresaId] ?? {};
-      const valorAtual = key in atual ? atual[key] : true;
+      const defaultAtivo = !(TODAS_FEATURES[key] as { defaultOff?: boolean }).defaultOff;
+      const valorAtual = key in atual ? atual[key] : defaultAtivo;
       return { ...prev, [empresaId]: { ...atual, [key]: !valorAtual } };
     });
   }
@@ -1068,7 +1069,8 @@ export default function MasterPage() {
                             .filter(([, v]) => v.grupo === grupo)
                             .map(([key, { label }]) => {
                               const cur = featuresEdit[emp.empresa_id] ?? {};
-                              const ativo = key in cur ? cur[key] : true;
+                              const defaultAtivo = !(TODAS_FEATURES[key] as { defaultOff?: boolean }).defaultOff;
+                              const ativo = key in cur ? cur[key] : defaultAtivo;
                               return (
                                 <div
                                   key={key}
