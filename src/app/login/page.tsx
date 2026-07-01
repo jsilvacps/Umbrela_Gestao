@@ -120,7 +120,12 @@ export default function LoginPage() {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
+        setErroLogin("Erro: " + error.message);
+        setEntrando(false);
+        return;
+      }
+      if (!data) {
         setErroLogin("Usuário ou senha inválidos.");
         setEntrando(false);
         return;
