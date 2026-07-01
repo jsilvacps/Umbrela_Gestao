@@ -115,8 +115,8 @@ export default function LoginPage() {
       const { data, error } = await masterSupabase
         .from("operadores")
         .select("id, nome, username, empresa_id, blocked")
-        .eq("username", username)
-        .eq("password", senha)
+        .eq("username", username.trim().toLowerCase())
+        .eq("password", senha.trim())
         .limit(1)
         .maybeSingle();
 
