@@ -257,7 +257,7 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
         {[
           { label: "Hoje", valor: somaHoje, cor: "#16a34a" },
           { label: "Ontem", valor: somaOntem, cor: "#64748b" },
-          { label: "Mês", valor: somaMes, cor: "#2563eb" },
+          { label: "Últimos 30 dias", valor: somaMes, cor: "#2563eb" },
         ].map((c) => (
           <div key={c.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: `4px solid ${c.cor}` }}>
             <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
@@ -298,7 +298,7 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
 
         {/* Gráfico 3: Pizza acumulado do mês */}
         <div style={cardDash}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Acumulado do Mês</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Últimos 30 dias</div>
           <div style={{ fontSize: 12, color: "#64748b" }}>Por forma de pagamento</div>
           <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
             <PizzaChart dados={dadosPizza(totMes)} />
@@ -614,19 +614,11 @@ export default function AdmPage() {
 
   const carregarDashboard = useCallback(async () => {
     setDashCarregando(true);
-    // Usa fuso de SP para calcular início/fim do mês e converte para UTC para filtrar no Supabase
-    const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-    const anoMes  = `${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, "0")}`;
-    // Início do mês em SP = meia-noite SP = 03:00 UTC (SP é UTC-3)
-    const inicioMesUTC  = new Date(`${anoMes}-01T03:00:00.000Z`).toISOString();
-    // Início do próximo mês em SP
-    const proximoMesSP  = new Date(agoraSP.getFullYear(), agoraSP.getMonth() + 1, 1);
-    const anoMesProx    = `${proximoMesSP.getFullYear()}-${String(proximoMesSP.getMonth() + 1).padStart(2, "0")}`;
-    const proximoMesUTC = new Date(`${anoMesProx}-01T03:00:00.000Z`).toISOString();
+    // Busca últimos 30 dias (em UTC, suficiente para cobrir SP)
+    const inicio30dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await db("vendas")
       .select("total, tipo_pagamento, created_at")
-      .gte("created_at", inicioMesUTC)
-      .lt("created_at", proximoMesUTC)
+      .gte("created_at", inicio30dias)
       .order("created_at", { ascending: false });
     if (error) console.error("Dashboard erro:", error);
     setDashVendas((data || []) as DashVenda[]);
