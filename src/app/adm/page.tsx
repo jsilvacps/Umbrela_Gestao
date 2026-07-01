@@ -516,6 +516,7 @@ export default function AdmPage() {
   }
 
   // ── Licenças ────────────────────────────────────────────────────────────────
+  const [senhasCarregadas, setSenhasCarregadas] = useState(false);
   const [licencas, setLicencas] = useState<Licenca[]>([]);
   const [novaLicCliente, setNovaLicCliente] = useState("");
   const [novaLicNotas, setNovaLicNotas] = useState("");
@@ -545,6 +546,7 @@ export default function AdmPage() {
     setOperadores((opData || []) as Operador[]);
     setCategoriasProduto((categoriasData || []) as CategoriaProduto[]);
     if (senhasData) setSenhasOp(senhasData as SenhasOperacionais);
+    setSenhasCarregadas(true);
   }, []);
 
   // Carrega relatórios e cancelamentos só quando a aba for aberta (lazy)
@@ -1143,9 +1145,11 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
           <form onSubmit={entrar}>
             <label style={fieldLabelStyle}>Senha gerencial</label>
-            <input style={input} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Digite a senha" />
+            <input style={input} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={senhasCarregadas ? "Digite a senha" : "Carregando..."} disabled={!senhasCarregadas} />
             {erro ? <div style={errorBox}>{erro}</div> : null}
-            <button type="submit" style={saveButton}>Entrar no ADM</button>
+            <button type="submit" style={{ ...saveButton, opacity: senhasCarregadas ? 1 : 0.5 }} disabled={!senhasCarregadas}>
+              {senhasCarregadas ? "Entrar no ADM" : "Carregando..."}
+            </button>
           </form>
 
           <div style={{ marginTop: 14, fontSize: 13, color: "#6b7280" }}>
