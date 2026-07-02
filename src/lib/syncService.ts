@@ -101,7 +101,7 @@ export async function syncPendingVendas(): Promise<number> {
       if (v.itens.length > 0) {
         await db("itens_venda").insert(
           v.itens.map((i) => ({ ...i, venda_id: vendaData.id }))
-        ).catch((e) => console.error("[sync] erro ao gravar itens:", e));
+        ).catch((e: unknown) => console.error("[sync] erro ao gravar itens:", e));
       }
 
       // 3. Debita estoque no Supabase
@@ -114,7 +114,7 @@ export async function syncPendingVendas(): Promise<number> {
         await db("produtos")
           .update({ estoque: Math.max(0, atual - upd.delta) })
           .eq("id", upd.id)
-          .catch((e) => console.error("[sync] erro ao debitar estoque:", e));
+          .catch((e: unknown) => console.error("[sync] erro ao debitar estoque:", e));
       }
 
       // 4. Atualiza fiado
@@ -127,7 +127,7 @@ export async function syncPendingVendas(): Promise<number> {
         await db("clientes")
           .update({ saldo_fiado: saldo + v.fiadoUpdate.delta })
           .eq("id", v.fiadoUpdate.clienteId)
-          .catch((e) => console.error("[sync] erro ao atualizar fiado:", e));
+          .catch((e: unknown) => console.error("[sync] erro ao atualizar fiado:", e));
       }
     } catch {
       // Deixa para a próxima tentativa de sync
