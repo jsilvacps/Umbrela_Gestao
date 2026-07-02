@@ -197,33 +197,30 @@ function GraficoBarras({ hoje, ontem }: { hoje: number; ontem: number }) {
   );
 }
 
-function dataSP(iso: string) {
-  // Converte um created_at (UTC) para a data local em SP (YYYY-MM-DD)
-  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-}
-
-function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaExt[]; carregando: boolean; onAtualizar: () => void }) {
-  const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-  const dHoje  = agoraSP.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-  const ontemSP = new Date(agoraSP); ontemSP.setDate(ontemSP.getDate() - 1);
-  const dOntem = ontemSP.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-
-  function totaisPorPgto(lista: DashVendaExt[]) {
+function DashboardAba({ hoje, ontem, mes, carregando, onAtualizar }: {
+  hoje: { total: number; tipo_pagamento: string }[];
+  ontem: { total: number; tipo_pagamento: string }[];
+  mes: { total: number; tipo_pagamento: string }[];
+  carregando: boolean; onAtualizar: () => void;
+}) {
+  function totaisPorPgto(lista: { total: number; tipo_pagamento: string }[]) {
     const acc: Record<string, number> = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
-    for (const v of lista) acc[normalizarPgto(v.tipo_pagamento)] = (acc[normalizarPgto(v.tipo_pagamento)] || 0) + Number(v.total || 0);
+    for (const v of lista) {
+      const k = normalizarPgto(v.tipo_pagamento);
+      acc[k] = (acc[k] || 0) + Number(v.total || 0);
+    }
     return acc;
   }
 
-  const vendasHoje  = vendas.filter(v => dataSP(v.created_at) === dHoje);
-  const vendasOntem = vendas.filter(v => dataSP(v.created_at) === dOntem);
-
-  const totHoje  = totaisPorPgto(vendasHoje);
-  const totOntem = totaisPorPgto(vendasOntem);
-  const totMes   = totaisPorPgto(vendas);
+  const totHoje  = totaisPorPgto(hoje);
+  const totOntem = totaisPorPgto(ontem);
+  const totMes   = totaisPorPgto(mes);
 
   const somaHoje  = Object.values(totHoje).reduce((a, b) => a + b, 0);
   const somaOntem = Object.values(totOntem).reduce((a, b) => a + b, 0);
   const somaMes   = Object.values(totMes).reduce((a, b) => a + b, 0);
+  const qtdHoje   = hoje.length;
+  const qtdMes    = mes.length;
 
   function dadosPizza(tots: Record<string, number>) {
     return Object.entries(PGTO_LABEL).map(([key, label]) => ({ label, valor: tots[key] || 0, cor: PGTO_CORES[key] }));
@@ -278,7 +275,7 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
             <Legenda dados={dadosPizza(totHoje)} />
           </div>
           <div style={{ textAlign: "center", fontSize: 13, color: "#475569" }}>
-            Total: <strong>R$ {somaHoje.toFixed(2).replace(".", ",")}</strong> · {vendasHoje.length} venda(s)
+            Total: <strong>R$ {somaHoje.toFixed(2).replace(".", ",")}</strong> · {qtdHoje} venda(s)
           </div>
         </div>
 
@@ -305,7 +302,7 @@ function DashboardAba({ vendas, carregando, onAtualizar }: { vendas: DashVendaEx
             <Legenda dados={dadosPizza(totMes)} />
           </div>
           <div style={{ textAlign: "center", fontSize: 13, color: "#475569" }}>
-            Total: <strong>R$ {somaMes.toFixed(2).replace(".", ",")}</strong> · {vendas.length} venda(s)
+            Total: <strong>R$ {somaMes.toFixed(2).replace(".", ",")}</strong> · {qtdMes} venda(s)
           </div>
         </div>
 
@@ -610,39 +607,45 @@ export default function AdmPage() {
   }, [carregarTudo, router]);
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
-  type DashVenda = { total: number; tipo_pagamento: string; created_at: string };
-  const [dashVendas, setDashVendas] = useState<DashVenda[]>([]);
+  type DashVenda = { total: number; tipo_pagamento: string };
+  const [dashHoje,  setDashHoje]  = useState<DashVenda[]>([]);
+  const [dashOntem, setDashOntem] = useState<DashVenda[]>([]);
+  const [dashMes,   setDashMes]   = useState<DashVenda[]>([]);
   const [dashCarregando, setDashCarregando] = useState(false);
 
   const carregarDashboard = useCallback(async () => {
     setDashCarregando(true);
-    // Início do mês atual em SP (UTC-3)
-    const agoraSP   = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-    const anoMes    = `${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, "0")}`;
-    const inicioMes = new Date(`${anoMes}-01T03:00:00.000Z`).toISOString();
-    // Busca também ontem caso seja dia 1 (ontem = mês anterior)
-    const ontemSP    = new Date(agoraSP); ontemSP.setDate(ontemSP.getDate() - 1);
-    const anoMesOnt  = `${ontemSP.getFullYear()}-${String(ontemSP.getMonth() + 1).padStart(2, "0")}`;
-    const diaOntStr  = String(ontemSP.getDate()).padStart(2, "0");
-    const inicioOnt  = new Date(`${anoMesOnt}-${diaOntStr}T03:00:00.000Z`).toISOString();
-    const fimOnt     = new Date(`${anoMes}-01T03:00:00.000Z`).toISOString();
 
-    const [{ data, error }, { data: dataOnt }] = await Promise.all([
-      db("vendas")
-        .select("total, tipo_pagamento, created_at")
-        .gte("created_at", inicioMes)
-        .order("created_at", { ascending: false }),
-      // Busca ontem só se for dia 1 do mês (ontem é do mês anterior)
-      agoraSP.getDate() === 1
-        ? db("vendas")
-            .select("total, tipo_pagamento, created_at")
-            .gte("created_at", inicioOnt)
-            .lt("created_at", fimOnt)
-        : Promise.resolve({ data: [] }),
+    // Datas em SP (UTC-3)
+    const agoraSP  = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const ano      = agoraSP.getFullYear();
+    const mes      = agoraSP.getMonth() + 1;
+    const dia      = agoraSP.getDate();
+
+    // Início e fim de hoje em UTC
+    const inicioHoje = new Date(`${ano}-${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}T03:00:00.000Z`).toISOString();
+    const fimHoje    = new Date(new Date(inicioHoje).getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+    // Início e fim de ontem em UTC
+    const ontemSP   = new Date(agoraSP); ontemSP.setDate(ontemSP.getDate() - 1);
+    const anoOnt    = ontemSP.getFullYear();
+    const mesOnt    = ontemSP.getMonth() + 1;
+    const diaOnt    = ontemSP.getDate();
+    const inicioOnt = new Date(`${anoOnt}-${String(mesOnt).padStart(2,"0")}-${String(diaOnt).padStart(2,"0")}T03:00:00.000Z`).toISOString();
+    const fimOnt    = inicioHoje;
+
+    // Início do mês em UTC
+    const inicioMes = new Date(`${ano}-${String(mes).padStart(2,"0")}-01T03:00:00.000Z`).toISOString();
+
+    const [{ data: dHoje }, { data: dOntem }, { data: dMes }] = await Promise.all([
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje),
     ]);
-    if (error) console.error("Dashboard erro:", error);
-    const tudo = [...(data || []), ...(dataOnt || [])] as DashVenda[];
-    setDashVendas(tudo);
+
+    setDashHoje ((dHoje  || []) as DashVenda[]);
+    setDashOntem((dOntem || []) as DashVenda[]);
+    setDashMes  ((dMes   || []) as DashVenda[]);
     setDashCarregando(false);
   }, []);
 
@@ -2136,7 +2139,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
       )}
 
       {aba === "dashboard" && (
-        <DashboardAba vendas={dashVendas} carregando={dashCarregando} onAtualizar={carregarDashboard} />
+        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
       )}
 
       {/* ── Aba NFC-e ── */}
