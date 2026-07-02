@@ -1739,12 +1739,19 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
         cliente_nome:    tipoPagamento === "fiado" ? (clienteFiado?.nome ?? null) : null,
       };
 
-      const itensSalvos = carrinho.map((item) => ({
-        produto_id:   item.produto.id,
-        produto_nome: item.produto.nome,
-        quantidade:   item.quantidade,
-        preco:        item.precoUnitario,
-      }));
+      const ehDinheiroOuPixFinal = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
+      const itensSalvos = carrinho.map((item) => {
+        let precoFinal = item.precoUnitario;
+        if (feat("preco_cartao_auto") && ehDinheiroOuPixFinal && item.produto.preco) {
+          precoFinal = item.produto.preco;
+        }
+        return {
+          produto_id:   item.produto.id,
+          produto_nome: item.produto.nome,
+          quantidade:   item.quantidade,
+          preco:        precoFinal,
+        };
+      });
 
       const estoqueDeltas = carrinho.map((item) => ({
         id: item.produto.id, delta: item.quantidade,
