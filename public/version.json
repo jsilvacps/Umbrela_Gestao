@@ -1,5 +1,5 @@
 {
-  "version": "1.1.50",
-  "notas": "- Correcao: trava de caixa respeita feature flag em tempo real\n- Correcao: login sem travamento (timeout no auth)\n- Correcao: senha gerencial aguarda carregar do banco\n- Correcao: dashboard ontem correto no primeiro dia do mes\n- Maquininha Stone Smart\n- Feature flag Maquininha Stone",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.50/UmbrelaGestao-PDV-Setup-1.1.50.exe"
+  "version": "1.1.51",
+  "notas": "- Correcao critica: duplicacao de vendas no sincronismo offline\n- Correcao: preco diferenciado cartao/dinheiro aplicado corretamente\n- Correcao: logo nao aparecia no PDV apos v1.1.49\n- Correcao: trava de caixa respeita feature flag em tempo real\n- Correcao: login sem travamento\n- Correcao: senha gerencial aguarda carregar do banco",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.51/UmbrelaGestao-PDV-Setup-1.1.51.exe"
 }

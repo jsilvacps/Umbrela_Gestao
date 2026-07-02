@@ -92,11 +92,16 @@ export async function syncPendingVendas(): Promise<number> {
         continue;
       }
 
-      // 2. Grava itens da venda
+      // Marca como sincronizado IMEDIATAMENTE após gravar a venda para evitar
+      // que erros nas operações secundárias causem re-inserção duplicada
+      await localDB.pendingVendas.update(v.localId, { synced: 1 });
+      count++;
+
+      // 2. Grava itens da venda (não-crítico: venda já está no banco)
       if (v.itens.length > 0) {
         await db("itens_venda").insert(
           v.itens.map((i) => ({ ...i, venda_id: vendaData.id }))
-        );
+        ).catch((e) => console.error("[sync] erro ao gravar itens:", e));
       }
 
       // 3. Debita estoque no Supabase
@@ -108,7 +113,8 @@ export async function syncPendingVendas(): Promise<number> {
         const atual = Number((prod as { estoque?: number } | null)?.estoque ?? 0);
         await db("produtos")
           .update({ estoque: Math.max(0, atual - upd.delta) })
-          .eq("id", upd.id);
+          .eq("id", upd.id)
+          .catch((e) => console.error("[sync] erro ao debitar estoque:", e));
       }
 
       // 4. Atualiza fiado
@@ -120,12 +126,9 @@ export async function syncPendingVendas(): Promise<number> {
         const saldo = Number((cli as { saldo_fiado?: number } | null)?.saldo_fiado ?? 0);
         await db("clientes")
           .update({ saldo_fiado: saldo + v.fiadoUpdate.delta })
-          .eq("id", v.fiadoUpdate.clienteId);
+          .eq("id", v.fiadoUpdate.clienteId)
+          .catch((e) => console.error("[sync] erro ao atualizar fiado:", e));
       }
-
-      // 5. Marca como sincronizado no IndexedDB
-      await localDB.pendingVendas.update(v.localId, { synced: 1 });
-      count++;
     } catch {
       // Deixa para a próxima tentativa de sync
     }

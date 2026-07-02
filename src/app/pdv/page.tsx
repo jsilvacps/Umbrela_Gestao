@@ -1767,6 +1767,8 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
         const { data: vendaData, error } = await db("vendas").insert([vendaPayload]).select().single();
 
         if (!error && vendaData?.id) {
+          // Venda gravada — marca online ANTES de operações secundárias para evitar duplicata no offline
+          gravouOnline = true;
           // Itens
           await db("itens_venda").insert(
             itensSalvos.map((i) => ({ ...i, venda_id: vendaData.id }))
@@ -1779,7 +1781,6 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
               .update({ estoque: Math.max(0, atual - upd.delta) }).eq("id", upd.id);
           }
           // Fiado: registrado via vendas, sem coluna saldo_fiado
-          gravouOnline = true;
 
           // ── Emite NFC-e se feature ativa e venda gravada online ───────────
           if (feat("emitir_nfce") && vendaData?.id) {
