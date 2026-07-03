@@ -1229,6 +1229,7 @@ export default function PDVPage() {
       itens,
       totalGeral,
       descontoVal:     Number(venda.desconto || 0),
+      descontoAVista:  0, // reimpressão não recalcula desconto à vista
       totalFinal:      Number(venda.total || 0),
       tipoPagamento:   venda.tipo_pagamento || "—",
       valorRecebidoVal: Number(venda.valor_recebido || venda.total || 0),
@@ -1260,18 +1261,23 @@ export default function PDVPage() {
   /* ── Totais ── */
   const totalItens = useMemo(() => carrinho.length, [carrinho]);
 
+  // totalGeral sempre usa precoUnitario (= preco_cartao quando preco_cartao_auto ativo)
   const totalGeral = useMemo(
-    () => carrinho.reduce((acc, i) => {
-      let preco = i.precoUnitario;
-      if (feat("preco_cartao_auto")) {
-        const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
-        if (ehDinheiroOuPix && i.produto.preco) preco = i.produto.preco;
-        else if (!ehDinheiroOuPix && i.produto.preco_cartao) preco = i.produto.preco_cartao;
-      }
-      return acc + i.quantidade * preco;
-    }, 0),
-    [carrinho, tipoPagamento, features]
+    () => carrinho.reduce((acc, i) => acc + i.quantidade * i.precoUnitario, 0),
+    [carrinho]
   );
+
+  // Desconto automático à vista: diferença entre preco_cartao e preco quando dinheiro/pix
+  const descontoAVista = useMemo(() => {
+    if (!feat("preco_cartao_auto")) return 0;
+    const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
+    if (!ehDinheiroOuPix) return 0;
+    return carrinho.reduce((acc, i) => {
+      const precoCartao = i.precoUnitario;
+      const precoDinheiro = i.produto.preco ?? precoCartao;
+      return acc + i.quantidade * Math.max(0, precoCartao - precoDinheiro);
+    }, 0);
+  }, [carrinho, tipoPagamento, features]);
 
   const nomeOperador = operador?.nome || operador?.username || "—";
 
@@ -1283,8 +1289,8 @@ export default function PDVPage() {
   }, [desconto, tipoDesconto, totalGeral]);
 
   const totalFinal = useMemo(
-    () => Math.max(0, totalGeral - descontoVal),
-    [totalGeral, descontoVal]
+    () => Math.max(0, totalGeral - descontoAVista - descontoVal),
+    [totalGeral, descontoAVista, descontoVal]
   );
   const valorRecebidoVal = useMemo(
     () => parseFloat((valorRecebido || "0").replace(",", ".")) || 0,
@@ -1299,7 +1305,7 @@ export default function PDVPage() {
   type ItensCupom = { nome: string; quantidade: number; precoUnitario: number };
 
   function imprimirCupom(dados: {
-    itens: ItensCupom[]; totalGeral: number; descontoVal: number; totalFinal: number;
+    itens: ItensCupom[]; totalGeral: number; descontoVal: number; descontoAVista: number; totalFinal: number;
     tipoPagamento: string; valorRecebidoVal: number; troco: number;
     nomeOperador: string; clienteLabel: string; cpf: string;
     dataHora?: string; // opcional – se não passado usa "agora"
@@ -1396,9 +1402,10 @@ ${dados.cpf ? `<div>CPF: ${dados.clienteLabel}</div>` : ""}
 </table>
 <hr>
 
-${dados.descontoVal > 0 ? `
+${(dados.descontoVal > 0 || dados.descontoAVista > 0) ? `
   <div class="tot"><span>Subtotal</span><span>${moedaBR(dados.totalGeral)}</span></div>
-  <div class="tot"><span>Desconto</span><span>- ${moedaBR(dados.descontoVal)}</span></div>
+  ${dados.descontoAVista > 0 ? `<div class="tot"><span>Desc. a vista</span><span>- ${moedaBR(dados.descontoAVista)}</span></div>` : ""}
+  ${dados.descontoVal > 0 ? `<div class="tot"><span>Desconto</span><span>- ${moedaBR(dados.descontoVal)}</span></div>` : ""}
 ` : ""}
 <div class="tot tot-grande"><span>TOTAL</span><span>${moedaBR(dados.totalFinal)}</span></div>
 <hr>
@@ -1848,7 +1855,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       const itensCupom = carrinho.map((i) => ({ nome: i.produto.nome, quantidade: i.quantidade, precoUnitario: i.precoUnitario }));
       imprimirCupom({
         itens: itensCupom,
-        totalGeral, descontoVal, totalFinal,
+        totalGeral, descontoVal, descontoAVista, totalFinal,
         tipoPagamento: labelPagamento,
         valorRecebidoVal: ehDinheiro ? valorRecebidoVal : totalFinal,
         troco: ehDinheiro ? troco : 0,
@@ -2903,6 +2910,14 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
               <span>Subtotal ({totalItens} {totalItens === 1 ? "item" : "itens"})</span>
               <span style={{ fontWeight: 700 }}>{moedaBR(totalGeral)}</span>
             </div>
+
+            {/* Desconto à vista automático (preco_cartao_auto) */}
+            {descontoAVista > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 14, color: "#15803d" }}>
+                <span>🏷️ Desconto à vista</span>
+                <span style={{ fontWeight: 700 }}>− {moedaBR(descontoAVista)}</span>
+              </div>
+            )}
 
             {/* Desconto — dinheiro e PIX, apenas se tiver permissão e plano pro */}
             {tipoPagamento !== "cartao" && temRecurso(plano, "desconto") && temPerm("perm_desconto") && (
