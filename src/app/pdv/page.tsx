@@ -846,9 +846,12 @@ export default function PDVPage() {
       setMensagem(`Produto "${codigoBusca}" não encontrado.`);
       return;
     }
-    // Preenche preço se ainda não preenchido
+    // Preenche campo de preço com preco_cartao (principal) ou preco se não houver
     if (!precoUnitario) {
-      setPrecoUnitario(String((produto.preco ?? 0).toFixed(2)).replace(".", ","));
+      const precoPadrao = feat("preco_cartao_auto")
+        ? (produto.preco_cartao ?? produto.preco ?? 0)
+        : (produto.preco ?? 0);
+      setPrecoUnitario(String(precoPadrao.toFixed(2)).replace(".", ","));
     }
     confirmarLancamento(produto);
   }
@@ -2172,9 +2175,17 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                     <div style={{ textAlign: "right" }}>
                       {item.quantidade % 1 === 0 ? item.quantidade : item.quantidade.toFixed(3)}
                     </div>
-                    <div style={{ textAlign: "right" }}>{moedaBR(item.precoUnitario)}</div>
+                    <div style={{ textAlign: "right" }}>{moedaBR(
+                      feat("preco_cartao_auto") && item.produto.preco_cartao
+                        ? item.produto.preco_cartao
+                        : item.precoUnitario
+                    )}</div>
                     <div style={{ textAlign: "right", fontWeight: 700 }}>
-                      {moedaBR(item.quantidade * item.precoUnitario)}
+                      {moedaBR(item.quantidade * (
+                        feat("preco_cartao_auto") && item.produto.preco_cartao
+                          ? item.produto.preco_cartao
+                          : item.precoUnitario
+                      ))}
                     </div>
                     <button
                       type="button"
