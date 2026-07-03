@@ -88,25 +88,35 @@ export async function syncPendingVendas(): Promise<number> {
 
   for (const v of pending) {
     try {
-      // 1. Grava venda principal
+      // 1. Grava venda principal (onConflict ignora se local_id já existe no banco)
       const { data: vendaData, error } = await db("vendas")
-        .insert([v.vendaPayload])
+        .insert([v.vendaPayload], { onConflict: "local_id", ignoreDuplicates: true })
         .select()
         .single();
-      if (error || !vendaData?.id) {
+
+      // Se ignoreDuplicates silenciou um conflito, select() retorna null — busca pelo local_id
+      let vendaId = vendaData?.id;
+      if (!vendaId && v.vendaPayload.local_id) {
+        const { data: existente } = await db("vendas")
+          .select("id")
+          .eq("local_id", v.vendaPayload.local_id as string)
+          .maybeSingle();
+        vendaId = (existente as { id?: string } | null)?.id;
+      }
+
+      if (error || !vendaId) {
         console.error("[sync] erro ao gravar venda:", error, v.vendaPayload);
         continue;
       }
 
-      // Marca como sincronizado IMEDIATAMENTE após gravar a venda para evitar
-      // que erros nas operações secundárias causem re-inserção duplicada
+      // Marca como sincronizado IMEDIATAMENTE para evitar re-inserção duplicada
       await localDB.pendingVendas.update(v.localId, { synced: 1 });
       count++;
 
       // 2. Grava itens da venda (não-crítico: venda já está no banco)
       if (v.itens.length > 0) {
         await db("itens_venda").insert(
-          v.itens.map((i) => ({ ...i, venda_id: vendaData.id }))
+          v.itens.map((i) => ({ ...i, venda_id: vendaId }))
         ).catch((e: unknown) => console.error("[sync] erro ao gravar itens:", e));
       }
 

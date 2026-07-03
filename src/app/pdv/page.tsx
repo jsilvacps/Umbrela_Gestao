@@ -1752,7 +1752,9 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       const ehDinheiro = tipoPagamento === "dinheiro";
 
       // Monta os payloads uma vez só
+      const vendaLocalId = crypto.randomUUID(); // identificador único para evitar duplicatas no sync
       const vendaPayload: Record<string, unknown> = {
+        local_id:        vendaLocalId,
         total:           totalFinal,
         tipo_pagamento:  labelPagamento,
         operador:        nomeOperador,
