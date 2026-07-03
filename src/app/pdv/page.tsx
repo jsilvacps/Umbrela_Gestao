@@ -1261,10 +1261,15 @@ export default function PDVPage() {
   /* ── Totais ── */
   const totalItens = useMemo(() => carrinho.length, [carrinho]);
 
-  // totalGeral sempre usa precoUnitario (= preco_cartao quando preco_cartao_auto ativo)
+  // totalGeral usa preco_cartao quando feature ativa e produto tem preco_cartao; senão precoUnitario
   const totalGeral = useMemo(
-    () => carrinho.reduce((acc, i) => acc + i.quantidade * i.precoUnitario, 0),
-    [carrinho]
+    () => carrinho.reduce((acc, i) => {
+      const preco = (feat("preco_cartao_auto") && i.produto.preco_cartao)
+        ? i.produto.preco_cartao
+        : i.precoUnitario;
+      return acc + i.quantidade * preco;
+    }, 0),
+    [carrinho, features]
   );
 
   // Desconto automático à vista: diferença entre preco_cartao e preco quando dinheiro/pix
@@ -1273,7 +1278,7 @@ export default function PDVPage() {
     const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
     if (!ehDinheiroOuPix) return 0;
     return carrinho.reduce((acc, i) => {
-      const precoCartao = i.precoUnitario;
+      const precoCartao = i.produto.preco_cartao ?? i.precoUnitario;
       const precoDinheiro = i.produto.preco ?? precoCartao;
       return acc + i.quantidade * Math.max(0, precoCartao - precoDinheiro);
     }, 0);
