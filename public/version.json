@@ -1,5 +1,5 @@
 {
-  "version": "1.1.51",
-  "notas": "- Correcao critica: duplicacao de vendas no sincronismo offline\n- Correcao: preco diferenciado cartao/dinheiro aplicado corretamente\n- Correcao: logo nao aparecia no PDV apos v1.1.49\n- Correcao: trava de caixa respeita feature flag em tempo real\n- Correcao: login sem travamento\n- Correcao: senha gerencial aguarda carregar do banco",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.51/UmbrelaGestao-PDV-Setup-1.1.51.exe"
+  "version": "1.1.52",
+  "notas": "- Correcao critica: duplicacao de vendas no sincronismo offline\n- Correcao: preco diferenciado cartao/dinheiro aplicado corretamente\n- Correcao: logo nao aparecia no PDV\n- Correcao: trava de caixa respeita feature flag\n- Correcao: login sem travamento\n- Correcao: senha gerencial aguarda carregar do banco",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.52/UmbrelaGestao-PDV-Setup-1.1.52.exe"
 }
