@@ -1266,6 +1266,7 @@ export default function PDVPage() {
       if (feat("preco_cartao_auto")) {
         const ehDinheiroOuPix = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
         if (ehDinheiroOuPix && i.produto.preco) preco = i.produto.preco;
+        else if (!ehDinheiroOuPix && i.produto.preco_cartao) preco = i.produto.preco_cartao;
       }
       return acc + i.quantidade * preco;
     }, 0),
@@ -1742,8 +1743,9 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       const ehDinheiroOuPixFinal = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
       const itensSalvos = carrinho.map((item) => {
         let precoFinal = item.precoUnitario;
-        if (feat("preco_cartao_auto") && ehDinheiroOuPixFinal && item.produto.preco) {
-          precoFinal = item.produto.preco;
+        if (feat("preco_cartao_auto")) {
+          if (ehDinheiroOuPixFinal && item.produto.preco) precoFinal = item.produto.preco;
+          else if (!ehDinheiroOuPixFinal && item.produto.preco_cartao) precoFinal = item.produto.preco_cartao;
         }
         return {
           produto_id:   item.produto.id,
