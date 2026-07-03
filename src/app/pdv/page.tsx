@@ -827,7 +827,16 @@ export default function PDVPage() {
 
     // Produto já selecionado pelo dropdown
     if (produtoSelecionado) {
-      confirmarLancamento(produtoSelecionado);
+      let produto = produtoSelecionado;
+      // Cache local pode não ter preco_cartao — busca da API se necessário
+      if (feat("preco_cartao_auto") && produto.preco_cartao == null) {
+        const { data } = await db("produtos")
+          .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
+          .eq("id", produto.id)
+          .maybeSingle();
+        if (data) produto = data as Produto;
+      }
+      confirmarLancamento(produto);
       return;
     }
 
