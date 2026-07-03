@@ -11,6 +11,9 @@
 import { supabase, db } from "./supabaseClient";
 import { localDB, type PendingVenda } from "./localDB";
 
+// Lock global para evitar sincronizações concorrentes (auto-sync + F11 simultâneos)
+let syncEmAndamento = false;
+
 // ── Produtos ────────────────────────────────────────────────────────────────
 
 /** Baixa produtos do Supabase filtrados por empresa_id e salva no IndexedDB. */
@@ -77,6 +80,9 @@ export async function descartarPendingVenda(localId: string) {
  */
 export async function syncPendingVendas(): Promise<number> {
   if (!localDB) return 0;
+  if (syncEmAndamento) return 0; // impede sincronizações concorrentes
+  syncEmAndamento = true;
+  try {
   const pending = await localDB.pendingVendas.where("synced").equals(0).toArray();
   let count = 0;
 
@@ -137,4 +143,7 @@ export async function syncPendingVendas(): Promise<number> {
   // Resync produtos para refletir estoques atuais
   if (count > 0) await syncProdutosLocal();
   return count;
+  } finally {
+    syncEmAndamento = false;
+  }
 }
