@@ -90,7 +90,7 @@ export async function syncPendingVendas(): Promise<number> {
     try {
       // 1. Grava venda principal (upsert com ignoreDuplicates evita re-inserção se local_id já existe)
       const { data: vendaData, error } = await db("vendas")
-        .upsert([v.vendaPayload], { onConflict: "local_id", ignoreDuplicates: true })
+        .upsert(v.vendaPayload, { onConflict: "local_id", ignoreDuplicates: true })
         .select()
         .single();
 

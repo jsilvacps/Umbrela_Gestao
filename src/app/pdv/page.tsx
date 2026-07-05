@@ -622,6 +622,22 @@ export default function PDVPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
+  /* ── Limpeza automática de duplicatas a cada 30 minutos ── */
+  useEffect(() => {
+    const empresaId = getEmpresaId();
+    if (!empresaId) return;
+    const limpar = () => {
+      fetch("/api/cleanup-duplicatas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empresa_id: empresaId }),
+      }).catch(() => {/* silencioso */});
+    };
+    limpar(); // roda ao montar
+    const timer = setInterval(limpar, 30 * 60 * 1000); // a cada 30 min
+    return () => clearInterval(timer);
+  }, []);
+
   /* ── Teclado global ── */
   const teclasHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   teclasHandlerRef.current = (e: KeyboardEvent) => {
