@@ -7,6 +7,7 @@ import { supabase, db, isConfigurado, getEmpresaId } from "@/lib/supabaseClient"
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { gerarChave } from "@/lib/licenca";
 import { carregarFeatures, temFeature, type FeatureKey } from "@/lib/features";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const MASTER_USERNAME = "jeansilva3323@gmail.com";
 
@@ -317,6 +318,7 @@ export default function AdmPage() {
   const [aba, setAba] = useState("dashboard");
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const feat = (key: FeatureKey) => temFeature(key, features);
+  const push = usePushNotifications();
   const isDev = (() => {
     if (typeof window === "undefined") return false;
     try {
@@ -1896,6 +1898,40 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               </div>
               <button type="submit" style={saveButton}>Salvar senhas</button>
             </form>
+
+            {feat("notificacoes_adm") && (
+              <div style={{ marginTop: 32, padding: 20, background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0" }}>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>🔔 Notificações ADM</div>
+                <div style={{ fontSize: 13, color: "#374151", marginBottom: 14 }}>
+                  Receba uma notificação no celular sempre que um operador usar a senha gerencial.<br />
+                  Abra esta página no seu celular e clique em &quot;Ativar notificações&quot;.
+                </div>
+                {!push.suportado ? (
+                  <p style={{ fontSize: 13, color: "#6b7280" }}>Este dispositivo não suporta notificações push.</p>
+                ) : push.permissao === "denied" ? (
+                  <p style={{ fontSize: 13, color: "#dc2626" }}>Permissão de notificação bloqueada. Libere nas configurações do navegador.</p>
+                ) : push.inscrito ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 13, color: "#16a34a" }}>✅ Notificações ativas neste dispositivo</span>
+                    <button
+                      onClick={push.desativar}
+                      disabled={push.carregando}
+                      style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: "1px solid #dc2626", background: "#fff", color: "#dc2626", cursor: "pointer" }}
+                    >
+                      {push.carregando ? "..." : "Desativar"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={push.ativar}
+                    disabled={push.carregando}
+                    style={{ ...saveButton, background: "#1fb14e", fontSize: 14, padding: "10px 22px" }}
+                  >
+                    {push.carregando ? "Aguarde..." : "🔔 Ativar notificações neste dispositivo"}
+                  </button>
+                )}
+              </div>
+            )}
           </section>
         )}
 

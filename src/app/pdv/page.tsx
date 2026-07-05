@@ -473,7 +473,8 @@ export default function PDVPage() {
     setSalvandoAdm(true);
 
     // 1. Aceita senha ADM direto
-    let autorizado = senhaAdmInput === senhaAdmConfig;
+    const usouSenhaAdm = senhaAdmInput === senhaAdmConfig;
+    let autorizado = usouSenhaAdm;
 
     // 2. Aceita senha do próprio operador logado (verifica no banco)
     if (!autorizado) {
@@ -497,6 +498,20 @@ export default function PDVPage() {
       setSalvandoAdm(false);
       setTimeout(() => refSenhaAdm.current?.focus(), 30);
       return;
+    }
+
+    // Notifica ADM se operador usou a senha gerencial (não a sua própria senha)
+    if (usouSenhaAdm && feat("notificacoes_adm") && nomeOperador && nomeOperador !== "—") {
+      fetch("/api/push-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresa_id: getEmpresaId(),
+          title: "Senha ADM usada",
+          body: `Operador ${nomeOperador} usou a senha gerencial: ${modalAdm.titulo}`,
+          tag: "senha-adm",
+        }),
+      }).catch(() => {});
     }
 
     try {

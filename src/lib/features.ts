@@ -38,6 +38,7 @@ export const TODAS_FEATURES = {
   maquininha_mp:      { label: "Maquininha Mercado Pago",    grupo: "Módulos", defaultOff: true },
   maquininha_stone:   { label: "Maquininha Stone Smart",     grupo: "Módulos", defaultOff: true },
   preco_cartao_auto:  { label: "Preço diferenciado Cartão", grupo: "PDV",     defaultOff: true },
+  notificacoes_adm:   { label: "Notificações ADM (Push)",  grupo: "ADM",     defaultOff: true },
 } as const;
 
 export type FeatureKey = keyof typeof TODAS_FEATURES;
