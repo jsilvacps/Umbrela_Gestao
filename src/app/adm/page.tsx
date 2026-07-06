@@ -322,6 +322,7 @@ export default function AdmPage() {
     if (typeof window === "undefined") return undefined;
     try { return JSON.parse(sessionStorage.getItem("operador_logado") || "{}")?.id as string | undefined; } catch { return undefined; }
   })();
+  const [pushErro, setPushErro] = useState("");
   const push = usePushNotifications(operadorLogadoId);
   const isDev = (() => {
     if (typeof window === "undefined") return false;
@@ -1926,13 +1927,20 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={push.ativar}
-                    disabled={push.carregando}
-                    style={{ ...saveButton, background: "#1fb14e", fontSize: 14, padding: "10px 22px" }}
-                  >
-                    {push.carregando ? "Aguarde..." : "🔔 Ativar notificações neste dispositivo"}
-                  </button>
+                  <>
+                    <button
+                      onClick={async () => {
+                        setPushErro("");
+                        const r = await push.ativar();
+                        if (!r.ok) setPushErro(r.erro ?? r.error ?? "Erro desconhecido");
+                      }}
+                      disabled={push.carregando}
+                      style={{ ...saveButton, background: "#1fb14e", fontSize: 14, padding: "10px 22px" }}
+                    >
+                      {push.carregando ? "Aguarde..." : "🔔 Ativar notificações neste dispositivo"}
+                    </button>
+                    {pushErro && <p style={{ fontSize: 13, color: "#dc2626", marginTop: 8 }}>❌ {pushErro}</p>}
+                  </>
                 )}
               </div>
             )}
