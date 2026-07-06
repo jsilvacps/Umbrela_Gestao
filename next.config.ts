@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  serverExternalPackages: ["web-push"],
   env: {
     NEXT_PUBLIC_APP_VERSION: APP_VERSION,
   },
