@@ -34,7 +34,13 @@ export function usePushNotifications(operadorId?: string) {
       setPermissao(perm);
       if (perm !== "granted") return { ok: false, erro: "Permissão negada" };
 
-      const reg = await navigator.serviceWorker.ready;
+      // Registra SW se necessário e aguarda com timeout de 10s
+      if (!("serviceWorker" in navigator)) throw new Error("SW não suportado");
+      await navigator.serviceWorker.register("/sw.js").catch(() => {});
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("SW timeout")), 10000)),
+      ]);
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
