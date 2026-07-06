@@ -318,7 +318,11 @@ export default function AdmPage() {
   const [aba, setAba] = useState("dashboard");
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const feat = (key: FeatureKey) => temFeature(key, features);
-  const push = usePushNotifications();
+  const operadorLogadoId = (() => {
+    if (typeof window === "undefined") return undefined;
+    try { return JSON.parse(sessionStorage.getItem("operador_logado") || "{}")?.id as string | undefined; } catch { return undefined; }
+  })();
+  const push = usePushNotifications(operadorLogadoId);
   const isDev = (() => {
     if (typeof window === "undefined") return false;
     try {

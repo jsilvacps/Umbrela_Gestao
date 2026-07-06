@@ -19,10 +19,23 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
     );
 
-    const { data: subs } = await supabase
+    // Busca operadores ADM selecionados para esta empresa
+    const { data: emp } = await supabase
+      .from("empresa")
+      .select("notif_adm_ids")
+      .eq("empresa_id", empresa_id)
+      .maybeSingle();
+    const admIds: string[] = (emp as { notif_adm_ids?: string[] } | null)?.notif_adm_ids ?? [];
+
+    let query = supabase
       .from("push_subscriptions")
       .select("subscription, endpoint")
       .eq("empresa_id", empresa_id);
+
+    // Filtra só os operadores ADM se houver seleção
+    if (admIds.length > 0) query = query.in("operador_id", admIds);
+
+    const { data: subs } = await query;
 
     if (!subs || subs.length === 0) return NextResponse.json({ ok: true, enviados: 0 });
 

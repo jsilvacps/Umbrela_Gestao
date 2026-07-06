@@ -69,6 +69,41 @@ export default function MasterPage() {
   const [salvandoFeature, setSalvandoFeature] = useState<number | null>(null);
   const [msgFeature, setMsgFeature] = useState("");
 
+  // ── Modal seleção ADM notif ──────────────────────────────────────────────────
+  type Operador = { id: string; nome: string; username: string };
+  const [modalNotifEmpresa, setModalNotifEmpresa] = useState<number | null>(null);
+  const [operadoresNotif, setOperadoresNotif] = useState<Operador[]>([]);
+  const [selecionadosNotif, setSelecionadosNotif] = useState<string[]>([]);
+  const [salvandoNotif, setSalvandoNotif] = useState(false);
+
+  async function abrirModalNotif(empresaId: number) {
+    const { data } = await supabase
+      .from("operadores")
+      .select("id, nome, username")
+      .eq("empresa_id", empresaId)
+      .order("nome");
+    setOperadoresNotif((data ?? []) as Operador[]);
+    // Carrega selecionados atuais
+    const { data: emp } = await supabase
+      .from("empresa")
+      .select("notif_adm_ids")
+      .eq("empresa_id", empresaId)
+      .maybeSingle();
+    setSelecionadosNotif((emp as { notif_adm_ids?: string[] } | null)?.notif_adm_ids ?? []);
+    setModalNotifEmpresa(empresaId);
+  }
+
+  async function salvarNotifAdms() {
+    if (!modalNotifEmpresa) return;
+    setSalvandoNotif(true);
+    await supabase
+      .from("empresa")
+      .update({ notif_adm_ids: selecionadosNotif } as Record<string, unknown>)
+      .eq("empresa_id", modalNotifEmpresa);
+    setSalvandoNotif(false);
+    setModalNotifEmpresa(null);
+  }
+
   const carregarEmpresasFeature = useCallback(async () => {
     const { data } = await listarEmpresasComFeatures();
     setEmpresasFeature(data as EmpresaFeature[]);
@@ -88,7 +123,12 @@ export default function MasterPage() {
       const atual = prev[empresaId] ?? {};
       const defaultAtivo = !(TODAS_FEATURES[key] as { defaultOff?: boolean }).defaultOff;
       const valorAtual = key in atual ? atual[key] : defaultAtivo;
-      return { ...prev, [empresaId]: { ...atual, [key]: !valorAtual } };
+      const novoValor = !valorAtual;
+      // Ao ativar notificacoes_adm, abre modal de seleção de operadores
+      if (key === "notificacoes_adm" && novoValor) {
+        abrirModalNotif(empresaId);
+      }
+      return { ...prev, [empresaId]: { ...atual, [key]: novoValor } };
     });
   }
 
@@ -1108,6 +1148,60 @@ export default function MasterPage() {
         })()}
 
       </div>
+
+      {/* Modal seleção de operadores ADM para notificações */}
+      {modalNotifEmpresa !== null && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#0f1822", border: "1px solid #2d3f54", borderRadius: 14, padding: 28, minWidth: 340, maxWidth: 440, width: "90%" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0", marginBottom: 6 }}>🔔 Operadores ADM — Notificações</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 18 }}>
+              Selecione quem receberá notificações quando a senha gerencial for usada.
+            </div>
+            {operadoresNotif.length === 0 ? (
+              <p style={{ color: "#64748b", fontSize: 13 }}>Nenhum operador cadastrado para esta empresa.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 280, overflowY: "auto" }}>
+                {operadoresNotif.map(op => {
+                  const selecionado = selecionadosNotif.includes(op.id);
+                  return (
+                    <div
+                      key={op.id}
+                      onClick={() => setSelecionadosNotif(prev =>
+                        selecionado ? prev.filter(id => id !== op.id) : [...prev, op.id]
+                      )}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, cursor: "pointer",
+                        background: selecionado ? "#1a2f1f" : "#141f2b",
+                        border: `1px solid ${selecionado ? "#16a34a" : "#2d3f54"}`,
+                        borderRadius: 8, padding: "10px 14px",
+                      }}
+                    >
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 4, border: `2px solid ${selecionado ? "#16a34a" : "#475569"}`,
+                        background: selecionado ? "#16a34a" : "transparent", flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {selecionado && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 600 }}>{op.nome || op.username}</div>
+                        <div style={{ fontSize: 11, color: "#64748b" }}>{op.username}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+              <button onClick={() => setModalNotifEmpresa(null)} style={btnCinza}>Cancelar</button>
+              <button onClick={salvarNotifAdms} disabled={salvandoNotif} style={btnVerde}>
+                {salvandoNotif ? "Salvando..." : "💾 Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
