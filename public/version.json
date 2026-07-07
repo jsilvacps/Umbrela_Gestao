@@ -1,5 +1,5 @@
 {
-  "version": "1.1.53",
-  "notas": "- Novo: notificacoes push para ADM quando operador usa senha gerencial\n- Correcao critica: duplicacao de vendas no sincronismo offline\n- Correcao: preco diferenciado cartao/dinheiro aplicado corretamente",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.53/UmbrelaGestao-PDV-Setup-1.1.53.exe"
+  "version": "1.1.54",
+  "notas": "- Correcao: horario nas datas do relatorio ADM (fuso America/Sao_Paulo)\n- Correcao critica: duplicacao de vendas no sincronismo offline\n- Novo: notificacoes push para ADM quando operador usa senha gerencial",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.54/UmbrelaGestao-PDV-Setup-1.1.54.exe"
 }
