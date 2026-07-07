@@ -221,6 +221,7 @@ export default function PDVPage() {
   const [tipoDesconto, setTipoDesconto]     = useState<"R$" | "%">("R$");
   const [valorRecebido, setValorRecebido]   = useState("");
   const [finalizando, setFinalizando]       = useState(false);
+  const finalizandoRef                      = useRef(false); // lock síncrono contra duplo clique/F3
   const refValorRecebido                    = useRef<HTMLInputElement>(null);
 
   /* ── Config do cupom ── */
@@ -1761,7 +1762,8 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
   /* ── Grava venda — online primeiro, offline como fallback ── */
   async function confirmarVenda() {
-    if (finalizando) return;
+    if (finalizando || finalizandoRef.current) return;
+    finalizandoRef.current = true;
 
     // Validação fiado
     if (tipoPagamento === "fiado") {
@@ -1938,6 +1940,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       }
     } finally {
       setFinalizando(false);
+      finalizandoRef.current = false;
     }
   }
 
