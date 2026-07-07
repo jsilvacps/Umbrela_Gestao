@@ -971,7 +971,7 @@ export default function AdmPage() {
     const inicio = dataInicio || new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
     const fim = dataFim || new Date().toISOString().slice(0,10);
     const periodo = `${inicio.split("-").reverse().join("/")} a ${fim.split("-").reverse().join("/")}`;
-    const fmt = (d: string) => new Date(d).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
+    const fmt = (d: string) => new Date(d).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit", timeZone:"America/Sao_Paulo" });
 
     let corpoHtml = "";
     if (subAbaRel === "geral") {
@@ -1614,7 +1614,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               ) : vendasFiltradas.map((v) => (
                 <div key={v.id} style={trowVendas}>
                   <div>{String(v.id).slice(0, 8)}</div>
-                  <div>{new Date(v.created_at).toLocaleString("pt-BR")}</div>
+                  <div>{new Date(v.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                   <div>{v.tipo_pagamento || "-"}</div>
                   <div>{moeda(v.total)}</div>
                 </div>
@@ -1638,7 +1638,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   <div>{i.produto_nome || "-"}</div>
                   <div>{i.motivo || "-"}</div>
                   <div>{i.operador || "-"}</div>
-                  <div>{new Date(i.created_at).toLocaleString("pt-BR")}</div>
+                  <div>{new Date(i.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                 </div>
               ))}
             </div>
@@ -1660,7 +1660,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   <div>{moeda(c.total)}</div>
                   <div>{c.motivo || "-"}</div>
                   <div>{c.operador || "-"}</div>
-                  <div>{new Date(c.created_at).toLocaleString("pt-BR")}</div>
+                  <div>{new Date(c.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                 </div>
               ))}
             </div>
@@ -1712,7 +1712,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 porCliente[nome].cupons.push(r);
               }
               const clientes = Object.values(porCliente).sort((a, b) => a.nome.localeCompare(b.nome));
-              const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+              const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
               return (
                 <div>
                   <input
