@@ -593,10 +593,14 @@ export default function AdmPage() {
     setPaginaGeral(1); setPaginaRanking(1); setPaginaItensCanc(1); setPaginaCuponsCanc(1);
     const inicio = dataInicio || new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const fim    = dataFim    || new Date().toISOString().slice(0, 10);
-    const hIni = horaInicio || "00:00";
-    const hFim = horaFim    || "23:59";
-    const dtIni = `${inicio}T${hIni}:00`;
-    const dtFim = `${fim}T${hFim}:59`;
+    // Converte hora de SP (UTC-3) para UTC somando 3h
+    const spToUtc = (date: string, time: string, sec = "00") => {
+      const [y, m, d] = date.split("-").map(Number);
+      const [h, min] = time.split(":").map(Number);
+      return new Date(Date.UTC(y, m - 1, d, h + 3, min, Number(sec))).toISOString();
+    };
+    const dtIni = spToUtc(inicio, horaInicio || "00:00", "00");
+    const dtFim = spToUtc(fim, horaFim || "23:59", "59");
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
       db("vendas").select("id, total, tipo_pagamento, created_at")
         .gte("created_at", dtIni).lte("created_at", dtFim)
