@@ -100,6 +100,34 @@ function moeda(v: number | null | undefined) {
   return `R$ ${Number(v || 0).toFixed(2).replace(".", ",")}`;
 }
 
+function Paginacao({ pagina, total, porPagina, onChange }: { pagina: number; total: number; porPagina: number; onChange: (p: number) => void }) {
+  const totalPag = Math.ceil(total / porPagina);
+  if (totalPag <= 1) return null;
+  const btn = (label: string | number, p: number, ativo = false, disabled = false) => (
+    <button key={label} onClick={() => !disabled && onChange(p)} disabled={disabled}
+      style={{ padding: "5px 11px", borderRadius: 7, border: ativo ? "2px solid #1a7b39" : "1px solid #d1d9e0", background: ativo ? "#1a7b39" : disabled ? "#f5f5f5" : "#fff", color: ativo ? "#fff" : disabled ? "#b0b8c1" : "#25354b", fontWeight: ativo ? 800 : 500, fontSize: 13, cursor: disabled ? "default" : "pointer" }}>
+      {label}
+    </button>
+  );
+  const pages: (number | "...")[] = [];
+  if (totalPag <= 7) { for (let i = 1; i <= totalPag; i++) pages.push(i); }
+  else {
+    pages.push(1);
+    if (pagina > 3) pages.push("...");
+    for (let i = Math.max(2, pagina - 1); i <= Math.min(totalPag - 1, pagina + 1); i++) pages.push(i);
+    if (pagina < totalPag - 2) pages.push("...");
+    pages.push(totalPag);
+  }
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
+      {btn("‹", pagina - 1, false, pagina === 1)}
+      {pages.map((p, i) => p === "..." ? <span key={`e${i}`} style={{ padding: "5px 4px", color: "#64748b" }}>…</span> : btn(p, p as number, p === pagina))}
+      {btn("›", pagina + 1, false, pagina === totalPag)}
+      <span style={{ fontSize: 12, color: "#64748b", marginLeft: 6 }}>{total} registros</span>
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 type DashVendaExt = { total: number; tipo_pagamento: string; created_at: string };
 
@@ -355,6 +383,11 @@ export default function AdmPage() {
   const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking" | "fiado" | "itens-cancelados" | "cupons-cancelados">("geral");
   const [vendasFiado, setVendasFiado] = useState<any[]>([]);
   const [filtroFiadoAdm, setFiltroFiadoAdm] = useState("");
+  const [paginaGeral, setPaginaGeral] = useState(1);
+  const [paginaRanking, setPaginaRanking] = useState(1);
+  const [paginaItensCanc, setPaginaItensCanc] = useState(1);
+  const [paginaCuponsCanc, setPaginaCuponsCanc] = useState(1);
+  const POR_PAGINA = 20;
 
   const permPadrao = {
     perm_finalizar: true, perm_cancelar_item: true, perm_cancelar_venda: true,
@@ -557,6 +590,7 @@ export default function AdmPage() {
 
   // Carrega relatórios e cancelamentos só quando a aba for aberta (lazy)
   const carregarRelatorios = useCallback(async () => {
+    setPaginaGeral(1); setPaginaRanking(1); setPaginaItensCanc(1); setPaginaCuponsCanc(1);
     const inicio = dataInicio || new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const fim    = dataFim    || new Date().toISOString().slice(0, 10);
     const hIni = horaInicio || "00:00";
@@ -1621,32 +1655,39 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               </button>
             </div>
 
-            {subAbaRel === "geral" && <>
-            <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Relatório de vendas</div>
-            <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 520 }}>
-              <div style={theadVendas}>
-                <div>Número</div>
-                <div>Data/Hora</div>
-                <div>Pagamento</div>
-                <div>Total</div>
-              </div>
-              {vendasFiltradas.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
-              ) : vendasFiltradas.map((v) => (
-                <div key={v.id} style={trowVendas}>
-                  <div>{String(v.id).slice(0, 8)}</div>
-                  <div>{new Date(v.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
-                  <div>{v.tipo_pagamento || "-"}</div>
-                  <div>{moeda(v.total)}</div>
+            {subAbaRel === "geral" && (() => {
+              const geralPag = vendasFiltradas.slice((paginaGeral - 1) * POR_PAGINA, paginaGeral * POR_PAGINA);
+              return (
+              <>
+              <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Relatório de vendas</div>
+              <div style={{ overflowX: "auto" }}>
+              <div style={{ ...tableWrap, minWidth: 520 }}>
+                <div style={theadVendas}>
+                  <div>Número</div>
+                  <div>Data/Hora</div>
+                  <div>Pagamento</div>
+                  <div>Total</div>
                 </div>
-              ))}
-            </div>
-            </div>
-            </>}
+                {vendasFiltradas.length === 0 ? (
+                  <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
+                ) : geralPag.map((v) => (
+                  <div key={v.id} style={trowVendas}>
+                    <div>{String(v.id).slice(0, 8)}</div>
+                    <div>{new Date(v.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                    <div>{v.tipo_pagamento || "-"}</div>
+                    <div>{moeda(v.total)}</div>
+                  </div>
+                ))}
+              </div>
+              </div>
+              <Paginacao pagina={paginaGeral} total={vendasFiltradas.length} porPagina={POR_PAGINA} onChange={setPaginaGeral} />
+              </>
+              );
+            })()}
 
             {subAbaRel === "itens-cancelados" && (() => {
               const totalItens = itensCancelados.reduce((s, i) => s + (i.quantidade ?? 1) * ((i as any).preco ?? (i as any).valor ?? 0), 0);
+              const itensPag = itensCancelados.slice((paginaItensCanc - 1) * POR_PAGINA, paginaItensCanc * POR_PAGINA);
               return (
                 <>
                 <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Itens cancelados</div>
@@ -1661,7 +1702,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   </div>
                   {itensCancelados.length === 0 ? (
                     <div style={{ padding: 16, color: "#66758a" }}>Nenhum item cancelado no período.</div>
-                  ) : itensCancelados.map((i) => {
+                  ) : itensPag.map((i) => {
                     const preco = (i as any).preco ?? (i as any).valor ?? 0;
                     const valor = (i.quantidade ?? 1) * preco;
                     return (
@@ -1676,6 +1717,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   })}
                 </div>
                 </div>
+                <Paginacao pagina={paginaItensCanc} total={itensCancelados.length} porPagina={POR_PAGINA} onChange={setPaginaItensCanc} />
                 {itensCancelados.length > 0 && (
                   <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #dc2626", color: "#dc2626", marginTop: 4 }}>
                     Total cancelado: {moeda(totalItens)}
@@ -1687,6 +1729,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
             {subAbaRel === "cupons-cancelados" && (() => {
               const totalCupons = cuponsCancelados.reduce((s, c) => s + Number(c.total ?? 0), 0);
+              const cuponsPag = cuponsCancelados.slice((paginaCuponsCanc - 1) * POR_PAGINA, paginaCuponsCanc * POR_PAGINA);
               return (
                 <>
                 <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Cupons cancelados</div>
@@ -1700,7 +1743,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   </div>
                   {cuponsCancelados.length === 0 ? (
                     <div style={{ padding: 16, color: "#66758a" }}>Nenhum cupom cancelado no período.</div>
-                  ) : cuponsCancelados.map((c) => (
+                  ) : cuponsPag.map((c) => (
                     <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "11px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14 }}>
                       <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(c.total ?? 0)}</div>
                       <div>{c.motivo || "-"}</div>
@@ -1710,6 +1753,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   ))}
                 </div>
                 </div>
+                <Paginacao pagina={paginaCuponsCanc} total={cuponsCancelados.length} porPagina={POR_PAGINA} onChange={setPaginaCuponsCanc} />
                 {cuponsCancelados.length > 0 && (
                   <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #dc2626", color: "#dc2626", marginTop: 4 }}>
                     Total cancelado: {moeda(totalCupons)}
@@ -1724,31 +1768,39 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 <div style={{ padding: 16, color: "#66758a" }}>Carregando ranking...</div>
               ) : rankingMaisVendidos.length === 0 ? (
                 <div style={{ padding: 24, color: "#66758a", textAlign: "center" }}>Selecione o período e clique em <strong>Buscar</strong> para ver o ranking.</div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                <div style={{ ...tableWrap, minWidth: 480 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
-                    <div>#</div>
-                    <div>Produto</div>
-                    <div style={{ textAlign: "right" }}>Qtd.</div>
-                    <div style={{ textAlign: "right" }}>Receita</div>
-                  </div>
-                  {rankingMaisVendidos.map((item, idx) => {
-                    const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
-                    return (
-                      <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
-                        <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
-                        <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
-                        <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
-                          {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+              ) : (() => {
+                const rankingPag = rankingMaisVendidos.slice((paginaRanking - 1) * POR_PAGINA, paginaRanking * POR_PAGINA);
+                const offset = (paginaRanking - 1) * POR_PAGINA;
+                return (
+                  <>
+                  <div style={{ overflowX: "auto" }}>
+                  <div style={{ ...tableWrap, minWidth: 480 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                      <div>#</div>
+                      <div>Produto</div>
+                      <div style={{ textAlign: "right" }}>Qtd.</div>
+                      <div style={{ textAlign: "right" }}>Receita</div>
+                    </div>
+                    {rankingPag.map((item, i) => {
+                      const idx = offset + i;
+                      const medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : String(idx + 1);
+                      return (
+                        <div key={item.nome} style={{ display: "grid", gridTemplateColumns: "40px 1fr .7fr .9fr", gap: 12, padding: "12px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14, background: idx < 3 ? (idx === 0 ? "#fffbeb" : "#fafafa") : "#fff" }}>
+                          <div style={{ fontWeight: 900, fontSize: 16 }}>{medalha}</div>
+                          <div style={{ fontWeight: idx < 3 ? 800 : 600, color: "#11243d" }}>{item.nome}</div>
+                          <div style={{ textAlign: "right", fontWeight: 800, color: "#1a7b39" }}>
+                            {item.totalQtd % 1 === 0 ? item.totalQtd.toLocaleString("pt-BR") : item.totalQtd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })}
+                          </div>
+                          <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moeda(item.totalReceita)}</div>
                         </div>
-                        <div style={{ textAlign: "right", fontWeight: 700, color: "#1d3049" }}>{moeda(item.totalReceita)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-                </div>
-              )
+                      );
+                    })}
+                  </div>
+                  </div>
+                  <Paginacao pagina={paginaRanking} total={rankingMaisVendidos.length} porPagina={POR_PAGINA} onChange={setPaginaRanking} />
+                  </>
+                );
+              })()
             )}
 
             {subAbaRel === "fiado" && (() => {
