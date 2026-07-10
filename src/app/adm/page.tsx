@@ -348,9 +348,11 @@ export default function AdmPage() {
   const [produtoBusca, setProdutoBusca] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [horaInicio, setHoraInicio] = useState("");
+  const [horaFim, setHoraFim] = useState("");
   const [rankingMaisVendidos, setRankingMaisVendidos] = useState<{ nome: string; totalQtd: number; totalReceita: number }[]>([]);
   const [carregandoRanking, setCarregandoRanking] = useState(false);
-  const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking" | "fiado">("geral");
+  const [subAbaRel, setSubAbaRel] = useState<"geral" | "ranking" | "fiado" | "itens-cancelados" | "cupons-cancelados">("geral");
   const [vendasFiado, setVendasFiado] = useState<any[]>([]);
   const [filtroFiadoAdm, setFiltroFiadoAdm] = useState("");
 
@@ -557,19 +559,23 @@ export default function AdmPage() {
   const carregarRelatorios = useCallback(async () => {
     const inicio = dataInicio || new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const fim    = dataFim    || new Date().toISOString().slice(0, 10);
+    const hIni = horaInicio || "00:00";
+    const hFim = horaFim    || "23:59";
+    const dtIni = `${inicio}T${hIni}:00`;
+    const dtFim = `${fim}T${hFim}:59`;
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
       db("vendas").select("id, total, tipo_pagamento, created_at")
-        .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+        .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(500),
       db("itens_cancelados").select("*")
-        .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+        .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(500),
       db("cupons_cancelados").select("*")
-        .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+        .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(500),
       db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf")
         .eq("tipo_pagamento", "Fiado")
-        .gte("created_at", inicio).lte("created_at", fim + "T23:59:59")
+        .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(500),
     ]);
     setVendas((vendasData || []) as Venda[]);
@@ -597,7 +603,7 @@ export default function AdmPage() {
     } finally {
       setCarregandoRanking(false);
     }
-  }, [dataInicio, dataFim]);
+  }, [dataInicio, dataFim, horaInicio, horaFim]);
 
   // Carrega produtos só quando a aba etiquetas for aberta (lazy)
   const carregarProdutos = useCallback(async () => {
@@ -1581,17 +1587,33 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               <button onClick={() => setSubAbaRel("fiado")} style={subAbaRel === "fiado" ? subTabAtivo : subTabInativo}>
                 📒 Fiado
               </button>
+              <button onClick={() => setSubAbaRel("itens-cancelados")} style={subAbaRel === "itens-cancelados" ? subTabAtivo : subTabInativo}>
+                ❌ Itens cancelados
+              </button>
+              <button onClick={() => setSubAbaRel("cupons-cancelados")} style={subAbaRel === "cupons-cancelados" ? subTabAtivo : subTabInativo}>
+                🚫 Cupons cancelados
+              </button>
             </div>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 8 }}>
-              <div style={{ flex: 1, minWidth: 140 }}>
+              <div style={{ flex: 1, minWidth: 130 }}>
                 <Field label="Data início">
                   <input type="date" style={input} value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
                 </Field>
               </div>
-              <div style={{ flex: 1, minWidth: 140 }}>
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <Field label="Hora início">
+                  <input type="time" style={input} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+                </Field>
+              </div>
+              <div style={{ flex: 1, minWidth: 130 }}>
                 <Field label="Data fim">
                   <input type="date" style={input} value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+                </Field>
+              </div>
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <Field label="Hora fim">
+                  <input type="time" style={input} value={horaFim} onChange={(e) => setHoraFim(e.target.value)} />
                 </Field>
               </div>
               <button onClick={carregarRelatorios} style={{ ...saveButton, height: 42, alignSelf: "flex-end" }}>
@@ -1621,51 +1643,81 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               ))}
             </div>
             </div>
-
-            <div style={{ ...title, fontSize: 20, marginTop: 28 }}>Relatório de itens cancelados</div>
-            <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 480 }}>
-              <div style={theadCancelados}>
-                <div>Produto</div>
-                <div>Motivo</div>
-                <div>Operador</div>
-                <div>Data/Hora</div>
-              </div>
-              {itensCancelados.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>Nenhum item cancelado.</div>
-              ) : itensCancelados.map((i) => (
-                <div key={i.id} style={trowCancelados}>
-                  <div>{i.produto_nome || "-"}</div>
-                  <div>{i.motivo || "-"}</div>
-                  <div>{i.operador || "-"}</div>
-                  <div>{new Date(i.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
-                </div>
-              ))}
-            </div>
-            </div>
-
-            <div style={{ ...title, fontSize: 20, marginTop: 28 }}>Relatório de cupom cancelado</div>
-            <div style={{ overflowX: "auto" }}>
-            <div style={{ ...tableWrap, minWidth: 480 }}>
-              <div style={theadCancelados}>
-                <div>Total</div>
-                <div>Motivo</div>
-                <div>Operador</div>
-                <div>Data/Hora</div>
-              </div>
-              {cuponsCancelados.length === 0 ? (
-                <div style={{ padding: 16, color: "#66758a" }}>Nenhum cupom cancelado.</div>
-              ) : cuponsCancelados.map((c) => (
-                <div key={c.id} style={trowCancelados}>
-                  <div>{moeda(c.total)}</div>
-                  <div>{c.motivo || "-"}</div>
-                  <div>{c.operador || "-"}</div>
-                  <div>{new Date(c.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
-                </div>
-              ))}
-            </div>
-            </div>
             </>}
+
+            {subAbaRel === "itens-cancelados" && (() => {
+              const totalItens = itensCancelados.reduce((s, i) => s + (i.quantidade ?? 1) * ((i as any).preco ?? (i as any).valor ?? 0), 0);
+              return (
+                <>
+                <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Itens cancelados</div>
+                <div style={{ overflowX: "auto" }}>
+                <div style={{ ...tableWrap, minWidth: 580 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.5fr .8fr .8fr 1fr 1fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                    <div>Produto</div>
+                    <div style={{ textAlign: "right" }}>Qtd.</div>
+                    <div style={{ textAlign: "right" }}>Valor</div>
+                    <div>Operador</div>
+                    <div>Data/Hora</div>
+                  </div>
+                  {itensCancelados.length === 0 ? (
+                    <div style={{ padding: 16, color: "#66758a" }}>Nenhum item cancelado no período.</div>
+                  ) : itensCancelados.map((i) => {
+                    const preco = (i as any).preco ?? (i as any).valor ?? 0;
+                    const valor = (i.quantidade ?? 1) * preco;
+                    return (
+                      <div key={i.id} style={{ display: "grid", gridTemplateColumns: "1.5fr .8fr .8fr 1fr 1fr", gap: 12, padding: "11px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14 }}>
+                        <div style={{ fontWeight: 600 }}>{i.produto_nome || "-"}</div>
+                        <div style={{ textAlign: "right" }}>{i.quantidade ?? 1}</div>
+                        <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(valor)}</div>
+                        <div>{i.operador || "-"}</div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>{new Date(i.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                </div>
+                {itensCancelados.length > 0 && (
+                  <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #dc2626", color: "#dc2626", marginTop: 4 }}>
+                    Total cancelado: {moeda(totalItens)}
+                  </div>
+                )}
+                </>
+              );
+            })()}
+
+            {subAbaRel === "cupons-cancelados" && (() => {
+              const totalCupons = cuponsCancelados.reduce((s, c) => s + Number(c.total ?? 0), 0);
+              return (
+                <>
+                <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Cupons cancelados</div>
+                <div style={{ overflowX: "auto" }}>
+                <div style={{ ...tableWrap, minWidth: 520 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "10px 12px", fontWeight: 800, fontSize: 14, color: "#25354b", background: "#f8fafc", borderBottom: "1px solid #e5eaf0" }}>
+                    <div style={{ textAlign: "right" }}>Valor</div>
+                    <div>Motivo</div>
+                    <div>Operador</div>
+                    <div>Data/Hora</div>
+                  </div>
+                  {cuponsCancelados.length === 0 ? (
+                    <div style={{ padding: 16, color: "#66758a" }}>Nenhum cupom cancelado no período.</div>
+                  ) : cuponsCancelados.map((c) => (
+                    <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "11px 12px", alignItems: "center", borderTop: "1px solid #edf1f5", fontSize: 14 }}>
+                      <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(c.total ?? 0)}</div>
+                      <div>{c.motivo || "-"}</div>
+                      <div>{c.operador || "-"}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{new Date(c.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                    </div>
+                  ))}
+                </div>
+                </div>
+                {cuponsCancelados.length > 0 && (
+                  <div style={{ fontWeight: 800, fontSize: 15, textAlign: "right", padding: "10px 4px", borderTop: "2px solid #dc2626", color: "#dc2626", marginTop: 4 }}>
+                    Total cancelado: {moeda(totalCupons)}
+                  </div>
+                )}
+                </>
+              );
+            })()}
 
             {subAbaRel === "ranking" && (
               carregandoRanking ? (
