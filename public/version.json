@@ -1,5 +1,5 @@
 {
-  "version": "1.1.54",
-  "notas": "- Correcao: horario nas datas do relatorio ADM (fuso America/Sao_Paulo)\n- Correcao critica: duplicacao de vendas no sincronismo offline\n- Novo: notificacoes push para ADM quando operador usa senha gerencial",
-  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.54/UmbrelaGestao-PDV-Setup-1.1.54.exe"
+  "version": "1.1.55",
+  "notas": "- Novo: abas Itens cancelados e Cupons cancelados no relatorio ADM\n- Novo: filtro por hora nos relatorios\n- Novo: paginacao de 20 itens por pagina\n- Correcao: horario nas datas do relatorio ADM (fuso America/Sao_Paulo)",
+  "download": "https://github.com/jsilvacps/Umbrela_Gestao/releases/download/v1.1.55/UmbrelaGestao-PDV-Setup-1.1.55.exe"
 }
