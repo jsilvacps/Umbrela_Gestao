@@ -100,6 +100,12 @@ function moeda(v: number | null | undefined) {
   return `R$ ${Number(v || 0).toFixed(2).replace(".", ",")}`;
 }
 
+// Supabase retorna timestamps sem 'Z' — força leitura como UTC antes de converter para SP
+function fmtSP(d: string, opts?: Intl.DateTimeFormatOptions) {
+  const utc = d && !d.endsWith("Z") && !d.includes("+") ? d + "Z" : d;
+  return new Date(utc).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", ...opts });
+}
+
 function Paginacao({ pagina, total, porPagina, onChange }: { pagina: number; total: number; porPagina: number; onChange: (p: number) => void }) {
   const totalPag = Math.ceil(total / porPagina);
   if (totalPag <= 1) return null;
@@ -1015,7 +1021,7 @@ export default function AdmPage() {
     const inicio = dataInicio || new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
     const fim = dataFim || new Date().toISOString().slice(0,10);
     const periodo = `${inicio.split("-").reverse().join("/")} a ${fim.split("-").reverse().join("/")}`;
-    const fmt = (d: string) => new Date(d).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit", timeZone:"America/Sao_Paulo" });
+    const fmt = (d: string) => fmtSP(d, { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
 
     let corpoHtml = "";
     if (subAbaRel === "geral") {
@@ -1677,7 +1683,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 ) : geralPag.map((v) => (
                   <div key={v.id} style={trowVendas}>
                     <div>{String(v.id).slice(0, 8)}</div>
-                    <div>{new Date(v.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                    <div>{fmtSP(v.created_at)}</div>
                     <div>{v.tipo_pagamento || "-"}</div>
                     <div>{moeda(v.total)}</div>
                   </div>
@@ -1715,7 +1721,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                         <div style={{ textAlign: "right" }}>{i.quantidade ?? 1}</div>
                         <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(valor)}</div>
                         <div>{i.operador || "-"}</div>
-                        <div style={{ fontSize: 12, color: "#64748b" }}>{new Date(i.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>{fmtSP(i.created_at)}</div>
                       </div>
                     );
                   })}
@@ -1752,7 +1758,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                       <div style={{ textAlign: "right", fontWeight: 700, color: "#dc2626" }}>{moeda(c.total ?? 0)}</div>
                       <div>{c.motivo || "-"}</div>
                       <div>{c.operador || "-"}</div>
-                      <div style={{ fontSize: 12, color: "#64748b" }}>{new Date(c.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{fmtSP(c.created_at)}</div>
                     </div>
                   ))}
                 </div>
@@ -1820,7 +1826,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                 porCliente[nome].cupons.push(r);
               }
               const clientes = Object.values(porCliente).sort((a, b) => a.nome.localeCompare(b.nome));
-              const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+              const fmtData = (d: string) => fmtSP(d, { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
               return (
                 <div>
                   <input
@@ -2409,7 +2415,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                       <div style={{ fontWeight: 600, color: "#1e293b" }}>{nota.numero ? `NFC-e #${nota.numero}` : nota.id.slice(0, 8)}</div>
                       {nota.chave_acesso && <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{nota.chave_acesso.slice(0, 20)}...</div>}
                     </div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{new Date(nota.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{fmtSP(nota.created_at)}</div>
                     <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: nota.status === "autorizado" ? "#dcfce7" : nota.status === "cancelado" ? "#fee2e2" : "#fef9c3", color: nota.status === "autorizado" ? "#166534" : nota.status === "cancelado" ? "#991b1b" : "#92400e" }}>
                       {nota.status}
                     </span>
