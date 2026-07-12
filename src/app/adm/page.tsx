@@ -1013,14 +1013,8 @@ export default function AdmPage() {
     setSupEnviando(false);
   }
 
-  const vendasFiltradas = useMemo(() => {
-    return vendas.filter((v) => {
-      const dt = new Date(v.created_at);
-      const ini = dataInicio ? new Date(dataInicio + "T00:00:00") : null;
-      const fim = dataFim ? new Date(dataFim + "T23:59:59") : null;
-      return (!ini || dt >= ini) && (!fim || dt <= fim);
-    });
-  }, [vendas, dataInicio, dataFim]);
+  // O servidor já filtra por data/hora — retorna tudo que veio do banco
+  const vendasFiltradas = vendas;
 
   function imprimirRelatorioAdm() {
     const nomeAba = subAbaRel === "geral" ? "Relatório Geral" : subAbaRel === "ranking" ? "Itens Mais Vendidos" : "Fiado";
