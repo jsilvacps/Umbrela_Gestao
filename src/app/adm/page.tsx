@@ -232,10 +232,57 @@ function GraficoBarras({ hoje, ontem }: { hoje: number; ontem: number }) {
   );
 }
 
-function DashboardAba({ hoje, ontem, mes, carregando, onAtualizar }: {
+function GraficoBarrasClientes({ hoje, ontem }: { hoje: number; ontem: number }) {
+  const maxVal = Math.max(hoje, ontem, 1);
+  const altMax = 120;
+  const altHoje  = (hoje  / maxVal) * altMax;
+  const altOntem = (ontem / maxVal) * altMax;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 24, justifyContent: "center", padding: "0 12px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{ontem} cliente(s)</div>
+        <div style={{ width: 56, height: altOntem, background: "#94a3b8", borderRadius: "6px 6px 0 0", minHeight: 4 }} />
+        <div style={{ fontSize: 12, color: "#64748b" }}>Ontem</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>{hoje} cliente(s)</div>
+        <div style={{ width: 56, height: altHoje, background: "#7c3aed", borderRadius: "6px 6px 0 0", minHeight: 4 }} />
+        <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600 }}>Hoje</div>
+      </div>
+    </div>
+  );
+}
+
+function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; valor: number; cor: string }[]; tamanho?: number }) {
+  const total = dados.reduce((s, d) => s + d.valor, 0);
+  if (total === 0) return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: 20 }}>Sem atendimentos</div>;
+  const cx = tamanho / 2, cy = tamanho / 2, r = tamanho / 2 - 8;
+  let angulo = -Math.PI / 2;
+  const fatias = dados.filter(d => d.valor > 0).map(d => {
+    const pct = d.valor / total;
+    const inicio = angulo;
+    angulo += pct * 2 * Math.PI;
+    return { ...d, pct, inicio, fim: angulo };
+  });
+  return (
+    <svg width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`}>
+      {fatias.map((f, i) => {
+        const x1 = cx + r * Math.cos(f.inicio), y1 = cy + r * Math.sin(f.inicio);
+        const x2 = cx + r * Math.cos(f.fim),   y2 = cy + r * Math.sin(f.fim);
+        const grande = f.pct > 0.5 ? 1 : 0;
+        return <path key={i} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${grande} 1 ${x2} ${y2} Z`} fill={f.cor} stroke="#fff" strokeWidth={2} />;
+      })}
+    </svg>
+  );
+}
+
+function DashboardAba({ hoje, ontem, mes, clientesHoje, clientesOntem, clientesMes, carregando, onAtualizar }: {
   hoje: { total: number; tipo_pagamento: string }[];
   ontem: { total: number; tipo_pagamento: string }[];
   mes: { total: number; tipo_pagamento: string }[];
+  clientesHoje: number;
+  clientesOntem: number;
+  clientesMes: number;
   carregando: boolean; onAtualizar: () => void;
 }) {
   function totaisPorPgto(lista: { total: number; tipo_pagamento: string }[]) {
@@ -339,6 +386,78 @@ function DashboardAba({ hoje, ontem, mes, carregando, onAtualizar }: {
           <div style={{ textAlign: "center", fontSize: 13, color: "#475569" }}>
             Total: <strong>R$ {somaMes.toFixed(2).replace(".", ",")}</strong> · {qtdMes} venda(s)
           </div>
+        </div>
+
+      </div>
+
+      {/* Cards de resumo — clientes */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginTop: 8 }}>
+        {[
+          { label: "Clientes Hoje", valor: clientesHoje, cor: "#7c3aed" },
+          { label: "Clientes Ontem", valor: clientesOntem, cor: "#64748b" },
+          { label: "Clientes no Mês", valor: clientesMes, cor: "#0891b2" },
+        ].map((c) => (
+          <div key={c.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: `4px solid ${c.cor}` }}>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.cor }}>{c.valor} atend.</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 3 gráficos de clientes */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+
+        {/* Clientes hoje — pizza por hora do dia */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Clientes Atendidos Hoje</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Atendimentos no dia</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "8px 0" }}>
+            <div style={{ fontSize: 48, fontWeight: 900, color: "#7c3aed" }}>{clientesHoje}</div>
+            <div style={{ fontSize: 13, color: "#64748b" }}>atendimentos hoje</div>
+          </div>
+          <PizzaChartClientes dados={[
+            { label: "Hoje", valor: clientesHoje, cor: "#7c3aed" },
+            { label: "Restante do mês", valor: Math.max(0, clientesMes - clientesHoje), cor: "#e2e8f0" },
+          ]} tamanho={160} />
+          <div style={{ textAlign: "center", fontSize: 12, color: "#64748b" }}>
+            {clientesMes > 0 ? `${((clientesHoje / clientesMes) * 100).toFixed(1)}% do total do mês` : ""}
+          </div>
+        </div>
+
+        {/* Hoje vs Ontem — clientes */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Clientes: Hoje vs Ontem</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Comparação de atendimentos</div>
+          <GraficoBarrasClientes hoje={clientesHoje} ontem={clientesOntem} />
+          {clientesOntem > 0 && (
+            <div style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: clientesHoje >= clientesOntem ? "#7c3aed" : "#ea580c" }}>
+              {clientesHoje >= clientesOntem
+                ? `▲ +${clientesHoje - clientesOntem} acima de ontem`
+                : `▼ -${clientesOntem - clientesHoje} abaixo de ontem`}
+            </div>
+          )}
+        </div>
+
+        {/* Acumulado do mês — clientes */}
+        <div style={cardDash}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Clientes Acumulados no Mês</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Total de atendimentos</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "8px 0" }}>
+            <div style={{ fontSize: 48, fontWeight: 900, color: "#0891b2" }}>{clientesMes}</div>
+            <div style={{ fontSize: 13, color: "#64748b" }}>atendimentos no mês</div>
+          </div>
+          {clientesMes > 0 && clientesHoje > 0 && (() => {
+            const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const diaAtual = agoraSP.getDate();
+            const diasNoMes = new Date(agoraSP.getFullYear(), agoraSP.getMonth() + 1, 0).getDate();
+            const mediaDiaria = Math.round(clientesMes / diaAtual);
+            const projecao = mediaDiaria * diasNoMes;
+            return (
+              <div style={{ textAlign: "center", fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                Média: <strong>{mediaDiaria}/dia</strong> · Projeção: <strong>{projecao}</strong>
+              </div>
+            );
+          })()}
         </div>
 
       </div>
@@ -674,6 +793,9 @@ export default function AdmPage() {
   const [dashHoje,  setDashHoje]  = useState<DashVenda[]>([]);
   const [dashOntem, setDashOntem] = useState<DashVenda[]>([]);
   const [dashMes,   setDashMes]   = useState<DashVenda[]>([]);
+  const [dashClientesHoje,  setDashClientesHoje]  = useState(0);
+  const [dashClientesOntem, setDashClientesOntem] = useState(0);
+  const [dashClientesMes,   setDashClientesMes]   = useState(0);
   const [dashCarregando, setDashCarregando] = useState(false);
 
   const carregarDashboard = useCallback(async () => {
@@ -700,15 +822,24 @@ export default function AdmPage() {
     // Início do mês em UTC
     const inicioMes = new Date(`${ano}-${String(mes).padStart(2,"0")}-01T03:00:00.000Z`).toISOString();
 
-    const [{ data: dHoje }, { data: dOntem }, { data: dMes }] = await Promise.all([
+    const [
+      { data: dHoje }, { data: dOntem }, { data: dMes },
+      { count: cHoje }, { count: cOntem }, { count: cMes },
+    ] = await Promise.all([
       db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(5000),
       db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(5000),
       db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(5000),
+      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioHoje).lt("created_at", fimHoje),
+      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioOnt).lt("created_at", fimOnt),
+      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioMes).lt("created_at", fimHoje),
     ]);
 
     setDashHoje ((dHoje  || []) as DashVenda[]);
     setDashOntem((dOntem || []) as DashVenda[]);
     setDashMes  ((dMes   || []) as DashVenda[]);
+    setDashClientesHoje (cHoje  ?? 0);
+    setDashClientesOntem(cOntem ?? 0);
+    setDashClientesMes  (cMes   ?? 0);
     setDashCarregando(false);
   }, []);
 
@@ -2309,7 +2440,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
       )}
 
       {aba === "dashboard" && (
-        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
+        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} clientesHoje={dashClientesHoje} clientesOntem={dashClientesOntem} clientesMes={dashClientesMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
       )}
 
       {/* ── Aba NFC-e ── */}
