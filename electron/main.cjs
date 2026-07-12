@@ -368,14 +368,21 @@ async function verificarAtualizacao() {
 
     log(`[update] Verificando ${url} (versao atual: ${app.getVersion()}, empresa: ${empresaId || "desconhecida"})`);
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       signal: AbortSignal.timeout(12000),
       headers: { "Cache-Control": "no-cache" },
     });
 
     if (!res.ok) {
-      log(`[update] HTTP ${res.status} — abortando`);
-      return;
+      log(`[update] HTTP ${res.status} na API — tentando version.json direto`);
+      res = await fetch("https://umbrela-gestao.vercel.app/version.json", {
+        signal: AbortSignal.timeout(12000),
+        headers: { "Cache-Control": "no-cache" },
+      });
+      if (!res.ok) {
+        log(`[update] HTTP ${res.status} no version.json — abortando`);
+        return;
+      }
     }
 
     const remoto      = await res.json();
