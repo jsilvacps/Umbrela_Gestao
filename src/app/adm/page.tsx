@@ -610,17 +610,17 @@ export default function AdmPage() {
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
       db("vendas").select("id, total, tipo_pagamento, created_at")
         .gte("created_at", dtIni).lte("created_at", dtFim)
-        .order("created_at", { ascending: false }).limit(500),
+        .order("created_at", { ascending: false }).limit(2000),
       db("itens_cancelados").select("*")
         .gte("created_at", dtIni).lte("created_at", dtFim)
-        .order("created_at", { ascending: false }).limit(500),
+        .order("created_at", { ascending: false }).limit(2000),
       db("cupons_cancelados").select("*")
         .gte("created_at", dtIni).lte("created_at", dtFim)
-        .order("created_at", { ascending: false }).limit(500),
+        .order("created_at", { ascending: false }).limit(2000),
       db("vendas").select("id, total, created_at, cliente_nome, cliente_cpf")
         .eq("tipo_pagamento", "Fiado")
         .gte("created_at", dtIni).lte("created_at", dtFim)
-        .order("created_at", { ascending: false }).limit(500),
+        .order("created_at", { ascending: false }).limit(2000),
     ]);
     setVendas((vendasData || []) as Venda[]);
     setItensCancelados((itensData || []) as Cancelado[]);
