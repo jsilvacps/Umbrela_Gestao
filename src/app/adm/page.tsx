@@ -276,10 +276,11 @@ function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; 
   );
 }
 
-function DashboardAba({ hoje, ontem, mes, clientesHoje, clientesOntem, clientesMes, carregando, onAtualizar }: {
+function DashboardAba({ hoje, ontem, mes, somaHoje, somaOntem, somaMes, clientesHoje, clientesOntem, clientesMes, carregando, onAtualizar }: {
   hoje: { total: number; tipo_pagamento: string }[];
   ontem: { total: number; tipo_pagamento: string }[];
   mes: { total: number; tipo_pagamento: string }[];
+  somaHoje: number; somaOntem: number; somaMes: number;
   clientesHoje: number;
   clientesOntem: number;
   clientesMes: number;
@@ -297,12 +298,9 @@ function DashboardAba({ hoje, ontem, mes, clientesHoje, clientesOntem, clientesM
   const totHoje  = totaisPorPgto(hoje);
   const totOntem = totaisPorPgto(ontem);
   const totMes   = totaisPorPgto(mes);
-
-  const somaHoje  = Object.values(totHoje).reduce((a, b) => a + b, 0);
-  const somaOntem = Object.values(totOntem).reduce((a, b) => a + b, 0);
-  const somaMes   = Object.values(totMes).reduce((a, b) => a + b, 0);
-  const qtdHoje   = hoje.length;
-  const qtdMes    = mes.length;
+  // somaHoje/somaOntem/somaMes vêm das props (RPC — sem limite de linhas)
+  const qtdHoje   = clientesHoje;
+  const qtdMes    = clientesMes;
 
   function dadosPizza(tots: Record<string, number>) {
     return Object.entries(PGTO_LABEL).map(([key, label]) => ({ label, valor: tots[key] || 0, cor: PGTO_CORES[key] }));
@@ -796,6 +794,9 @@ export default function AdmPage() {
   const [dashClientesHoje,  setDashClientesHoje]  = useState(0);
   const [dashClientesOntem, setDashClientesOntem] = useState(0);
   const [dashClientesMes,   setDashClientesMes]   = useState(0);
+  const [dashSomaHoje,  setDashSomaHoje]  = useState(0);
+  const [dashSomaOntem, setDashSomaOntem] = useState(0);
+  const [dashSomaMes,   setDashSomaMes]   = useState(0);
   const [dashCarregando, setDashCarregando] = useState(false);
 
   const carregarDashboard = useCallback(async () => {
@@ -822,24 +823,33 @@ export default function AdmPage() {
     // Início do mês em UTC
     const inicioMes = new Date(`${ano}-${String(mes).padStart(2,"0")}-01T03:00:00.000Z`).toISOString();
 
+    const eid = getEmpresaId();
     const [
       { data: dHoje }, { data: dOntem }, { data: dMes },
-      { count: cHoje }, { count: cOntem }, { count: cMes },
+      { data: somaHojeRpc }, { data: somaOntemRpc }, { data: somaMesRpc },
+      { data: contaHojeRpc }, { data: contaOntemRpc }, { data: contaMesRpc },
     ] = await Promise.all([
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(5000),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(5000),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(5000),
-      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioHoje).lt("created_at", fimHoje),
-      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioOnt).lt("created_at", fimOnt),
-      supabase.from("vendas").select("id", { count: "exact", head: true }).eq("empresa_id", getEmpresaId()).gte("created_at", inicioMes).lt("created_at", fimHoje),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(2000),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(2000),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(2000),
+      supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioHoje, dt_fim: fimHoje }),
+      supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioOnt,  dt_fim: fimOnt  }),
+      supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioMes,  dt_fim: fimHoje }),
+      supabase.rpc("conta_vendas_periodo", { eid, dt_ini: inicioHoje, dt_fim: fimHoje }),
+      supabase.rpc("conta_vendas_periodo", { eid, dt_ini: inicioOnt,  dt_fim: fimOnt  }),
+      supabase.rpc("conta_vendas_periodo", { eid, dt_ini: inicioMes,  dt_fim: fimHoje }),
     ]);
 
     setDashHoje ((dHoje  || []) as DashVenda[]);
     setDashOntem((dOntem || []) as DashVenda[]);
     setDashMes  ((dMes   || []) as DashVenda[]);
-    setDashClientesHoje (cHoje  ?? 0);
-    setDashClientesOntem(cOntem ?? 0);
-    setDashClientesMes  (cMes   ?? 0);
+    // Somas exatas via RPC (sem limite de linhas)
+    setDashSomaHoje (Number(somaHojeRpc  ?? 0));
+    setDashSomaOntem(Number(somaOntemRpc ?? 0));
+    setDashSomaMes  (Number(somaMesRpc   ?? 0));
+    setDashClientesHoje (Number(contaHojeRpc  ?? 0));
+    setDashClientesOntem(Number(contaOntemRpc ?? 0));
+    setDashClientesMes  (Number(contaMesRpc   ?? 0));
     setDashCarregando(false);
   }, []);
 
@@ -2440,7 +2450,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
       )}
 
       {aba === "dashboard" && (
-        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} clientesHoje={dashClientesHoje} clientesOntem={dashClientesOntem} clientesMes={dashClientesMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
+        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} somaHoje={dashSomaHoje} somaOntem={dashSomaOntem} somaMes={dashSomaMes} clientesHoje={dashClientesHoje} clientesOntem={dashClientesOntem} clientesMes={dashClientesMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
       )}
 
       {/* ── Aba NFC-e ── */}
