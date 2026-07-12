@@ -701,9 +701,9 @@ export default function AdmPage() {
     const inicioMes = new Date(`${ano}-${String(mes).padStart(2,"0")}-01T03:00:00.000Z`).toISOString();
 
     const [{ data: dHoje }, { data: dOntem }, { data: dMes }] = await Promise.all([
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(5000),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(5000),
+      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(5000),
     ]);
 
     setDashHoje ((dHoje  || []) as DashVenda[]);
