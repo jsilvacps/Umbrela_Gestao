@@ -627,18 +627,24 @@ export default function AdmPage() {
     setCuponsCancelados((cuponsData || []) as Cancelado[]);
     setVendasFiado(fiadoData || []);
 
-    // Ranking de itens mais vendidos
+    // Ranking de itens mais vendidos — busca em lotes de 200 para não estourar URL
     setCarregandoRanking(true);
     try {
       const ids: string[] = (vendasData || []).map((v: any) => v.id);
       if (ids.length > 0) {
-        const { data: itensVenda } = await (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", ids);
+        const LOTE = 200;
+        const lotes = Array.from({ length: Math.ceil(ids.length / LOTE) }, (_, i) => ids.slice(i * LOTE, (i + 1) * LOTE));
+        const resultados = await Promise.all(
+          lotes.map((lote) => (db("itens_venda").select("produto_nome, quantidade, preco") as any).in("venda_id", lote))
+        );
         const mapa: Record<string, { nome: string; totalQtd: number; totalReceita: number }> = {};
-        for (const item of (itensVenda || []) as any[]) {
-          const nome = item.produto_nome || "Sem nome";
-          if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
-          mapa[nome].totalQtd += Number(item.quantidade || 0);
-          mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+        for (const { data } of resultados) {
+          for (const item of (data || []) as any[]) {
+            const nome = item.produto_nome || "Sem nome";
+            if (!mapa[nome]) mapa[nome] = { nome, totalQtd: 0, totalReceita: 0 };
+            mapa[nome].totalQtd += Number(item.quantidade || 0);
+            mapa[nome].totalReceita += Number(item.quantidade || 0) * Number(item.preco || 0);
+          }
         }
         setRankingMaisVendidos(Object.values(mapa).sort((a, b) => b.totalQtd - a.totalQtd));
       } else {
