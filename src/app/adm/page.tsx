@@ -332,15 +332,23 @@ function DashboardAba({ hoje, ontem, mes, somaHoje, somaOntem, somaMes, clientes
       {/* Cards de resumo */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
         {[
-          { label: "Hoje", valor: somaHoje, cor: "#16a34a" },
-          { label: "Ontem", valor: somaOntem, cor: "#64748b" },
-          { label: "Mês", valor: somaMes, cor: "#2563eb" },
-        ].map((c) => (
-          <div key={c.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: `4px solid ${c.cor}` }}>
-            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: c.cor }}>R$ {c.valor.toFixed(2).replace(".", ",")}</div>
-          </div>
-        ))}
+          { label: "Hoje", valor: somaHoje, qtd: clientesHoje, cor: "#16a34a" },
+          { label: "Ontem", valor: somaOntem, qtd: clientesOntem, cor: "#64748b" },
+          { label: "Mês", valor: somaMes, qtd: clientesMes, cor: "#2563eb" },
+        ].map((c) => {
+          const ticket = c.qtd > 0 ? c.valor / c.qtd : 0;
+          return (
+            <div key={c.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: `4px solid ${c.cor}` }}>
+              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: c.cor }}>R$ {c.valor.toFixed(2).replace(".", ",")}</div>
+              {ticket > 0 && (
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                  Ticket médio: <strong>R$ {ticket.toFixed(2).replace(".", ",")}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 3 gráficos */}
