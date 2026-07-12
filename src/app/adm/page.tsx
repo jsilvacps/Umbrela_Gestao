@@ -1667,9 +1667,17 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
 
             {subAbaRel === "geral" && (() => {
               const geralPag = vendasFiltradas.slice((paginaGeral - 1) * POR_PAGINA, paginaGeral * POR_PAGINA);
+              const totalVendas = vendasFiltradas.reduce((s, v) => s + Number(v.total || 0), 0);
               return (
               <>
-              <div style={{ ...title, fontSize: 20, marginTop: 18 }}>Relatório de vendas</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 18, flexWrap: "wrap" }}>
+                <div style={{ ...title, fontSize: 20, margin: 0 }}>Relatório de vendas</div>
+                {vendasFiltradas.length > 0 && (
+                  <div style={{ background: "#1a7b39", color: "#fff", borderRadius: 8, padding: "4px 14px", fontWeight: 800, fontSize: 16 }}>
+                    Total: {moeda(totalVendas)}
+                  </div>
+                )}
+              </div>
               <div style={{ overflowX: "auto" }}>
               <div style={{ ...tableWrap, minWidth: 520 }}>
                 <div style={theadVendas}>
