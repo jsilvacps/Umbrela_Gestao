@@ -733,7 +733,7 @@ export default function AdmPage() {
     const dtIni = spToUtc(inicio, horaInicio || "00:00", "00");
     const dtFim = spToUtc(fim, horaFim || "23:59", "59");
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
-      db("vendas").select("id, total, tipo_pagamento, created_at")
+      db("vendas").select("id, total, tipo_pagamento, created_at, desconto, troco, valor_recebido, operador, cliente_cpf")
         .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(2000),
       db("itens_cancelados").select("*")
@@ -1280,6 +1280,99 @@ export default function AdmPage() {
 
   function removerDaFila(id: string) {
     setFilaEtiquetas(prev => prev.filter(i => i.produto.id !== id));
+  }
+
+  async function reimprimirCupomAdm(v: Venda) {
+    const largura = empresa.cupom_largura ?? 80;
+    const pt  = largura === 58 ? "8pt" : "9pt";
+    const ptG = largura === 58 ? "11pt" : "13pt";
+    const interno = `${largura - 8}mm`;
+
+    const { data: itensDB } = await db("itens_venda")
+      .select("produto_nome, quantidade, preco")
+      .eq("venda_id", v.id);
+
+    const itens = (itensDB || []).map((r: any) => ({
+      nome: r.produto_nome || "Produto",
+      quantidade: Number(r.quantidade),
+      precoUnitario: Number(r.preco),
+    }));
+
+    const totalGeral = itens.length > 0
+      ? itens.reduce((s: number, i: any) => s + i.quantidade * i.precoUnitario, 0)
+      : Number(v.total || 0) + Number((v as any).desconto || 0);
+
+    const dtVenda = new Date(!v.created_at.endsWith("Z") && !v.created_at.includes("+") ? v.created_at + "Z" : v.created_at);
+    const dataHora = dtVenda.toLocaleDateString("pt-BR") + "  " +
+      dtVenda.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+
+    const cpfRaw = (v as any).cliente_cpf || "";
+    const cpfFmt = cpfRaw ? String(cpfRaw).replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : "";
+    const descontoVal = Number((v as any).desconto || 0);
+    const totalFinal = Number(v.total || 0);
+    const troco = Number((v as any).troco || 0);
+    const valorRecebido = Number((v as any).valor_recebido || v.total || 0);
+    const operadorNome = (v as any).operador || "—";
+    const tipoPgto = v.tipo_pagamento || "—";
+
+    const cab = (empresa.cupom_cabecalho || empresa.nome_fantasia || "")
+      .split("\n").map((l: string) => `<div class="c">${l}</div>`).join("");
+    const rod = (empresa.cupom_rodape || "")
+      .split("\n").map((l: string) => `<div class="c">${l}</div>`).join("");
+
+    const itensHtml = itens.length === 0
+      ? `<tr><td colspan="4" style="text-align:center;color:#888;font-style:italic">Itens não registrados</td></tr>`
+      : itens.map((i: any) => {
+          const qtd = i.quantidade % 1 === 0 ? String(i.quantidade) : i.quantidade.toFixed(3);
+          return `<tr>
+            <td class="nome">${i.nome}</td>
+            <td class="r">${qtd}</td>
+            <td class="r">${moeda(i.precoUnitario)}</td>
+            <td class="r b">${moeda(i.quantidade * i.precoUnitario)}</td>
+          </tr>`;
+        }).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  @page { size: ${largura}mm auto; margin: 4mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: ${interno}; font-family: 'Courier New', Courier, monospace; font-size: ${pt}; color: #000; line-height: 1.6; }
+  .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+  hr { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 1px 2px; vertical-align: top; }
+  .nome { width: 45%; word-break: break-word; }
+  .tot { display: flex; justify-content: space-between; padding: 1px 0; }
+  .tot-grande { font-size: ${ptG}; font-weight: bold; }
+</style></head><body>
+${cab}<hr>
+<div class="c b">CUPOM NÃO FISCAL</div>
+<div class="c b" style="font-size:${ptG}">&gt;&gt; REIMPRESSÃO &lt;&lt;</div>
+<div class="c">${dataHora}</div>
+<div>Operador: ${operadorNome}</div>
+${cpfFmt ? `<div>CPF: ${cpfFmt}</div>` : ""}
+<hr>
+<table><thead><tr><td class="nome b">ITEM</td><td class="r b">QTD</td><td class="r b">UNIT</td><td class="r b">TOTAL</td></tr></thead>
+<tbody>${itensHtml}</tbody></table><hr>
+${descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moeda(totalGeral)}</span></div><div class="tot"><span>Desconto</span><span>- ${moeda(descontoVal)}</span></div>` : ""}
+<div class="tot tot-grande"><span>TOTAL</span><span>${moeda(totalFinal)}</span></div><hr>
+<div class="tot"><span>Pagamento</span><span>${tipoPgto}</span></div>
+${tipoPgto === "Dinheiro" ? `<div class="tot"><span>Recebido</span><span>${moeda(valorRecebido)}</span></div><div class="tot b"><span>Troco</span><span>${moeda(troco)}</span></div>` : ""}
+<hr>${rod}<hr>
+<div class="c" style="font-size:7pt">Sistema Umbrela Gestão</div><br>
+</body></html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+    document.body.appendChild(iframe);
+    const doc2 = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc2) return;
+    doc2.open(); doc2.write(html); doc2.close();
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 3000);
+    }, 400);
   }
 
   function ajustarQtd(id: string, delta: number) {
@@ -1834,6 +1927,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   <div>Data/Hora</div>
                   <div>Pagamento</div>
                   <div>Total</div>
+                  <div></div>
                 </div>
                 {vendasFiltradas.length === 0 ? (
                   <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
@@ -1843,6 +1937,13 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                     <div>{fmtSP(v.created_at)}</div>
                     <div>{v.tipo_pagamento || "-"}</div>
                     <div>{moeda(v.total)}</div>
+                    <div>
+                      <button
+                        onClick={() => reimprimirCupomAdm(v)}
+                        title="Reimprimir cupom"
+                        style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #1a7b39", background: "#edfdf0", color: "#1a7b39", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}
+                      >🖨️ Reimpr.</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2859,7 +2960,7 @@ const trowOps: React.CSSProperties = {
 
 const theadVendas: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.6fr 1fr 1fr",
+  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 90px",
   gap: 14,
   padding: "14px 12px",
   color: "#25354b",
@@ -2869,7 +2970,7 @@ const theadVendas: React.CSSProperties = {
 
 const trowVendas: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.6fr 1fr 1fr",
+  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 90px",
   gap: 14,
   padding: "14px 12px",
   alignItems: "center",
