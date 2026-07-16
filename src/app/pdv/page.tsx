@@ -1246,7 +1246,7 @@ export default function PDVPage() {
   async function reimprimirCupomDoBanco(venda: any) {
     // Busca itens da venda no banco
     const { data: itensDB } = await db("itens_venda")
-      .select("produto_nome, quantidade, preco")
+      .select("produto_nome, quantidade, preco, numero_cupom")
       .eq("venda_id", venda.id);
 
     const itens: { nome: string; quantidade: number; precoUnitario: number }[] =
@@ -1273,7 +1273,7 @@ export default function PDVPage() {
       itens,
       totalGeral,
       descontoVal:     Number(venda.desconto || 0),
-      descontoAVista:  0, // reimpressão não recalcula desconto à vista
+      descontoAVista:  0,
       totalFinal:      Number(venda.total || 0),
       tipoPagamento:   venda.tipo_pagamento || "—",
       valorRecebidoVal: Number(venda.valor_recebido || venda.total || 0),
@@ -1283,6 +1283,7 @@ export default function PDVPage() {
       cpf:             cpfFormatado,
       dataHora,
       reimpressao:     true,
+      numeroCupom:     venda.numero_cupom ?? null,
     });
   }
 
@@ -1359,6 +1360,7 @@ export default function PDVPage() {
     nomeOperador: string; clienteLabel: string; cpf: string;
     dataHora?: string; // opcional – se não passado usa "agora"
     reimpressao?: boolean;
+    numeroCupom?: number | null;
   }) {
     const mm  = cupomCfg.largura;                    // 58 ou 80
     const pt  = mm === 58 ? "8pt" : "9pt";           // tamanho de fonte
@@ -1430,6 +1432,7 @@ export default function PDVPage() {
 ${cab}
 <hr>
 <div class="c b">CUPOM NÃO FISCAL</div>
+${dados.numeroCupom ? `<div class="c" style="font-size:${pt}">Cupom Nº ${String(dados.numeroCupom).padStart(6, "0")}</div>` : ""}
 ${dados.reimpressao ? `<div class="c b" style="font-size:${ptG}">&gt;&gt; REIMPRESSÃO &lt;&lt;</div>` : ""}
 <div class="c">${dtStr}</div>
 <div>Operador: ${dados.nomeOperador}</div>
@@ -1824,10 +1827,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
       // ── Tenta gravar online ──────────────────────────────────────────────
       let gravouOnline = false;
+      let vendaDataOnline: any = null;
       try {
         const { data: vendaData, error } = await db("vendas").insert([vendaPayload]).select().single();
 
         if (!error && vendaData?.id) {
+          vendaDataOnline = vendaData;
           // Venda gravada — marca online ANTES de operações secundárias para evitar duplicata no offline
           gravouOnline = true;
           // Itens
@@ -1912,6 +1917,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
         valorRecebidoVal: ehDinheiro ? valorRecebidoVal : totalFinal,
         troco: ehDinheiro ? troco : 0,
         nomeOperador, clienteLabel, cpf,
+        numeroCupom: gravouOnline ? vendaDataOnline?.numero_cupom : null,
       });
       // Cupom adicional de fiado com campo de assinatura
       if (tipoPagamento === "fiado" && clienteFiado) {

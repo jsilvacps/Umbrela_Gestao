@@ -733,7 +733,7 @@ export default function AdmPage() {
     const dtIni = spToUtc(inicio, horaInicio || "00:00", "00");
     const dtFim = spToUtc(fim, horaFim || "23:59", "59");
     const [{ data: vendasData }, { data: itensData }, { data: cuponsData }, { data: fiadoData }] = await Promise.all([
-      db("vendas").select("id, total, tipo_pagamento, created_at, desconto, troco, valor_recebido, operador, cliente_cpf")
+      db("vendas").select("id, numero_cupom, total, tipo_pagamento, created_at, desconto, troco, valor_recebido, operador, cliente_cpf")
         .gte("created_at", dtIni).lte("created_at", dtFim)
         .order("created_at", { ascending: false }).limit(2000),
       db("itens_cancelados").select("*")
@@ -1347,6 +1347,7 @@ export default function AdmPage() {
 </style></head><body>
 ${cab}<hr>
 <div class="c b">CUPOM NÃO FISCAL</div>
+${(v as any).numero_cupom ? `<div class="c" style="font-size:${pt}">Cupom Nº ${String((v as any).numero_cupom).padStart(6, "0")}</div>` : ""}
 <div class="c b" style="font-size:${ptG}">&gt;&gt; REIMPRESSÃO &lt;&lt;</div>
 <div class="c">${dataHora}</div>
 <div>Operador: ${operadorNome}</div>
@@ -1933,7 +1934,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
                   <div style={{ padding: 16, color: "#66758a" }}>Nenhuma venda encontrada.</div>
                 ) : geralPag.map((v) => (
                   <div key={v.id} style={trowVendas}>
-                    <div>{String(v.id).slice(0, 8)}</div>
+                    <div>{(v as any).numero_cupom ? String((v as any).numero_cupom).padStart(6, "0") : String(v.id).slice(0, 8)}</div>
                     <div>{fmtSP(v.created_at)}</div>
                     <div>{v.tipo_pagamento || "-"}</div>
                     <div>{moeda(v.total)}</div>
