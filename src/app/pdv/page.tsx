@@ -1804,11 +1804,20 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
       const ehDinheiroOuPixFinal = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
       const itensSalvos = carrinho.map((item) => {
+        const prodAtual = todosProdutos.find(p => p.id === item.produto.id) ?? item.produto;
+        let precoFinal = item.precoUnitario;
+        if (feat("preco_cartao_auto")) {
+          const precoC = prodAtual.preco_cartao ?? prodAtual.preco ?? 0;
+          const precoD = prodAtual.preco ?? precoC;
+          // Só aplica preço automático se o operador não editou manualmente
+          const naoEditou = Math.abs(item.precoUnitario - precoC) < 0.005 || Math.abs(item.precoUnitario - precoD) < 0.005;
+          if (naoEditou) precoFinal = ehDinheiroOuPixFinal ? precoD : precoC;
+        }
         return {
           produto_id:   item.produto.id,
           produto_nome: item.produto.nome,
           quantidade:   item.quantidade,
-          preco:        item.precoUnitario,
+          preco:        precoFinal,
         };
       });
 
