@@ -654,6 +654,80 @@ export default function PDVPage() {
     return () => clearInterval(timer);
   }, []);
 
+  /* ── Detector global de leitor de código de barras ──
+     Leitores enviam dígitos muito rápido (< 50 ms entre teclas) seguido de Enter.
+     Capturamos esses caracteres em um buffer independente do foco atual e lançamos
+     o produto automaticamente com quantidade 1. ── */
+  const barcodeBufferRef = useRef("");
+  const barcodeLastKeyRef = useRef(0);
+  useEffect(() => {
+    function onBarcodeKey(e: KeyboardEvent) {
+      // Ignora teclas especiais e modificadores
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      // Ignora se modal finalizar estiver aberto (não queremos interferir)
+      if (e.key === "Enter") {
+        const buf = barcodeBufferRef.current;
+        barcodeBufferRef.current = "";
+        // Só processa se tiver pelo menos 3 chars e veio rápido (leitor de barras)
+        const agora = Date.now();
+        const intervalo = agora - barcodeLastKeyRef.current;
+        if (buf.length >= 3 && intervalo < 100) {
+          // Verifica se o foco está fora do campo de busca (se estiver no campo de busca, o fluxo normal cuida)
+          const ativo = document.activeElement;
+          const ehCampoBusca = ativo === refCodigo.current;
+          if (!ehCampoBusca) {
+            e.preventDefault();
+            e.stopPropagation();
+            // Lança busca: coloca no campo, quantidade 1, e aciona adicionarItem
+            setQuantidade("1");
+            setCodigoBusca(buf);
+            setProdutoSelecionado(null);
+            setPrecoUnitario("");
+            // Aguarda o estado atualizar e então dispara a busca
+            setTimeout(async () => {
+              const { data } = await (db("produtos") as any)
+                .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
+                .or(`codigo.eq.${buf},ean.eq.${buf}`)
+                .limit(1)
+                .maybeSingle();
+              if (!data) {
+                setMensagem(`Produto "${buf}" não encontrado.`);
+                setTimeout(() => setMensagem(""), 3000);
+                setCodigoBusca("");
+                refQtd.current?.focus();
+                return;
+              }
+              const produto = data as Produto;
+              const precoPadrao = feat("preco_cartao_auto")
+                ? (produto.preco_cartao ?? produto.preco ?? 0)
+                : (produto.preco ?? 0);
+              setPrecoUnitario(String(precoPadrao.toFixed(2)).replace(".", ","));
+              setCodigoBusca(produto.nome);
+              setProdutoSelecionado(produto);
+              confirmarLancamento(produto);
+            }, 0);
+          }
+        }
+        barcodeLastKeyRef.current = 0;
+        return;
+      }
+      // Acumula caractere no buffer se for printável e vier rápido
+      if (e.key.length === 1) {
+        const agora = Date.now();
+        const intervalo = agora - barcodeLastKeyRef.current;
+        // Se demorou mais de 80ms desde a última tecla, reinicia o buffer
+        if (barcodeLastKeyRef.current > 0 && intervalo > 80) {
+          barcodeBufferRef.current = "";
+        }
+        barcodeBufferRef.current += e.key;
+        barcodeLastKeyRef.current = agora;
+      }
+    }
+    window.addEventListener("keydown", onBarcodeKey, true);
+    return () => window.removeEventListener("keydown", onBarcodeKey, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ── Teclado global ── */
   const teclasHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   teclasHandlerRef.current = (e: KeyboardEvent) => {
