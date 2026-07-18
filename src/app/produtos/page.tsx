@@ -689,7 +689,7 @@ export default function ProdutosPage() {
 
   const [buscaLista, setBuscaLista] = useState("");
   const [editandoInline, setEditandoInline] = useState<{
-    id: string; nome: string; custo: string; preco: string; preco_cartao: string; estoque: string;
+    id: string; nome: string; custo: string; preco: string; preco_cartao: string; preco_fiado: string; estoque: string;
   } | null>(null);
   const [salvandoInline, setSalvandoInline] = useState(false);
 
@@ -711,6 +711,7 @@ export default function ProdutosPage() {
       custo: formatarDinheiroInput(String(Math.round(Number(produto.custo || 0) * 100))),
       preco: formatarDinheiroInput(String(Math.round(Number(produto.preco || 0) * 100))),
       preco_cartao: formatarDinheiroInput(String(Math.round(Number(produto.preco_cartao || 0) * 100))),
+      preco_fiado: formatarDinheiroInput(String(Math.round(Number(produto.preco_fiado || 0) * 100))),
       estoque: String(produto.estoque ?? 0),
     });
   }
@@ -723,6 +724,7 @@ export default function ProdutosPage() {
       custo: parseBRL(editandoInline.custo),
       preco: parseBRL(editandoInline.preco),
       preco_cartao: parseBRL(editandoInline.preco_cartao),
+      preco_fiado: parseBRL(editandoInline.preco_fiado) || null,
       estoque: Math.max(0, parseInt(editandoInline.estoque) || 0),
     }) as any).eq("id", editandoInline.id);
     setSalvandoInline(false);
@@ -997,6 +999,15 @@ export default function ProdutosPage() {
                                 onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
                             ) : <div style={cardVal}>{moeda(produto.preco_cartao)}</div>}
                           </div>
+                          {temPrecoFiado && (
+                            <div>
+                              <span style={cardLabel}>Fiado</span>
+                              {inline ? (
+                                <input style={inputInline} value={editandoInline!.preco_fiado} inputMode="numeric"
+                                  onChange={(e) => setEditandoInline({ ...editandoInline!, preco_fiado: formatarDinheiroInput(e.target.value) })} />
+                              ) : <div style={cardVal}>{moeda(produto.preco_fiado)}</div>}
+                            </div>
+                          )}
                         </div>
 
                         {/* Botões */}
@@ -1080,6 +1091,14 @@ export default function ProdutosPage() {
                               onChange={(e) => setEditandoInline({ ...editandoInline!, preco_cartao: formatarDinheiroInput(e.target.value) })} />
                           ) : moeda(produto.preco_cartao)}
                         </div>
+                        {temPrecoFiado && (
+                          <div>
+                            {inline ? (
+                              <input style={inputInline} value={editandoInline!.preco_fiado} inputMode="numeric"
+                                onChange={(e) => setEditandoInline({ ...editandoInline!, preco_fiado: formatarDinheiroInput(e.target.value) })} />
+                            ) : moeda(produto.preco_fiado)}
+                          </div>
+                        )}
                         <div>
                           {inline ? (
                             <input style={{ ...inputInline, width: 64 }} value={editandoInline!.estoque} type="number" min={0} inputMode="numeric"
