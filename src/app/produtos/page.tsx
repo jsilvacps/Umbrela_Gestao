@@ -1036,13 +1036,14 @@ export default function ProdutosPage() {
                 )}
             </div> : <div style={{ overflowX: "auto" }}>
               <div style={{ ...tableWrap, minWidth: 680 }}>
-                <div style={thead}>
+                <div style={{ ...thead, gridTemplateColumns: gridCols(temPrecoFiado) }}>
                   <div>Produto</div>
                   <div>Cód. interno</div>
                   <div>EAN</div>
                   <div>Custo</div>
                   <div>Dinheiro</div>
                   <div>Cartão</div>
+                  {temPrecoFiado && <div>Fiado</div>}
                   <div>Estoque</div>
                   <div>Ações</div>
                 </div>
@@ -1055,7 +1056,7 @@ export default function ProdutosPage() {
                   produtosFiltrados.map((produto) => {
                     const inline = editandoInline?.id === produto.id;
                     return (
-                      <div key={produto.id} style={{ ...trow, background: inline ? "#f0fdf4" : undefined, border: inline ? "2px solid #86efac" : undefined }}>
+                      <div key={produto.id} style={{ ...trow, gridTemplateColumns: gridCols(temPrecoFiado), background: inline ? "#f0fdf4" : undefined, border: inline ? "2px solid #86efac" : undefined }}>
                         <div>
                           {inline ? (
                             <input
@@ -1417,9 +1418,14 @@ const tableWrap: React.CSSProperties = {
   borderTop: "1px solid #edf1f5",
 };
 
-const thead: React.CSSProperties = {
+function gridCols(temFiado: boolean) {
+  return temFiado
+    ? "1.7fr .9fr 1.2fr .9fr .9fr .9fr .9fr .6fr 1fr"
+    : "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr 1fr";
+}
+
+const theadBase: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr 1fr",
   gap: 14,
   padding: "14px 12px",
   color: "#25354b",
@@ -1427,9 +1433,8 @@ const thead: React.CSSProperties = {
   fontSize: 15,
 };
 
-const trow: React.CSSProperties = {
+const trowBase: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.7fr .9fr 1.2fr .9fr .9fr .9fr .6fr 1fr",
   gap: 14,
   padding: "14px 12px",
   alignItems: "center",
@@ -1437,6 +1442,9 @@ const trow: React.CSSProperties = {
   color: "#1f2937",
   fontSize: 16,
 };
+
+const thead = theadBase;
+const trow  = trowBase;
 
 const editButton: React.CSSProperties = {
   border: "1px solid #bfd8ff",
