@@ -514,7 +514,7 @@ export default function MasterPage() {
 
         {/* Abas */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"], ["features", "🎛️ Features"], ["versoes", "🚀 Versões"]] as const).map(([id, label]) => (
+          {([["clientes", "👥 Clientes"], ["licencas", "🔑 Licenças"], ["features", "🎛️ Módulos"], ["versoes", "🚀 Versões"]] as const).map(([id, label]) => (
             <button key={id} onClick={() => setAba(id)} style={{
               padding: "9px 20px", borderRadius: 10, border: "1px solid",
               borderColor: aba === id ? "#6366f1" : "#1f2d3d",
