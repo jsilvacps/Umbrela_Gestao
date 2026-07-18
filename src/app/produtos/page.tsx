@@ -86,7 +86,8 @@ function limparTexto(v: string | null | undefined) {
 
 export default function ProdutosPage() {
   const isMobile = useIsMobile();
-  const temPrecoFiado = temFeature("preco_fiado_auto");
+  const [temPrecoFiado, setTemPrecoFiado] = useState(false);
+  useEffect(() => { setTemPrecoFiado(temFeature("preco_fiado_auto")); }, []);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [categorias, setCategorias] = useState<CategoriaProduto[]>([]);
   const [mensagem, setMensagem] = useState("");
