@@ -24,6 +24,7 @@ export interface LocalProduto {
   ean: string | null;
   preco: number | null;
   preco_cartao: number | null;
+  preco_fiado: number | null;
   unidade: string | null;
   estoque: number | null;
 }

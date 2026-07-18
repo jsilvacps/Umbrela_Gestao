@@ -21,7 +21,7 @@ export async function syncProdutosLocal(): Promise<boolean> {
   if (!localDB) return false;
   try {
     const { data, error } = await db("produtos")
-      .select("id, nome, codigo, ean, preco, preco_cartao, unidade, estoque");
+      .select("id, nome, codigo, ean, preco, preco_cartao, preco_fiado, unidade, estoque");
     if (error || !data) return false;
     await localDB.produtos.clear();
     await localDB.produtos.bulkPut(data as Parameters<typeof localDB.produtos.bulkPut>[0]);

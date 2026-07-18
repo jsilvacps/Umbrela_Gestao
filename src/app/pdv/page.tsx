@@ -24,6 +24,7 @@ type Produto = {
   ean: string | null;
   preco: number | null;
   preco_cartao: number | null;
+  preco_fiado: number | null;
   unidade: string | null;
 };
 
@@ -686,7 +687,7 @@ export default function PDVPage() {
             // Aguarda o estado atualizar e então dispara a busca
             setTimeout(async () => {
               const { data } = await (db("produtos") as any)
-                .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
+                .select("id, nome, codigo, ean, preco, preco_cartao, preco_fiado, unidade")
                 .or(`codigo.eq.${buf},ean.eq.${buf}`)
                 .limit(1)
                 .maybeSingle();
@@ -919,7 +920,7 @@ export default function PDVPage() {
     const termo = codigoBusca.trim();
     if (!termo) return null;
     const { data } = await db("produtos")
-      .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
+      .select("id, nome, codigo, ean, preco, preco_cartao, preco_fiado, unidade")
       .or(`codigo.eq.${termo},ean.eq.${termo}`)
       .limit(1)
       .maybeSingle();
@@ -937,7 +938,7 @@ export default function PDVPage() {
       // Cache local pode não ter preco_cartao — busca da API se necessário
       if (feat("preco_cartao_auto") && produto.preco_cartao == null) {
         const { data } = await db("produtos")
-          .select("id, nome, codigo, ean, preco, preco_cartao, unidade")
+          .select("id, nome, codigo, ean, preco, preco_cartao, preco_fiado, unidade")
           .eq("id", produto.id)
           .maybeSingle();
         if (data) produto = data as Produto;
@@ -1877,13 +1878,18 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       };
 
       const ehDinheiroOuPixFinal = tipoPagamento === "dinheiro" || tipoPagamento === "pix";
+      const ehFiadoFinal = tipoPagamento === "fiado";
       const itensSalvos = carrinho.map((item) => {
         const prodAtual = todosProdutos.find(p => p.id === item.produto.id) ?? item.produto;
         let precoFinal = item.precoUnitario;
-        if (feat("preco_cartao_auto")) {
+        // Preço fiado (feature opcional, desativada por padrão)
+        if (ehFiadoFinal && feat("preco_fiado_auto") && prodAtual.preco_fiado) {
+          const precoF = prodAtual.preco_fiado;
+          const naoEditou = Math.abs(item.precoUnitario - precoF) < 0.005 || Math.abs(item.precoUnitario - (prodAtual.preco ?? precoF)) < 0.005;
+          if (naoEditou) precoFinal = precoF;
+        } else if (feat("preco_cartao_auto")) {
           const precoC = prodAtual.preco_cartao ?? prodAtual.preco ?? 0;
           const precoD = prodAtual.preco ?? precoC;
-          // Só aplica preço automático se o operador não editou manualmente
           const naoEditou = Math.abs(item.precoUnitario - precoC) < 0.005 || Math.abs(item.precoUnitario - precoD) < 0.005;
           if (naoEditou) precoFinal = ehDinheiroOuPixFinal ? precoD : precoC;
         }

@@ -13,6 +13,7 @@ type Produto = {
   codigo: string | null;
   preco: number | null;
   preco_cartao: number | null;
+  preco_fiado: number | null;
   estoque: number | null;
   categoria?: string | null;
   custo?: number | null;
@@ -85,6 +86,7 @@ function limparTexto(v: string | null | undefined) {
 
 export default function ProdutosPage() {
   const isMobile = useIsMobile();
+  const temPrecoFiado = temFeature("preco_fiado_auto");
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [categorias, setCategorias] = useState<CategoriaProduto[]>([]);
   const [mensagem, setMensagem] = useState("");
@@ -116,6 +118,7 @@ export default function ProdutosPage() {
   const [precoDinheiro, setPrecoDinheiro] = useState("0,00");
   const [margemCartao, setMargemCartao] = useState("0,00");
   const [precoCartao, setPrecoCartao] = useState("0,00");
+  const [precoFiado, setPrecoFiado] = useState("0,00");
   const [estoqueForm, setEstoqueForm] = useState("0");
 
   /* ── Importar NF-e (XML) ── */
@@ -229,6 +232,7 @@ export default function ProdutosPage() {
       setPrecoCusto(formatarDinheiroInput(String(Math.round(Number(p.custo || 0) * 100))));
       setPrecoDinheiro(formatarDinheiroInput(String(Math.round(Number(p.preco || 0) * 100))));
       setPrecoCartao(formatarDinheiroInput(String(Math.round(Number(p.preco_cartao || 0) * 100))));
+      setPrecoFiado(formatarDinheiroInput(String(Math.round(Number(p.preco_fiado || 0) * 100))));
       setMargemDinheiro("0,00");
       setMargemCartao("0,00");
     }
@@ -239,7 +243,7 @@ export default function ProdutosPage() {
   const carregarDados = useCallback(async () => {
     const [{ data: produtosData }, { data: categoriasData }] = await Promise.all([
       db("produtos")
-        .select("id, nome, codigo, preco, preco_cartao, estoque, categoria, custo, unidade, ean")
+        .select("id, nome, codigo, preco, preco_cartao, preco_fiado, estoque, categoria, custo, unidade, ean")
         .order("nome", { ascending: true }),
       db("categorias_produto")
         .select("id, nome")
@@ -371,6 +375,7 @@ export default function ProdutosPage() {
     setPrecoDinheiro("0,00");
     setMargemCartao("0,00");
     setPrecoCartao("0,00");
+    setPrecoFiado("0,00");
     setEstoqueForm("0");
   }
 
@@ -384,6 +389,7 @@ export default function ProdutosPage() {
       codigo: codigoInterno.trim() || null,
       preco: parseBRL(precoDinheiro),
       preco_cartao: parseBRL(precoCartao),
+      preco_fiado: parseBRL(precoFiado) || null,
       estoque: Math.max(0, parseInt(estoqueForm) || 0),
       categoria: categoria.trim() || null,
       custo: parseBRL(precoCusto),
@@ -433,6 +439,7 @@ export default function ProdutosPage() {
     setPrecoCusto(formatarDinheiroInput(String(Math.round(Number(produto.custo || 0) * 100))));
     setPrecoDinheiro(formatarDinheiroInput(String(Math.round(Number(produto.preco || 0) * 100))));
     setPrecoCartao(formatarDinheiroInput(String(Math.round(Number(produto.preco_cartao || 0) * 100))));
+    setPrecoFiado(formatarDinheiroInput(String(Math.round(Number(produto.preco_fiado || 0) * 100))));
     setMargemDinheiro(formatPercent(calcularMargem(Number(produto.custo || 0), Number(produto.preco || 0))));
     setMargemCartao(formatPercent(calcularMargem(Number(produto.custo || 0), Number(produto.preco_cartao || 0))));
     setEstoqueForm(String(produto.estoque ?? 0));
@@ -859,6 +866,12 @@ export default function ProdutosPage() {
                 <Field label="Preço final - pagamento em cartão">
                   <input style={input} value={precoCartao} onChange={(e) => recalcularMargemPorPrecoCartao(e.target.value)} placeholder="0,00" inputMode="numeric" />
                 </Field>
+
+                {temPrecoFiado && (
+                  <Field label="Preço fiado (não aparece na etiqueta)">
+                    <input style={input} value={precoFiado} onChange={(e) => setPrecoFiado(formatarDinheiroInput(e.target.value))} placeholder="0,00" inputMode="numeric" />
+                  </Field>
+                )}
 
                 <Field label="Estoque atual (unidades)">
                   <input style={input} type="number" min={0} value={estoqueForm} onChange={(e) => setEstoqueForm(e.target.value)} inputMode="numeric" />
