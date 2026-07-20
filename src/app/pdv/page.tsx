@@ -174,7 +174,8 @@ export default function PDVPage() {
     const isMP    = cfg.provider === "mercadopago";
     const token   = isMP ? cfg.mp_token    : cfg.stone_token;
     const termId  = isMP ? cfg.mp_device_id : cfg.stone_terminal_id;
-    if (!token || !termId) return true;
+    if (!token) { setMpErro("Token da maquininha não configurado. Configure no ADM."); return false; }
+    if (!termId) { setMpErro("Terminal não selecionado. Vá ao ADM, clique em Buscar terminais, selecione o terminal e salve."); return false; }
 
     setMpAguardando(true); setMpErro("");
     try {
