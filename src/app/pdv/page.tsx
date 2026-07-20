@@ -157,6 +157,7 @@ export default function PDVPage() {
   const [mpAguardando, setMpAguardando]         = useState(false);
   const [mpErro, setMpErro]                     = useState("");
   const [mpPaymentIntentId, setMpPaymentIntentId] = useState<string | null>(null);
+  const [mpCobrancaManual, setMpCobrancaManual] = useState(false);
 
   function getMaqConfig() {
     // Tenta config unificada, fallback para mp_config legado
@@ -1855,13 +1856,14 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
     // Maquininha — envia cobrança antes de salvar venda
     const ehCartao = tipoPagamento === "cartao";
-    if ((feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
+    if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
       const cfg = getMaqConfig();
       if (cfg) {
         const aprovado = await enviarParaMaquininha(totalFinal);
         if (!aprovado) { finalizandoRef.current = false; return; }
       }
     }
+    setMpCobrancaManual(false);
 
     setFinalizando(true);
     try {
@@ -3172,12 +3174,21 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
             {mpErro && (
               <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b", fontWeight: 600, marginBottom: 10 }}>
-                ❌ {mpErro}
+                <div style={{ marginBottom: 8 }}>❌ {mpErro}</div>
+                {tipoPagamento === "cartao" && !mpCobrancaManual && (
+                  <button
+                    type="button"
+                    onClick={() => { setMpCobrancaManual(true); setMpErro(""); }}
+                    style={{ background: "#92400e", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Cobrar manualmente e registrar venda
+                  </button>
+                )}
               </div>
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <button type="button" onClick={() => setModalFinalizar(false)} style={btnCancelarModal}>Voltar (ESC)</button>
+              <button type="button" onClick={() => { setModalFinalizar(false); setMpErro(""); setMpCobrancaManual(false); }} style={btnCancelarModal}>Voltar (ESC)</button>
               <button type="button" onClick={confirmarVenda}
                 disabled={finalizando || emitindoNfce || mpAguardando || (tipoPagamento === "fiado" && !clienteFiado)}
                 style={{ ...btnConfirmarModal, background: "#15803d", fontSize: 15,
