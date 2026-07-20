@@ -28,6 +28,12 @@ export default async function handler(req: any, res: any) {
       const amount = Math.round(parseFloat(Number(total).toFixed(2)) * 100);
       const paymentType = subtipo === "credito" ? "credit_card" : subtipo === "alimentacao" ? "voucher_card" : "debit_card";
       const installments = paymentType === "credit_card" ? 1 : 1;
+      // Cancela cobrança pendente antes de criar nova
+      await fetch(
+        `https://api.mercadopago.com/point/integration-api/devices/${device_id}/payment-intents`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) }
+      ).catch(() => {});
+
       const r = await fetch(
         `https://api.mercadopago.com/point/integration-api/devices/${device_id}/payment-intents`,
         {
