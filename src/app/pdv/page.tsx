@@ -1850,7 +1850,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
     // Validação fiado
     if (tipoPagamento === "fiado") {
-      if (!clienteFiado) { setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
+      if (!clienteFiado) { finalizandoRef.current = false; setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
     }
 
     // Maquininha — envia cobrança antes de salvar venda
@@ -1859,7 +1859,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       const cfg = getMaqConfig();
       if (cfg) {
         const aprovado = await enviarParaMaquininha(totalFinal);
-        if (!aprovado) return;
+        if (!aprovado) { finalizandoRef.current = false; return; }
       }
     }
 
