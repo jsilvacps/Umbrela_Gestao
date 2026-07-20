@@ -1856,16 +1856,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       if (!clienteFiado) { finalizandoRef.current = false; setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
     }
 
-    // Maquininha — usa ref para evitar closure stale do onKey do modal
-    const ehCartao = tipoPagamentoRef.current === "cartao";
-    if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
-      const cfg = getMaqConfig();
-      if (cfg) {
-        const aprovado = await enviarParaMaquininha(totalFinal);
-        if (!aprovado) { finalizandoRef.current = false; return; }
-      }
-    }
-    setMpCobrancaManual(false);
+    // Maquininha desativada temporariamente
 
     setFinalizando(true);
     try {
