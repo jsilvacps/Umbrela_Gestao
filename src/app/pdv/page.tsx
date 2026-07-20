@@ -1855,7 +1855,16 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       if (!clienteFiado) { finalizandoRef.current = false; setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
     }
 
-    // Maquininha — temporariamente desabilitada (configurar fora do horário de movimento)
+    // Maquininha
+    const ehCartao = tipoPagamento === "cartao";
+    if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
+      const cfg = getMaqConfig();
+      if (cfg) {
+        const aprovado = await enviarParaMaquininha(totalFinal);
+        if (!aprovado) { finalizandoRef.current = false; return; }
+      }
+    }
+    setMpCobrancaManual(false);
 
     setFinalizando(true);
     try {
@@ -3161,6 +3170,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                   style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
                   Cancelar cobrança
                 </button>
+              </div>
+            )}
+
+            {tipoPagamento === "cartao" && (
+              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0369a1", marginBottom: 8 }}>
+                🔧 Maq: feat={feat("maquininha_mp") ? "✅" : "❌"} | cfg={getMaqConfig() ? `${getMaqConfig()!.provider} / terminal=${getMaqConfig()!.mp_device_id || "vazio"}` : "null"}
               </div>
             )}
 
