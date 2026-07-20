@@ -12,7 +12,7 @@ export default function HeaderCebolao() {
   const router   = useRouter();
   const pathname = usePathname();
 
-  const showBack = PAGES_WITH_BACK.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const showBack = pathname ? PAGES_WITH_BACK.some((p) => pathname === p || pathname.startsWith(p + "/")) : false;
 
   useEffect(() => {
     db("empresa")
