@@ -23,15 +23,17 @@ export default async function handler(req: any, res: any) {
     }
 
     if (action === "mp_cobrar") {
-      const { token, device_id, total, descricao } = body as any;
+      const { token, device_id, total, subtipo, descricao } = body as any;
       if (!token || !device_id || !total) return res.status(400).json({ ok: false, erro: "Parâmetros inválidos." });
-      const amount = Math.round(Number(total) * 100);
+      const amount = Math.round(parseFloat(Number(total).toFixed(2)) * 100);
+      const paymentType = subtipo === "credito" ? "credit_card" : subtipo === "alimentacao" ? "voucher_card" : "debit_card";
+      const installments = paymentType === "credit_card" ? 1 : 1;
       const r = await fetch(
         `https://api.mercadopago.com/point/integration-api/devices/${device_id}/payment-intents`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ amount, description: descricao || "Venda", payment: { installments: 1, type: "credit_card" }, additional_info: { external_reference: `venda_${Date.now()}` } }),
+          body: JSON.stringify({ amount, description: descricao || "Venda", payment: { installments, type: paymentType }, additional_info: { external_reference: `venda_${Date.now()}` } }),
           signal: AbortSignal.timeout(8000),
         }
       );
