@@ -1857,6 +1857,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
     // Maquininha — envia cobrança antes de salvar venda
     const ehCartao = tipoPagamento === "cartao";
+    console.log("[maq]", { feat_mp: feat("maquininha_mp"), feat_stone: feat("maquininha_stone"), ehCartao, cfg: getMaqConfig() });
     if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
       const cfg = getMaqConfig();
       if (cfg) {
