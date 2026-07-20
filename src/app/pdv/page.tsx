@@ -181,7 +181,8 @@ export default function PDVPage() {
     try {
       const actionCobrar = isMP ? "mp_cobrar" : "stone_cobrar";
       const actionStatus = isMP ? "mp_status" : "stone_status";
-      const bodyKey    = isMP ? { action: actionCobrar, token, device_id: termId, total, subtipo: subtipoCartao, descricao: "Venda" } : { action: actionCobrar, token, terminal_id: termId, total, descricao: "Venda" };
+      const subtipo    = subtipoCartaoRef.current;
+      const bodyKey    = isMP ? { action: actionCobrar, token, device_id: termId, total, subtipo, descricao: "Venda" } : { action: actionCobrar, token, terminal_id: termId, total, descricao: "Venda" };
 
       const res  = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyKey) });
       const resText = await res.text();
