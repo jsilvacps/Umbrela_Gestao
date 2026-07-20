@@ -2739,6 +2739,19 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
               {maqConfig.mp_device_id && (
                 <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#166534", fontWeight: 600 }}>
                   ✅ Terminal: {maqConfig.mp_device_id}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMaqMsg("Ativando modo PDV...");
+                      const r = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mp_modo_pdv", token: maqConfig.mp_token, device_id: maqConfig.mp_device_id }) });
+                      const j = await r.json();
+                      setMaqMsg(j.ok ? "✅ Modo PDV ativado! A maquininha está pronta para receber cobranças." : `❌ ${j.erro}`);
+                      setTimeout(() => setMaqMsg(""), 6000);
+                    }}
+                    style={{ display: "block", marginTop: 8, background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    🔄 Ativar modo PDV na maquininha
+                  </button>
                 </div>
               )}
             </>)}

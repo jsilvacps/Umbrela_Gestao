@@ -66,6 +66,23 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok: true, state: json.state, payment_id: json.payment_id });
     }
 
+    if (action === "mp_modo_pdv") {
+      const { token, device_id } = body as any;
+      if (!token || !device_id) return res.status(400).json({ ok: false, erro: "Parâmetros inválidos." });
+      const r = await fetch(
+        `https://api.mercadopago.com/point/integration-api/devices/${device_id}`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ operating_mode: "PDV" }),
+          signal: AbortSignal.timeout(8000),
+        }
+      );
+      const json = await r.json().catch(() => ({})) as any;
+      if (!r.ok) return res.status(200).json({ ok: false, erro: json.message || `HTTP ${r.status}` });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ ok: false, erro: `action desconhecida: ${action}` });
   } catch (err) {
     return res.status(500).json({ ok: false, erro: String(err) });
