@@ -1855,9 +1855,8 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       if (!clienteFiado) { finalizandoRef.current = false; setErroFiado("Selecione um cliente para fiado ou cadastre um novo."); return; }
     }
 
-    // Maquininha
-    const ehCartao = tipoPagamento === "cartao";
-    alert(`[maq] ehCartao=${ehCartao} feat_mp=${feat("maquininha_mp")} manual=${mpCobrancaManual} cfg=${JSON.stringify(getMaqConfig())}`);
+    // Maquininha — usa ref para evitar closure stale do onKey do modal
+    const ehCartao = tipoPagamentoRef.current === "cartao";
     if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
       const cfg = getMaqConfig();
       if (cfg) {
