@@ -1857,6 +1857,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
     // Maquininha
     const ehCartao = tipoPagamento === "cartao";
+    alert(`[maq] ehCartao=${ehCartao} feat_mp=${feat("maquininha_mp")} manual=${mpCobrancaManual} cfg=${JSON.stringify(getMaqConfig())}`);
     if (!mpCobrancaManual && (feat("maquininha_mp") || feat("maquininha_stone")) && ehCartao) {
       const cfg = getMaqConfig();
       if (cfg) {
