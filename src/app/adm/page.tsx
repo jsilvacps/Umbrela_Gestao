@@ -641,8 +641,8 @@ export default function AdmPage() {
     if (!token) { setMaqMsg("❌ Informe o token primeiro."); return; }
     setMaqBuscando(true);
     try {
-      const rota = maqConfig.provider === "mercadopago" ? "/api/maquininha/mp/dispositivos" : "/api/maquininha/stone/dispositivos";
-      const res  = await fetch(rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+      const action = maqConfig.provider === "mercadopago" ? "mp_dispositivos" : "stone_dispositivos";
+      const res  = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, token }) });
       const json = await res.json();
       if (json.ok) {
         setMaqDispositivos(json.devices || []);

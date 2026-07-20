@@ -177,18 +177,18 @@ export default function PDVPage() {
 
     setMpAguardando(true); setMpErro("");
     try {
-      const rotaCobrar = isMP ? "/api/maquininha/mp/cobrar" : "/api/maquininha/stone/cobrar";
-      const rotaStatus = isMP ? "/api/maquininha/mp/status" : "/api/maquininha/stone/status";
-      const bodyKey    = isMP ? { token, device_id: termId, total, descricao: "Venda" } : { token, terminal_id: termId, total, descricao: "Venda" };
+      const actionCobrar = isMP ? "mp_cobrar" : "stone_cobrar";
+      const actionStatus = isMP ? "mp_status" : "stone_status";
+      const bodyKey    = isMP ? { action: actionCobrar, token, device_id: termId, total, descricao: "Venda" } : { action: actionCobrar, token, terminal_id: termId, total, descricao: "Venda" };
 
-      const res  = await fetch(rotaCobrar, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyKey) });
+      const res  = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyKey) });
       const json = await res.json();
       if (!json.ok) { setMpErro(json.erro || "Erro ao enviar para maquininha."); setMpAguardando(false); return false; }
 
       setMpPaymentIntentId(json.payment_intent_id);
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 2000));
-        const sr = await fetch(rotaStatus, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, payment_intent_id: json.payment_intent_id }) });
+        const sr = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: actionStatus, token, payment_intent_id: json.payment_intent_id }) });
         const sj = await sr.json();
         if (sj.state === "PROCESSED") { setMpAguardando(false); setMpPaymentIntentId(null); return true; }
         if (sj.state === "CANCELED" || sj.state === "ERROR") {
@@ -208,9 +208,9 @@ export default function PDVPage() {
     const token  = isMP ? cfg.mp_token : cfg.stone_token;
     const termId = isMP ? cfg.mp_device_id : cfg.stone_terminal_id;
     if (!token) return;
-    const rota = isMP ? "/api/maquininha/mp/cancelar" : "/api/maquininha/stone/cancelar";
-    const body = isMP ? { token, device_id: termId } : { token, payment_intent_id: mpPaymentIntentId };
-    await fetch(rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const actionCancelar = isMP ? "mp_cancelar" : "stone_cancelar";
+    const body = isMP ? { action: actionCancelar, token, device_id: termId } : { action: actionCancelar, token, payment_intent_id: mpPaymentIntentId };
+    await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setMpAguardando(false); setMpPaymentIntentId(null); setMpErro("");
   }
 
