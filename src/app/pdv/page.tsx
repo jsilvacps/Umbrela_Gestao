@@ -182,14 +182,19 @@ export default function PDVPage() {
       const bodyKey    = isMP ? { action: actionCobrar, token, device_id: termId, total, descricao: "Venda" } : { action: actionCobrar, token, terminal_id: termId, total, descricao: "Venda" };
 
       const res  = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyKey) });
-      const json = await res.json();
-      if (!json.ok) { setMpErro(json.erro || "Erro ao enviar para maquininha."); setMpAguardando(false); return false; }
+      const resText = await res.text();
+      let json: Record<string, unknown>;
+      try { json = JSON.parse(resText); }
+      catch { setMpErro(`Erro HTTP ${res.status} — tente novamente.`); setMpAguardando(false); return false; }
+      if (!json.ok) { setMpErro((json.erro as string) || "Erro ao enviar para maquininha."); setMpAguardando(false); return false; }
 
-      setMpPaymentIntentId(json.payment_intent_id);
+      setMpPaymentIntentId(json.payment_intent_id as string);
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 2000));
         const sr = await fetch("/api/maquininha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: actionStatus, token, payment_intent_id: json.payment_intent_id }) });
-        const sj = await sr.json();
+        const srText = await sr.text();
+        let sj: Record<string, unknown>;
+        try { sj = JSON.parse(srText); } catch { continue; }
         if (sj.state === "PROCESSED") { setMpAguardando(false); setMpPaymentIntentId(null); return true; }
         if (sj.state === "CANCELED" || sj.state === "ERROR") {
           setMpErro(sj.state === "CANCELED" ? "Pagamento cancelado na maquininha." : "Erro no pagamento.");

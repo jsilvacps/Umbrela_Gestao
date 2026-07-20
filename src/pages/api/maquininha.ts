@@ -32,6 +32,7 @@ export default async function handler(req: any, res: any) {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({ amount, description: descricao || "Venda", payment: { installments: 1, type: "credit_card" }, additional_info: { external_reference: `venda_${Date.now()}` } }),
+          signal: AbortSignal.timeout(8000),
         }
       );
       const json = await r.json() as any;
