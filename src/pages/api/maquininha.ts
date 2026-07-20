@@ -1,0 +1,87 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+
+// Pages Router API route — funciona com Turbopack (Next.js 16)
+// App Router route handlers em src/app/api/ não são compiladas pelo Turbopack
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, erro: "Método não permitido." });
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const action = body.action as string | undefined;
+
+  if (!action) return res.status(400).json({ ok: false, erro: "action não informada." });
+
+  try {
+    if (action === "mp_dispositivos") {
+      const token = body.token as string;
+      if (!token) return res.status(400).json({ ok: false, erro: "Token não informado." });
+
+      const r = await fetch("https://api.mercadopago.com/point/integration-api/devices", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await r.json() as { devices?: { id: string; operating_mode?: string }[]; message?: string };
+      if (!r.ok) return res.status(200).json({ ok: false, erro: json.message || `HTTP ${r.status}` });
+
+      const devices = (json.devices || []).map((d) => ({
+        id: d.id,
+        label: d.operating_mode ? `${d.id} (${d.operating_mode})` : d.id,
+      }));
+      return res.status(200).json({ ok: true, devices });
+    }
+
+    if (action === "mp_cobrar") {
+      const { token, device_id, total, descricao } = body as { token: string; device_id: string; total: number; descricao?: string };
+      if (!token || !device_id || !total) return res.status(400).json({ ok: false, erro: "Parâmetros inválidos." });
+
+      const amount = Math.round(Number(total) * 100);
+      const r = await fetch(
+        `https://api.mercadopago.com/point/integration-api/devices/${device_id}/payment-intents`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount,
+            description: descricao || "Venda",
+            payment: { installments: 1, type: "credit_card" },
+            additional_info: { external_reference: `venda_${Date.now()}` },
+          }),
+        }
+      );
+      const json = await r.json() as { id?: string; message?: string };
+      if (!r.ok) return res.status(200).json({ ok: false, erro: json.message || `HTTP ${r.status}` });
+      return res.status(200).json({ ok: true, payment_intent_id: json.id });
+    }
+
+    if (action === "mp_cancelar") {
+      const { token, device_id } = body as { token: string; device_id: string };
+      if (!token || !device_id) return res.status(400).json({ ok: false, erro: "Parâmetros inválidos." });
+
+      const r = await fetch(
+        `https://api.mercadopago.com/point/integration-api/devices/${device_id}/payment-intents`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (r.ok || r.status === 204) return res.status(200).json({ ok: true });
+      const json = await r.json().catch(() => ({})) as { message?: string };
+      return res.status(200).json({ ok: false, erro: json.message || `HTTP ${r.status}` });
+    }
+
+    if (action === "mp_status") {
+      const { token, payment_intent_id } = body as { token: string; payment_intent_id: string };
+      if (!token || !payment_intent_id) return res.status(400).json({ ok: false, erro: "Parâmetros inválidos." });
+
+      const r = await fetch(
+        `https://api.mercadopago.com/point/integration-api/payment-intents/${payment_intent_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const json = await r.json() as { state?: string; payment_id?: string; message?: string };
+      if (!r.ok) return res.status(200).json({ ok: false, erro: json.message || `HTTP ${r.status}` });
+      return res.status(200).json({ ok: true, state: json.state, payment_id: json.payment_id });
+    }
+
+    return res.status(400).json({ ok: false, erro: `action desconhecida: ${action}` });
+  } catch (err) {
+    return res.status(500).json({ ok: false, erro: String(err) });
+  }
+}
