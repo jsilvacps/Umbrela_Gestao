@@ -2776,7 +2776,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
             </button>
 
             <button type="submit" style={saveButton}
-              disabled={maqSalvando || (maqConfig.provider === "mercadopago" ? !maqConfig.mp_device_id : !maqConfig.stone_terminal_id)}>
+              disabled={maqSalvando || (maqConfig.provider === "mercadopago" ? !maqConfig.mp_token : !maqConfig.stone_token)}>
               {maqSalvando ? "Salvando..." : "💾 Salvar configuração"}
             </button>
           </form>
