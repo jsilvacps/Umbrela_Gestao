@@ -40,6 +40,7 @@ export const TODAS_FEATURES = {
   preco_cartao_auto:  { label: "Preço diferenciado Cartão", grupo: "PDV",     defaultOff: true },
   preco_fiado_auto:   { label: "Preço diferenciado Fiado",  grupo: "PDV",     defaultOff: true },
   notificacoes_adm:   { label: "Notificações ADM (Push)",  grupo: "ADM",     defaultOff: true },
+  dashboard_operadores: { label: "Dashboard por Operador",   grupo: "ADM",     defaultOff: true },
 } as const;
 
 export type FeatureKey = keyof typeof TODAS_FEATURES;

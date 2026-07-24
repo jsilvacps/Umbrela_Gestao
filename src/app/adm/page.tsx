@@ -276,15 +276,43 @@ function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; 
   );
 }
 
-function DashboardAba({ hoje, ontem, mes, somaHoje, somaOntem, somaMes, clientesHoje, clientesOntem, clientesMes, carregando, onAtualizar }: {
-  hoje: { total: number; tipo_pagamento: string }[];
-  ontem: { total: number; tipo_pagamento: string }[];
-  mes: { total: number; tipo_pagamento: string }[];
+const CORES_OP = ["#2563eb","#16a34a","#7c3aed","#ea580c","#0891b2","#be185d","#854d0e","#065f46"];
+
+function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; operador?: string | null }[]; titulo: string }) {
+  const acc: Record<string, number> = {};
+  for (const v of vendas) {
+    const op = v.operador || "Sem operador";
+    acc[op] = (acc[op] || 0) + Number(v.total || 0);
+  }
+  const dados = Object.entries(acc).sort((a, b) => b[1] - a[1]);
+  if (dados.length === 0) return <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 16 }}>Sem vendas</div>;
+  const maxVal = Math.max(...dados.map(d => d[1]), 1);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: "#334155", marginBottom: 4 }}>{titulo}</div>
+      {dados.map(([op, val], i) => (
+        <div key={op} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 110, fontSize: 12, color: "#475569", fontWeight: 600, textAlign: "right", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={op}>{op}</div>
+          <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 6, height: 22, overflow: "hidden" }}>
+            <div style={{ width: `${(val / maxVal) * 100}%`, height: "100%", background: CORES_OP[i % CORES_OP.length], borderRadius: 6, minWidth: 4 }} />
+          </div>
+          <div style={{ width: 90, fontSize: 12, fontWeight: 700, color: CORES_OP[i % CORES_OP.length], flexShrink: 0 }}>R$ {val.toFixed(2).replace(".", ",")}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DashboardAba({ hoje, ontem, mes, somaHoje, somaOntem, somaMes, clientesHoje, clientesOntem, clientesMes, carregando, onAtualizar, mostrarOperadores }: {
+  hoje: { total: number; tipo_pagamento: string; operador?: string | null }[];
+  ontem: { total: number; tipo_pagamento: string; operador?: string | null }[];
+  mes: { total: number; tipo_pagamento: string; operador?: string | null }[];
   somaHoje: number; somaOntem: number; somaMes: number;
   clientesHoje: number;
   clientesOntem: number;
   clientesMes: number;
   carregando: boolean; onAtualizar: () => void;
+  mostrarOperadores?: boolean;
 }) {
   function totaisPorPgto(lista: { total: number; tipo_pagamento: string }[]) {
     const acc: Record<string, number> = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
@@ -467,6 +495,21 @@ function DashboardAba({ hoje, ontem, mes, somaHoje, somaOntem, somaMes, clientes
         </div>
 
       </div>
+
+      {/* Dashboard por Operador */}
+      {mostrarOperadores && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={cardDash}>
+            <GraficoOperadores vendas={hoje} titulo="Vendas por Operador — Hoje" />
+          </div>
+          <div style={cardDash}>
+            <GraficoOperadores vendas={ontem} titulo="Vendas por Operador — Ontem" />
+          </div>
+          <div style={cardDash}>
+            <GraficoOperadores vendas={mes} titulo="Vendas por Operador — Mês" />
+          </div>
+        </section>
+      )}
     </section>
   );
 }
@@ -795,7 +838,7 @@ export default function AdmPage() {
   }, [carregarTudo, router]);
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
-  type DashVenda = { total: number; tipo_pagamento: string };
+  type DashVenda = { total: number; tipo_pagamento: string; operador?: string | null };
   const [dashHoje,  setDashHoje]  = useState<DashVenda[]>([]);
   const [dashOntem, setDashOntem] = useState<DashVenda[]>([]);
   const [dashMes,   setDashMes]   = useState<DashVenda[]>([]);
@@ -837,9 +880,9 @@ export default function AdmPage() {
       { data: somaHojeRpc }, { data: somaOntemRpc }, { data: somaMesRpc },
       { data: contaHojeRpc }, { data: contaOntemRpc }, { data: contaMesRpc },
     ] = await Promise.all([
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(2000),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(2000),
-      db("vendas").select("total, tipo_pagamento").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(2000),
+      db("vendas").select("total, tipo_pagamento, operador").gte("created_at", inicioHoje).lt("created_at", fimHoje).limit(2000),
+      db("vendas").select("total, tipo_pagamento, operador").gte("created_at", inicioOnt).lt("created_at", fimOnt).limit(2000),
+      db("vendas").select("total, tipo_pagamento, operador").gte("created_at", inicioMes).lt("created_at", fimHoje).limit(2000),
       supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioHoje, dt_fim: fimHoje }),
       supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioOnt,  dt_fim: fimOnt  }),
       supabase.rpc("soma_vendas_periodo", { eid, dt_ini: inicioMes,  dt_fim: fimHoje }),
@@ -2560,7 +2603,7 @@ html, body { width: ${interno}mm; font-family: Arial, sans-serif; -webkit-print-
       )}
 
       {aba === "dashboard" && (
-        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} somaHoje={dashSomaHoje} somaOntem={dashSomaOntem} somaMes={dashSomaMes} clientesHoje={dashClientesHoje} clientesOntem={dashClientesOntem} clientesMes={dashClientesMes} carregando={dashCarregando} onAtualizar={carregarDashboard} />
+        <DashboardAba hoje={dashHoje} ontem={dashOntem} mes={dashMes} somaHoje={dashSomaHoje} somaOntem={dashSomaOntem} somaMes={dashSomaMes} clientesHoje={dashClientesHoje} clientesOntem={dashClientesOntem} clientesMes={dashClientesMes} carregando={dashCarregando} onAtualizar={carregarDashboard} mostrarOperadores={feat("dashboard_operadores")} />
       )}
 
       {/* ── Aba NFC-e ── */}
