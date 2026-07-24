@@ -276,27 +276,45 @@ function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; 
   );
 }
 
-const CORES_OP = ["#2563eb","#16a34a","#7c3aed","#ea580c","#0891b2","#be185d","#854d0e","#065f46"];
+const PGTO_CORES: Record<string, string> = { dinheiro: "#16a34a", cartao: "#2563eb", pix: "#7c3aed", fiado: "#ea580c", outros: "#94a3b8" };
+const PGTO_LABELS: Record<string, string> = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "PIX", fiado: "Fiado", outros: "Outros" };
+const PGTO_ORDEM = ["dinheiro", "cartao", "pix", "fiado", "outros"];
 
-function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; operador?: string | null }[]; titulo: string }) {
-  const acc: Record<string, number> = {};
+function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; tipo_pagamento: string; operador?: string | null }[]; titulo: string }) {
+  const acc: Record<string, Record<string, number>> = {};
   for (const v of vendas) {
     const op = v.operador || "Sem operador";
-    acc[op] = (acc[op] || 0) + Number(v.total || 0);
+    const pgto = normalizarPgto(v.tipo_pagamento);
+    if (!acc[op]) acc[op] = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
+    acc[op][pgto] = (acc[op][pgto] || 0) + Number(v.total || 0);
   }
-  const dados = Object.entries(acc).sort((a, b) => b[1] - a[1]);
+  const dados = Object.entries(acc)
+    .map(([op, pgtos]) => ({ op, pgtos, total: Object.values(pgtos).reduce((s, v) => s + v, 0) }))
+    .sort((a, b) => b.total - a.total);
   if (dados.length === 0) return <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 16 }}>Sem vendas</div>;
-  const maxVal = Math.max(...dados.map(d => d[1]), 1);
+  const maxVal = Math.max(...dados.map(d => d.total), 1);
+  const pgtoAtivos = PGTO_ORDEM.filter(p => dados.some(d => d.pgtos[p] > 0));
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: "#334155", marginBottom: 4 }}>{titulo}</div>
-      {dados.map(([op, val], i) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: "#334155", marginBottom: 2 }}>{titulo}</div>
+      {/* legenda */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+        {pgtoAtivos.map(p => (
+          <div key={p} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: PGTO_CORES[p] }} />
+            {PGTO_LABELS[p]}
+          </div>
+        ))}
+      </div>
+      {dados.map(({ op, pgtos, total }) => (
         <div key={op} style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 110, fontSize: 12, color: "#475569", fontWeight: 600, textAlign: "right", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={op}>{op}</div>
-          <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 6, height: 22, overflow: "hidden" }}>
-            <div style={{ width: `${(val / maxVal) * 100}%`, height: "100%", background: CORES_OP[i % CORES_OP.length], borderRadius: 6, minWidth: 4 }} />
+          <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 6, height: 22, overflow: "hidden", display: "flex" }}>
+            {pgtoAtivos.map(p => pgtos[p] > 0 && (
+              <div key={p} style={{ width: `${(pgtos[p] / maxVal) * 100}%`, height: "100%", background: PGTO_CORES[p], minWidth: 2 }} title={`${PGTO_LABELS[p]}: R$ ${pgtos[p].toFixed(2).replace(".", ",")}`} />
+            ))}
           </div>
-          <div style={{ width: 90, fontSize: 12, fontWeight: 700, color: CORES_OP[i % CORES_OP.length], flexShrink: 0 }}>R$ {val.toFixed(2).replace(".", ",")}</div>
+          <div style={{ width: 90, fontSize: 12, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>R$ {total.toFixed(2).replace(".", ",")}</div>
         </div>
       ))}
     </div>
