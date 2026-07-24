@@ -276,8 +276,6 @@ function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; 
   );
 }
 
-const PGTO_CORES: Record<string, string> = { dinheiro: "#16a34a", cartao: "#2563eb", pix: "#7c3aed", fiado: "#ea580c", outros: "#94a3b8" };
-const PGTO_LABELS: Record<string, string> = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "PIX", fiado: "Fiado", outros: "Outros" };
 const PGTO_ORDEM = ["dinheiro", "cartao", "pix", "fiado", "outros"];
 
 function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; tipo_pagamento: string; operador?: string | null }[]; titulo: string }) {
@@ -302,7 +300,7 @@ function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; tipo_p
         {pgtoAtivos.map(p => (
           <div key={p} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: PGTO_CORES[p] }} />
-            {PGTO_LABELS[p]}
+            {PGTO_LABEL[p]}
           </div>
         ))}
       </div>
@@ -311,7 +309,7 @@ function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; tipo_p
           <div style={{ width: 110, fontSize: 12, color: "#475569", fontWeight: 600, textAlign: "right", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={op}>{op}</div>
           <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 6, height: 22, overflow: "hidden", display: "flex" }}>
             {pgtoAtivos.map(p => pgtos[p] > 0 && (
-              <div key={p} style={{ width: `${(pgtos[p] / maxVal) * 100}%`, height: "100%", background: PGTO_CORES[p], minWidth: 2 }} title={`${PGTO_LABELS[p]}: R$ ${pgtos[p].toFixed(2).replace(".", ",")}`} />
+              <div key={p} style={{ width: `${(pgtos[p] / maxVal) * 100}%`, height: "100%", background: PGTO_CORES[p], minWidth: 2 }} title={`${PGTO_LABEL[p]}: R$ ${pgtos[p].toFixed(2).replace(".", ",")}`} />
             ))}
           </div>
           <div style={{ width: 90, fontSize: 12, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>R$ {total.toFixed(2).replace(".", ",")}</div>
