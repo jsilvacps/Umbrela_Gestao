@@ -276,46 +276,49 @@ function PizzaChartClientes({ dados, tamanho = 180 }: { dados: { label: string; 
   );
 }
 
-const PGTO_ORDEM = ["dinheiro", "cartao", "pix", "fiado", "outros"];
-
 function GraficoOperadores({ vendas, titulo }: { vendas: { total: number; tipo_pagamento: string; operador?: string | null }[]; titulo: string }) {
   const acc: Record<string, Record<string, number>> = {};
+  const qtd: Record<string, number> = {};
   for (const v of vendas) {
     const op = v.operador || "Sem operador";
     const pgto = normalizarPgto(v.tipo_pagamento);
-    if (!acc[op]) acc[op] = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 };
+    if (!acc[op]) { acc[op] = { dinheiro: 0, cartao: 0, pix: 0, fiado: 0, outros: 0 }; qtd[op] = 0; }
     acc[op][pgto] = (acc[op][pgto] || 0) + Number(v.total || 0);
+    qtd[op]++;
   }
-  const dados = Object.entries(acc)
-    .map(([op, pgtos]) => ({ op, pgtos, total: Object.values(pgtos).reduce((s, v) => s + v, 0) }))
+  const operadores = Object.entries(acc)
+    .map(([op, pgtos]) => ({ op, pgtos, total: Object.values(pgtos).reduce((s, v) => s + v, 0), qtd: qtd[op] }))
     .sort((a, b) => b.total - a.total);
-  if (dados.length === 0) return <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 16 }}>Sem vendas</div>;
-  const maxVal = Math.max(...dados.map(d => d.total), 1);
-  const pgtoAtivos = PGTO_ORDEM.filter(p => dados.some(d => d.pgtos[p] > 0));
+  if (operadores.length === 0) return <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 16 }}>Sem vendas</div>;
+
+  const cardDash: React.CSSProperties = {
+    background: "#fff", borderRadius: 16, padding: 24,
+    boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+    display: "flex", flexDirection: "column", gap: 16,
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: "#334155", marginBottom: 2 }}>{titulo}</div>
-      {/* legenda */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-        {pgtoAtivos.map(p => (
-          <div key={p} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: PGTO_CORES[p] }} />
-            {PGTO_LABEL[p]}
-          </div>
-        ))}
+    <>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{titulo}</div>
+      <div style={{ fontSize: 12, color: "#64748b" }}>Por operador · forma de pagamento</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginTop: 4 }}>
+        {operadores.map(({ op, pgtos, total, qtd: q }) => {
+          const dadosPizza = Object.entries(PGTO_LABEL).map(([key, label]) => ({ label, valor: pgtos[key] || 0, cor: PGTO_CORES[key] }));
+          return (
+            <div key={op} style={cardDash}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{op}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+                <PizzaChart dados={dadosPizza} tamanho={150} />
+                <Legenda dados={dadosPizza} />
+              </div>
+              <div style={{ textAlign: "center", fontSize: 13, color: "#64748b", borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
+                Total: <strong style={{ color: "#0f172a" }}>R$ {total.toFixed(2).replace(".", ",")}</strong> · {q} venda(s)
+              </div>
+            </div>
+          );
+        })}
       </div>
-      {dados.map(({ op, pgtos, total }) => (
-        <div key={op} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 110, fontSize: 12, color: "#475569", fontWeight: 600, textAlign: "right", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={op}>{op}</div>
-          <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 6, height: 22, overflow: "hidden", display: "flex" }}>
-            {pgtoAtivos.map(p => pgtos[p] > 0 && (
-              <div key={p} style={{ width: `${(pgtos[p] / maxVal) * 100}%`, height: "100%", background: PGTO_CORES[p], minWidth: 2 }} title={`${PGTO_LABEL[p]}: R$ ${pgtos[p].toFixed(2).replace(".", ",")}`} />
-            ))}
-          </div>
-          <div style={{ width: 90, fontSize: 12, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>R$ {total.toFixed(2).replace(".", ",")}</div>
-        </div>
-      ))}
-    </div>
+    </>
   );
 }
 
