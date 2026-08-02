@@ -1037,11 +1037,7 @@ export default function AdmPage() {
     const senhaAtual = senhasOp.adm_password || SENHA_PADRAO;
 
     if (senha === SENHA_MASTER) {
-      const { data } = await supabase
-        .from("clientes_licenciados")
-        .select("empresa_id, nome_cliente, codigo")
-        .eq("ativo", true)
-        .order("nome_cliente");
+      const { data } = await supabase.rpc("master_listar_empresas", { p_senha: SENHA_MASTER });
       setEmpresasDisponiveis((data || []) as {empresa_id: number, nome_cliente: string, codigo: string}[]);
       setModalSelecionarEmpresa(true);
       return;
