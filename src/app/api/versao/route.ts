@@ -28,9 +28,7 @@ export async function GET(req: NextRequest) {
 
   // Fallback: busca a versão global do version.json público
   try {
-    const res = await fetch("https://umbrela-gestao.vercel.app/version.json", {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch("https://umbrela-gestao.vercel.app/version.json", { cache: "no-store" });
     const json = await res.json();
     return NextResponse.json(json);
   } catch {
