@@ -409,12 +409,10 @@ export default function MasterPage() {
     if (liberado) { carregarClientes(); carregar(); }
   }, [liberado, carregarClientes, carregar]);
 
-  async function entrar(e: React.FormEvent) {
+  function entrar(e: React.FormEvent) {
     e.preventDefault();
-    if (senhaInput === SENHA_MASTER) {
-      setLiberado(true);
-      await supabase.auth.signInWithPassword({ email: "master@umbrela.internal", password: SENHA_MASTER });
-    } else { setErroSenha("Senha incorreta."); }
+    if (senhaInput === SENHA_MASTER) { setLiberado(true); }
+    else { setErroSenha("Senha incorreta."); }
   }
 
   async function gerarNovas(e: React.FormEvent) {

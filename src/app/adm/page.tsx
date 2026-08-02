@@ -1037,8 +1037,6 @@ export default function AdmPage() {
     const senhaAtual = senhasOp.adm_password || SENHA_PADRAO;
 
     if (senha === SENHA_MASTER) {
-      // Login no Supabase Auth como master para passar pelo RLS
-      await supabase.auth.signInWithPassword({ email: "master@umbrela.internal", password: SENHA_MASTER });
       const { data } = await supabase
         .from("clientes_licenciados")
         .select("empresa_id, nome_cliente, codigo")
