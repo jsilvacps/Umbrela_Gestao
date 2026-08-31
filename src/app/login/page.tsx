@@ -144,11 +144,7 @@ export default function LoginPage() {
         // (silencioso — não bloqueia o login se falhar, pois o isolamento por código já existe)
         try {
           const { data: lic } = await Promise.race([
-            masterSupabase
-              .from("clientes_licenciados")
-              .select("auth_password")
-              .eq("empresa_id", empresaId)
-              .maybeSingle(),
+            masterSupabase.rpc("ativacao_buscar_auth_password", { p_empresa_id: empresaId }),
             new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
           ]);
           if ((lic as { auth_password?: string } | null)?.auth_password) {
@@ -178,9 +174,7 @@ export default function LoginPage() {
     try {
       // 1. Busca o código (sem filtrar por ativo — avalia manualmente)
       const { data, error } = await masterSupabase
-        .from("clientes_licenciados")
-        .select("empresa_id, nome_cliente, ativo, cadastro_em")
-        .eq("codigo", cod)
+        .rpc("ativacao_buscar_codigo", { p_codigo: cod })
         .maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) { setErroConexao("Código não encontrado."); setTestando(false); return; }
@@ -277,10 +271,7 @@ export default function LoginPage() {
       // Ativa o código: marca cadastro_em e ativo = true na tabela clientes_licenciados
       const cod = codigo.trim().toUpperCase();
       if (cod) {
-        await masterSupabase
-          .from("clientes_licenciados")
-          .update({ ativo: true, cadastro_em: new Date().toISOString() })
-          .eq("codigo", cod);
+        await masterSupabase.rpc("ativacao_concluir", { p_codigo: cod, p_auth_password: "" });
       }
 
       setConcluido(true);
