@@ -77,29 +77,17 @@ export default function MasterPage() {
   const [salvandoNotif, setSalvandoNotif] = useState(false);
 
   async function abrirModalNotif(empresaId: number) {
-    const { data } = await supabase
-      .from("operadores")
-      .select("id, nome, username")
-      .eq("empresa_id", empresaId)
-      .order("nome");
+    const { data } = await supabase.rpc("master_listar_operadores", { p_empresa_id: empresaId });
     setOperadoresNotif((data ?? []) as Operador[]);
-    // Carrega selecionados atuais
-    const { data: emp } = await supabase
-      .from("empresa")
-      .select("notif_adm_ids")
-      .eq("empresa_id", empresaId)
-      .maybeSingle();
-    setSelecionadosNotif((emp as { notif_adm_ids?: string[] } | null)?.notif_adm_ids ?? []);
+    const { data: ids } = await supabase.rpc("master_get_notif_ids", { p_empresa_id: empresaId });
+    setSelecionadosNotif((ids as string[]) ?? []);
     setModalNotifEmpresa(empresaId);
   }
 
   async function salvarNotifAdms() {
     if (!modalNotifEmpresa) return;
     setSalvandoNotif(true);
-    await supabase
-      .from("empresa")
-      .update({ notif_adm_ids: selecionadosNotif } as Record<string, unknown>)
-      .eq("empresa_id", modalNotifEmpresa);
+    await supabase.rpc("master_set_notif_ids", { p_empresa_id: modalNotifEmpresa, p_ids: selecionadosNotif });
     setSalvandoNotif(false);
     setModalNotifEmpresa(null);
   }
@@ -149,10 +137,7 @@ export default function MasterPage() {
   const [msgVersao, setMsgVersao] = useState("");
 
   const carregarVersoes = useCallback(async () => {
-    const { data } = await supabase
-      .from("clientes_licenciados")
-      .select("id, empresa_id, nome_cliente, versao_liberada")
-      .order("empresa_id");
+    const { data } = await supabase.rpc("master_listar_versoes");
     setClientesVersao((data || []) as ClienteVersao[]);
     const edit: Record<number, string> = {};
     for (const c of (data || []) as ClienteVersao[]) {
@@ -174,10 +159,7 @@ export default function MasterPage() {
   async function salvarVersaoCliente(empresaId: number, dbId: number) {
     setSalvandoVersao(empresaId);
     const v = editandoVersao[empresaId]?.trim() || null;
-    const { error } = await supabase
-      .from("clientes_licenciados")
-      .update({ versao_liberada: v })
-      .eq("id", dbId);
+    const { error } = await supabase.rpc("master_salvar_versao", { p_id: dbId, p_versao: v ?? "" });
     setSalvandoVersao(null);
     setMsgVersao(error ? `❌ Erro: ${error.message}` : `✅ Versão salva para empresa #${empresaId}`);
     setTimeout(() => setMsgVersao(""), 4000);
@@ -187,10 +169,7 @@ export default function MasterPage() {
     if (!versaoGlobal) return;
     if (!confirm(`Liberar versão ${versaoGlobal} para TODOS os clientes?`)) return;
     for (const c of clientesVersao) {
-      await supabase
-        .from("clientes_licenciados")
-        .update({ versao_liberada: versaoGlobal })
-        .eq("id", c.id);
+      await supabase.rpc("master_salvar_versao", { p_id: c.id, p_versao: versaoGlobal });
     }
     await carregarVersoes();
     setMsgVersao(`✅ Versão ${versaoGlobal} liberada para todos os clientes`);
@@ -203,10 +182,7 @@ export default function MasterPage() {
   const [supFiltro, setSupFiltro] = useState<"todos" | "aberto" | "em_atendimento" | "resolvido">("todos");
 
   const carregarSolicitacoes = useCallback(async () => {
-    const { data } = await supabase
-      .from("suporte_solicitacoes")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.rpc("master_listar_suporte");
     setSolicitacoes((data as Solicitacao[]) || []);
   }, []);
 
@@ -227,13 +203,13 @@ export default function MasterPage() {
   }, [liberado, carregarSolicitacoes]);
 
   async function atualizarStatus(id: string, status: Solicitacao["status"]) {
-    await supabase.from("suporte_solicitacoes").update({ status }).eq("id", id);
+    await supabase.rpc("master_atualizar_suporte", { p_id: id, p_status: status });
     carregarSolicitacoes();
   }
 
   async function excluirSolicitacao(id: string) {
     if (!confirm("Excluir esta solicitação?")) return;
-    await supabase.from("suporte_solicitacoes").delete().eq("id", id);
+    await supabase.rpc("master_excluir_suporte", { p_id: id });
     carregarSolicitacoes();
   }
 
@@ -276,10 +252,7 @@ export default function MasterPage() {
 
   const carregarClientes = useCallback(async () => {
     setCarregandoClientes(true);
-    const { data } = await supabase
-      .from("clientes_licenciados")
-      .select("*")
-      .order("empresa_id", { ascending: true });
+    const { data } = await supabase.rpc("master_listar_clientes");
     const lista = (data as ClienteLicenciado[]) || [];
     setClientes(lista);
     calcularOnline(lista);
@@ -322,20 +295,12 @@ export default function MasterPage() {
     if (!nome)   { setMsgCliente("Informe o nome do cliente."); return; }
     setCriandoCliente(true); setMsgCliente(""); setClienteCriado(null);
 
-    // Próximo empresa_id = max + 1
-    const { data: maxData } = await supabase
-      .from("clientes_licenciados")
-      .select("empresa_id")
-      .order("empresa_id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const nextId = ((maxData as { empresa_id: number } | null)?.empresa_id ?? 0) + 1;
+    const { data: nextIdData } = await supabase.rpc("master_proximo_empresa_id");
+    const nextId = (nextIdData as number) ?? 1;
 
-    const { data, error } = await supabase
-      .from("clientes_licenciados")
-      .insert([{ codigo, nome_cliente: nome, empresa_id: nextId, ativo: false, cadastro_em: null }])
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("master_criar_cliente", {
+      p_codigo: codigo, p_nome: nome, p_empresa_id: nextId,
+    });
 
     if (error) {
       setMsgCliente(`Erro: ${error.message.includes("unique") ? "Código já existe. Use outro código." : error.message}`);
@@ -352,13 +317,13 @@ export default function MasterPage() {
   }
 
   async function toggleCliente(id: number, ativo: boolean) {
-    await supabase.from("clientes_licenciados").update({ ativo: !ativo }).eq("id", id);
+    await supabase.rpc("master_set_ativo", { p_id: id, p_ativo: !ativo });
     carregarClientes();
   }
 
   async function excluirCliente(id: number, codigo: string) {
     if (!confirm(`Excluir cliente ${codigo}? Esta ação não pode ser desfeita.`)) return;
-    await supabase.from("clientes_licenciados").delete().eq("id", id);
+    await supabase.rpc("master_excluir_cliente", { p_id: id });
     carregarClientes();
   }
 
@@ -377,9 +342,7 @@ export default function MasterPage() {
         return;
       }
     }
-    await supabase.from("clientes_licenciados")
-      .update({ auth_password: senha })
-      .eq("empresa_id", empresaId);
+    await supabase.rpc("master_salvar_auth_password", { p_empresa_id: empresaId, p_senha: senha });
     alert(`✅ Auth criado para ${nomeCliente || `empresa ${empresaId}`}!\nEmail: ${email}`);
     carregarClientes();
   }
