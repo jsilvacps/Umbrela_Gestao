@@ -59,9 +59,7 @@ export default function AtivacaoPage() {
     setTestando(true); setErroConexao("");
     try {
       const { data, error } = await masterSupabase
-        .from("clientes_licenciados")
-        .select("empresa_id, nome_cliente, ativo, cadastro_em")
-        .eq("codigo", cod)
+        .rpc("ativacao_buscar_codigo", { p_codigo: cod })
         .maybeSingle();
 
       if (error) throw new Error(error.message);
@@ -156,14 +154,7 @@ export default function AtivacaoPage() {
         const authPassword = crypto.randomUUID();
         await criarAuthEmpresa(eid, authPassword);
 
-        await masterSupabase
-          .from("clientes_licenciados")
-          .update({
-            ativo:        true,
-            cadastro_em:  new Date().toISOString(),
-            auth_password: authPassword,
-          })
-          .eq("codigo", cod);
+        await masterSupabase.rpc("ativacao_concluir", { p_codigo: cod, p_auth_password: authPassword });
       }
 
       setConcluido(true);
