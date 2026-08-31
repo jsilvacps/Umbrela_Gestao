@@ -58,11 +58,11 @@ export default function AtivacaoPage() {
     if (!cod) { setErroConexao("Informe o código de ativação."); return; }
     setTestando(true); setErroConexao("");
     try {
-      const { data, error } = await masterSupabase
-        .rpc("ativacao_buscar_codigo", { p_codigo: cod })
-        .maybeSingle();
+      const { data: rows, error } = await masterSupabase
+        .rpc("ativacao_buscar_codigo", { p_codigo: cod });
 
       if (error) throw new Error(error.message);
+      const data = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
       if (!data) { setErroConexao("Código não encontrado. Verifique e tente novamente."); setTestando(false); return; }
 
       if (!data.ativo && data.cadastro_em) {
@@ -76,13 +76,10 @@ export default function AtivacaoPage() {
 
       // Já configurado antes → vai direto para login
       if (data.cadastro_em) {
-        const { data: emp } = await masterSupabase
-          .from("empresa")
-          .select("nome_fantasia")
-          .eq("empresa_id", data.empresa_id)
-          .not("nome_fantasia", "is", null)
-          .maybeSingle();
-        if (emp?.nome_fantasia) {
+        const { data: empRows } = await masterSupabase
+          .rpc("ativacao_buscar_nome_fantasia", { p_empresa_id: data.empresa_id });
+        const nomeFantasia = Array.isArray(empRows) ? empRows[0]?.nome_fantasia : null;
+        if (nomeFantasia) {
           router.push("/login");
           return;
         }

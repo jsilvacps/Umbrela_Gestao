@@ -173,10 +173,10 @@ export default function LoginPage() {
     setTestando(true); setErroConexao("");
     try {
       // 1. Busca o código (sem filtrar por ativo — avalia manualmente)
-      const { data, error } = await masterSupabase
-        .rpc("ativacao_buscar_codigo", { p_codigo: cod })
-        .maybeSingle();
+      const { data: rows, error } = await masterSupabase
+        .rpc("ativacao_buscar_codigo", { p_codigo: cod });
       if (error) throw new Error(error.message);
+      const data = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
       if (!data) { setErroConexao("Código não encontrado."); setTestando(false); return; }
 
       // Código desativado pelo administrador após cadastro
