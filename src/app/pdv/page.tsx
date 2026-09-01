@@ -325,6 +325,9 @@ export default function PDVPage() {
 
   /* ── Buscar cupons ── */
   const [modalCupons, setModalCupons]           = useState(false);
+  const [modalTrocarOp, setModalTrocarOp]       = useState(false);
+  const [senhasTrocarOp, setSenhasTrocarOp]     = useState<{ id: string; nome: string; username: string }[]>([]);
+  const [loadingTrocarOp, setLoadingTrocarOp]   = useState(false);
   const [cupons, setCupons]                     = useState<any[]>([]);
   const [filtroData, setFiltroData]             = useState("");
   const [filtroCPF, setFiltroCPF]               = useState("");
@@ -2051,29 +2054,29 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
     >
       <div style={{ maxWidth: 1580, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "2px 0 6px", flexShrink: 0 }}>
-          <div style={{ width: 180, display: "flex", alignItems: "center" }}>
+          <div style={{ width: 180, display: "flex", alignItems: "center", gap: 8 }}>
             <button
               onClick={() => {
                 const base = window.location.origin;
                 window.open(`${base}/adm`, "_blank", "width=1280,height=800");
               }}
               title="Abrir painel ADM"
-              style={{
-                background: "#f1f5f9",
-                border: "1px solid #cbd5e1",
-                borderRadius: 8,
-                color: "#475569",
-                fontSize: 13,
-                fontWeight: 700,
-                padding: "5px 14px",
-                cursor: "pointer",
-                letterSpacing: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
+              style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 8, color: "#475569", fontSize: 13, fontWeight: 700, padding: "5px 14px", cursor: "pointer", letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}
             >
               ⚙️ ADM
+            </button>
+            <button
+              onClick={async () => {
+                setLoadingTrocarOp(true);
+                const { data } = await db("operadores").select("id, nome, username").eq("blocked", false);
+                setSenhasTrocarOp((data || []) as { id: string; nome: string; username: string }[]);
+                setLoadingTrocarOp(false);
+                setModalTrocarOp(true);
+              }}
+              title="Trocar operador"
+              style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 8, color: "#475569", fontSize: 13, fontWeight: 700, padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+            >
+              👤 {nomeOperador}
             </button>
           </div>
           <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 10, color: "#94a3b8", fontWeight: 300 }}>
@@ -2730,6 +2733,34 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MODAL TROCAR OPERADOR ══════════ */}
+      {modalTrocarOp && (
+        <div style={overlay}>
+          <div style={{ ...modalBox, width: "min(96vw, 380px)" }}>
+            <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 4 }}>👤 Trocar Operador</div>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Selecione o operador que vai assumir o caixa:</div>
+            {loadingTrocarOp && <div style={{ textAlign: "center", color: "#94a3b8" }}>Carregando...</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {senhasTrocarOp.map(op => (
+                <button
+                  key={op.id}
+                  onClick={() => {
+                    window.sessionStorage.setItem("operador_logado", JSON.stringify(op));
+                    setOperador(op as any);
+                    setModalTrocarOp(false);
+                  }}
+                  style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid #e2e8f0", background: operador?.id === op.id ? "#eff6ff" : "#f8fafc", cursor: "pointer", fontWeight: 700, fontSize: 15, textAlign: "left", color: "#0f172a" }}
+                >
+                  {op.nome || op.username}
+                  {operador?.id === op.id && <span style={{ float: "right", color: "#2563eb", fontSize: 12 }}>✓ atual</span>}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setModalTrocarOp(false)} style={{ marginTop: 16, width: "100%", padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f1f5f9", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
           </div>
         </div>
       )}
