@@ -1785,6 +1785,9 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       (db("vendas").select("total, cliente_id, cliente_nome") as any).ilike("tipo_pagamento", "fiado"),
       (db("pagamentos_fiado").select("valor, cliente_id, cliente_nome") as any),
     ]);
+    console.log("[FIADO DEBUG] cliente:", cliente);
+    console.log("[FIADO DEBUG] rVendas.data:", rVendas.data, "rVendas.error:", rVendas.error);
+    console.log("[FIADO DEBUG] rPag.data:", rPag.data, "rPag.error:", rPag.error);
     const totalVendas = (rVendas.data || [])
       // eslint-disable-next-line eqeqeq
       .filter((v: any) => v.cliente_id == cliente.id || (v.cliente_nome || "").toLowerCase().trim() === nomeLower)
@@ -1793,6 +1796,7 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       // eslint-disable-next-line eqeqeq
       .filter((p: any) => p.cliente_id == cliente.id || (p.cliente_nome || "").toLowerCase().trim() === nomeLower)
       .reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+    console.log("[FIADO DEBUG] totalVendas:", totalVendas, "totalPago:", totalPago);
     setSaldoDevedor(Math.max(0, totalVendas - totalPago));
     setValorPagamento("");
   }
