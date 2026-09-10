@@ -1074,29 +1074,44 @@ export default function MasterPage() {
                               const cur = featuresEdit[emp.empresa_id] ?? {};
                               const defaultAtivo = !(TODAS_FEATURES[key] as { defaultOff?: boolean }).defaultOff;
                               const ativo = key in cur ? cur[key] : defaultAtivo;
+                              const pctKey = `${key}_pct`;
+                              const pctVal = (cur[pctKey] as unknown as number) ?? 0;
                               return (
-                                <div
-                                  key={key}
-                                  onClick={() => toggleFeature(emp.empresa_id, key)}
-                                  style={{
-                                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
-                                    background: "#0f1822", borderRadius: 8, padding: "8px 12px",
-                                    border: `1px solid ${ativo ? "#4f46e5" : "#1f2d3d"}`,
-                                    userSelect: "none",
-                                  }}
-                                >
-                                  <div style={{
-                                    width: 34, height: 18, borderRadius: 9, flexShrink: 0,
-                                    background: ativo ? "#6366f1" : "#334155",
-                                    position: "relative", transition: "background .15s",
-                                  }}>
-                                    <div style={{
-                                      position: "absolute", top: 2, left: ativo ? 17 : 2,
-                                      width: 14, height: 14, borderRadius: 7, background: "#fff",
-                                      transition: "left .15s",
-                                    }} />
+                                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <div
+                                    onClick={() => toggleFeature(emp.empresa_id, key)}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                                      background: "#0f1822", borderRadius: 8, padding: "8px 12px",
+                                      border: `1px solid ${ativo ? "#4f46e5" : "#1f2d3d"}`,
+                                      userSelect: "none",
+                                    }}
+                                  >
+                                    <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, background: ativo ? "#6366f1" : "#334155", position: "relative", transition: "background .15s" }}>
+                                      <div style={{ position: "absolute", top: 2, left: ativo ? 17 : 2, width: 14, height: 14, borderRadius: 7, background: "#fff", transition: "left .15s" }} />
+                                    </div>
+                                    <span style={{ fontSize: 12, color: ativo ? "#c7d2fe" : "#475569" }}>{label}</span>
                                   </div>
-                                  <span style={{ fontSize: 12, color: ativo ? "#c7d2fe" : "#475569" }}>{label}</span>
+                                  {key === "acrescimo_fiado" && ativo && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 4 }}>
+                                      <span style={{ fontSize: 11, color: "#94a3b8" }}>% acréscimo:</span>
+                                      <input
+                                        type="number" min="0" max="100" step="0.1"
+                                        value={pctVal || ""}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => {
+                                          const v = parseFloat(e.target.value) || 0;
+                                          setFeaturesEdit(prev => ({
+                                            ...prev,
+                                            [emp.empresa_id]: { ...(prev[emp.empresa_id] ?? {}), [pctKey]: v as unknown as boolean },
+                                          }));
+                                        }}
+                                        placeholder="ex: 5"
+                                        style={{ width: 70, padding: "4px 8px", borderRadius: 6, border: "1px solid #334155", background: "#0f1822", color: "#e2e8f0", fontSize: 13 }}
+                                      />
+                                      <span style={{ fontSize: 11, color: "#94a3b8" }}>%</span>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

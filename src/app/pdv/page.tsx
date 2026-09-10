@@ -14,7 +14,7 @@ import {
   getDiasTrialRestantes, gerarChave,
   type Plano, type RecursoPro, temRecurso,
 } from "@/lib/licenca";
-import { carregarFeatures, temFeature, type FeatureKey } from "@/lib/features";
+import { carregarFeatures, temFeature, lerFeaturesLocal, type FeatureKey } from "@/lib/features";
 
 /* ── Tipos ── */
 type Produto = {
@@ -1424,9 +1424,17 @@ export default function PDVPage() {
     return Math.min(totalGeral, n);
   }, [desconto, tipoDesconto, totalGeral]);
 
+  const acrescimoVal = useMemo(() => {
+    if (!feat("acrescimo_fiado") || tipoPagamento !== "fiado") return 0;
+    const pct = Number((lerFeaturesLocal() as Record<string, unknown>)["acrescimo_fiado_pct"]) || 0;
+    return totalGeral * pct / 100;
+  }, [tipoPagamento, totalGeral, features]);
+
   const totalFinal = useMemo(
-    () => Math.max(0, totalGeral - descontoAVista - descontoVal),
-    [totalGeral, descontoAVista, descontoVal]
+    () => tipoPagamento === "fiado"
+      ? Math.max(0, totalGeral + acrescimoVal)
+      : Math.max(0, totalGeral - descontoAVista - descontoVal),
+    [totalGeral, descontoAVista, descontoVal, acrescimoVal, tipoPagamento]
   );
   const valorRecebidoVal = useMemo(
     () => parseFloat((valorRecebido || "0").replace(",", ".")) || 0,
@@ -1770,12 +1778,15 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
   async function selecionarClienteParaReceber(cliente: { id: string; nome: string }) {
     setClienteReceberFiado(cliente);
-    // Calcula saldo: soma vendas fiado - soma pagamentos
-    const [rVendas, rPag] = await Promise.all([
+    // Calcula saldo: soma vendas fiado (por cliente_id OU cliente_nome) - soma pagamentos
+    const [rVendas1, rVendas2, rPag] = await Promise.all([
       (db("vendas").select("total") as any).ilike("tipo_pagamento", "fiado").eq("cliente_id", cliente.id),
+      (db("vendas").select("total") as any).ilike("tipo_pagamento", "fiado").ilike("cliente_nome", cliente.nome).is("cliente_id", null),
       (db("pagamentos_fiado").select("valor") as any).eq("cliente_id", cliente.id),
     ]);
-    const totalVendas = (rVendas.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
+    const totalVendas1 = (rVendas1.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
+    const totalVendas2 = (rVendas2.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
+    const totalVendas  = totalVendas1 + totalVendas2;
     const totalPago   = (rPag.data   || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
     setSaldoDevedor(Math.max(0, totalVendas - totalPago));
     setValorPagamento("");
@@ -1872,7 +1883,8 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
         total:           totalFinal,
         tipo_pagamento:  labelPagamento,
         operador:        nomeOperador,
-        desconto:        descontoVal,
+        desconto:        tipoPagamento === "fiado" ? 0 : descontoVal,
+        acrescimo:       tipoPagamento === "fiado" ? acrescimoVal : 0,
         valor_recebido:  ehDinheiro ? valorRecebidoVal : totalFinal,
         troco:           ehDinheiro ? troco : 0,
         cliente_cpf:     cpf.replace(/\D/g, "") || null,
@@ -3102,27 +3114,28 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
             )}
 
             {/* Desconto — dinheiro e PIX, apenas se tiver permissão e plano pro */}
-            {tipoPagamento !== "cartao" && temRecurso(plano, "desconto") && temPerm("perm_desconto") && (
+            {acrescimoVal > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 14, color: "#7c3aed" }}>
+                <span>💳 Acréscimo fiado ({Number((lerFeaturesLocal() as Record<string,unknown>)["acrescimo_fiado_pct"] || 0)}%)</span>
+                <span style={{ fontWeight: 700 }}>+ {moedaBR(acrescimoVal)}</span>
+              </div>
+            )}
+            {tipoPagamento !== "fiado" && tipoPagamento !== "cartao" && temRecurso(plano, "desconto") && temPerm("perm_desconto") && (
               <div style={{ marginBottom: 14 }}>
                 <label style={labelModal}>Desconto</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {/* Toggle R$ / % */}
                   <div style={{ display: "flex", border: "1px solid #d1d5db", borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
                     {(["R$", "%"] as const).map((t) => (
                       <button key={t} type="button"
                         onClick={() => { setTipoDesconto(t); setDesconto(""); }}
-                        style={{
-                          width: 44, height: 44, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 14,
-                          background: tipoDesconto === t ? "#1e3a5f" : "#f9fafb",
-                          color:      tipoDesconto === t ? "#fff"    : "#374151",
-                        }}>{t}</button>
+                        style={{ width: 44, height: 44, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 14, background: tipoDesconto === t ? "#1e3a5f" : "#f9fafb", color: tipoDesconto === t ? "#fff" : "#374151" }}>{t}</button>
                     ))}
                   </div>
                   <input
                     type="text" inputMode="decimal"
                     value={desconto}
                     onChange={(e) => setDesconto(e.target.value)}
-                    placeholder={tipoDesconto === "%" ? "0,00" : "0,00"}
+                    placeholder="0,00"
                     style={{ ...inputModal, fontSize: 18, textAlign: "right", flex: 1 }}
                   />
                 </div>
