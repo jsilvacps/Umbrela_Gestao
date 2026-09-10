@@ -304,6 +304,7 @@ export default function PDVPage() {
   const [modalReceberFiado, setModalReceberFiado]     = useState(false);
   const [clienteReceberFiado, setClienteReceberFiado] = useState<{ id: string; nome: string } | null>(null);
   const [saldoDevedor, setSaldoDevedor]               = useState(0);
+  const [debugFiado, setDebugFiado]                   = useState<string | null>(null);
   const [valorPagamento, setValorPagamento]           = useState("");
   const [obsPagamento, setObsPagamento]               = useState("");
   const [salvandoPagamento, setSalvandoPagamento]     = useState(false);
@@ -1785,9 +1786,12 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       (db("vendas").select("total, cliente_id, cliente_nome") as any).ilike("tipo_pagamento", "fiado"),
       (db("pagamentos_fiado").select("valor, cliente_id, cliente_nome") as any),
     ]);
-    console.log("[FIADO DEBUG] cliente:", cliente);
-    console.log("[FIADO DEBUG] rVendas.data:", rVendas.data, "rVendas.error:", rVendas.error);
-    console.log("[FIADO DEBUG] rPag.data:", rPag.data, "rPag.error:", rPag.error);
+    setDebugFiado(
+      `cliente.id=${cliente.id} nome="${cliente.nome}"\n` +
+      `vendas: ${rVendas.data ? rVendas.data.length + " rows" : "null"} | erro: ${rVendas.error?.message || "none"}\n` +
+      `primeiras vendas: ${JSON.stringify((rVendas.data || []).slice(0,3))}\n` +
+      `pagtos: ${rPag.data ? rPag.data.length + " rows" : "null"} | erro: ${rPag.error?.message || "none"}`
+    );
     const totalVendas = (rVendas.data || [])
       // eslint-disable-next-line eqeqeq
       .filter((v: any) => v.cliente_id == cliente.id || (v.cliente_nome || "").toLowerCase().trim() === nomeLower)
@@ -3403,6 +3407,11 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
                   </div>
                 </div>
 
+                {debugFiado && (
+                  <pre style={{ background: "#1e293b", color: "#facc15", fontSize: 10, padding: 10, borderRadius: 8, whiteSpace: "pre-wrap", wordBreak: "break-all", marginBottom: 12 }}>
+                    {debugFiado}
+                  </pre>
+                )}
                 {saldoDevedor <= 0 ? (
                   <div style={{ textAlign: "center", color: "#16a34a", fontWeight: 700, fontSize: 16, marginBottom: 16 }}>
                     ✅ Cliente sem débitos em aberto!
