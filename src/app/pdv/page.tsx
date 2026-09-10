@@ -1778,16 +1778,21 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
 
   async function selecionarClienteParaReceber(cliente: { id: string; nome: string }) {
     setClienteReceberFiado(cliente);
-    // Calcula saldo: soma vendas fiado (por cliente_id OU cliente_nome) - soma pagamentos
-    const [rVendas1, rVendas2, rPag] = await Promise.all([
-      (db("vendas").select("total") as any).ilike("tipo_pagamento", "fiado").eq("cliente_id", cliente.id),
-      (db("vendas").select("total") as any).ilike("tipo_pagamento", "fiado").ilike("cliente_nome", cliente.nome).is("cliente_id", null),
-      (db("pagamentos_fiado").select("valor") as any).eq("cliente_id", cliente.id),
+    // Busca TODAS as vendas fiado e pagamentos da empresa e filtra por cliente no client-side
+    // Isso evita problemas de cliente_id nulo ou nome com variação de grafia
+    const nomeLower = (cliente.nome || "").toLowerCase().trim();
+    const [rVendas, rPag] = await Promise.all([
+      (db("vendas").select("total, cliente_id, cliente_nome") as any).ilike("tipo_pagamento", "fiado"),
+      (db("pagamentos_fiado").select("valor, cliente_id, cliente_nome") as any),
     ]);
-    const totalVendas1 = (rVendas1.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
-    const totalVendas2 = (rVendas2.data || []).reduce((s: number, v: any) => s + Number(v.total || 0), 0);
-    const totalVendas  = totalVendas1 + totalVendas2;
-    const totalPago   = (rPag.data   || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+    const totalVendas = (rVendas.data || [])
+      // eslint-disable-next-line eqeqeq
+      .filter((v: any) => v.cliente_id == cliente.id || (v.cliente_nome || "").toLowerCase().trim() === nomeLower)
+      .reduce((s: number, v: any) => s + Number(v.total || 0), 0);
+    const totalPago = (rPag.data || [])
+      // eslint-disable-next-line eqeqeq
+      .filter((p: any) => p.cliente_id == cliente.id || (p.cliente_nome || "").toLowerCase().trim() === nomeLower)
+      .reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
     setSaldoDevedor(Math.max(0, totalVendas - totalPago));
     setValorPagamento("");
   }
