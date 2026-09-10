@@ -1786,11 +1786,22 @@ ${dados.descontoVal > 0 ? `<div class="tot"><span>Subtotal</span><span>${moedaBR
       (db("vendas").select("total, cliente_id, cliente_nome") as any).ilike("tipo_pagamento", "fiado"),
       (db("pagamentos_fiado").select("valor, cliente_id, cliente_nome") as any),
     ]);
+    const vendasFiltradas = (rVendas.data || []).filter((v: any) =>
+      // eslint-disable-next-line eqeqeq
+      v.cliente_id == cliente.id || (v.cliente_nome || "").toLowerCase().trim() === nomeLower
+    );
+    const pagtosFiltrados = (rPag.data || []).filter((p: any) =>
+      // eslint-disable-next-line eqeqeq
+      p.cliente_id == cliente.id || (p.cliente_nome || "").toLowerCase().trim() === nomeLower
+    );
     setDebugFiado(
       `cliente.id=${cliente.id} nome="${cliente.nome}"\n` +
-      `vendas: ${rVendas.data ? rVendas.data.length + " rows" : "null"} | erro: ${rVendas.error?.message || "none"}\n` +
-      `primeiras vendas: ${JSON.stringify((rVendas.data || []).slice(0,3))}\n` +
-      `pagtos: ${rPag.data ? rPag.data.length + " rows" : "null"} | erro: ${rPag.error?.message || "none"}`
+      `vendas total: ${rVendas.data?.length} rows | filtradas p/ cliente: ${vendasFiltradas.length} rows\n` +
+      `vendas filtradas: ${JSON.stringify(vendasFiltradas.slice(0,5))}\n` +
+      `pagtos total: ${rPag.data?.length} rows | filtrados p/ cliente: ${pagtosFiltrados.length} rows\n` +
+      `pagtos filtrados: ${JSON.stringify((rPag.data || []).slice(0,5))}\n` +
+      `totalVendas: ${vendasFiltradas.reduce((s: number, v: any) => s + Number(v.total || 0), 0).toFixed(2)}\n` +
+      `totalPago: ${pagtosFiltrados.reduce((s: number, p: any) => s + Number(p.valor || 0), 0).toFixed(2)}`
     );
     const totalVendas = (rVendas.data || [])
       // eslint-disable-next-line eqeqeq
