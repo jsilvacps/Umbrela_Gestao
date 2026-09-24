@@ -364,8 +364,10 @@ export default function PDVPage() {
     const raw = typeof window !== "undefined" ? window.sessionStorage.getItem("operador_logado") : null;
     if (raw) {
       try { setOperador(JSON.parse(raw)); } catch {}
+    } else {
+      router.replace("/login?returnTo=/pdv");
     }
-  }, []);
+  }, [router]);
 
   /* ── Recarrega permissões do banco para garantir dados frescos ── */
   const carregarPermissoes = useCallback(async (username: string) => {
